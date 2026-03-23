@@ -1,9 +1,9 @@
-import React from 'react'
+
 
 export default function hero() {
   return (
-    <main className='w-full h-screen bg-black'>
-      <h1 className='text-8xl text-red-500'>hello world</h1>
+    <main className='w-full h-screen flex justify-center items-center'>
+      <h1 className='text-9xl'>wood</h1>
     </main>
   )
 }
