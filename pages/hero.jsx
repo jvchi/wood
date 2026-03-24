@@ -32,8 +32,8 @@ export default function Hero() {
       >
         <ambientLight intensity={0.5} />
         <directionalLight position={[2, 5, 5]} />
-        {/* <OrbitControls /> */}
-        {/* <CameraRig x={x} y={y} z={z} fov={fov}/> */}
+        <OrbitControls />
+        <CameraRig x={x} y={y} z={z} fov={fov}/>
         <Bounds clip observe margin={1}>
           <Center>
             <Room/>
