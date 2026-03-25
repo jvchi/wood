@@ -15,10 +15,10 @@ function CameraMouseMove({mouse}){
   })
 
   useFrame(()=>{
-    const targetX = initial.current.x + mouse.current.x * 0.5
+    const targetX = initial.current.z + mouse.current.z * 0.5
     const targetY = initial.current.y + mouse.current.y * 0.2
 
-    camera.position.x += (targetX - camera.position.x )* 0.02
+    camera.position.z += (targetX - camera.position.z )* 0.02
     camera.position.y += (targetY - camera.position.y)* 0.02
 
     camera.lookAt(0,0,0)
@@ -44,11 +44,10 @@ export default function Hero() {
     return null
   }
 
-  const mouse = useRef({x: 0, y: 0});
+  const mouse = useRef({x: 0, y: 0, z: 0});
   function handleMouseMove(e){
-    mouse.current.x =( e.clientX / window.innerWidth - 0.5 ) * 2 
+    mouse.current.z =( e.client / window.innerWidth - 0.5 ) * 2 
     mouse.current.y = (e.clientY / window.innerHeight - 0.5) * 2
-    console.log(mouse.current.x, mouse.current.y)
   }
 
   function handleMouseLeave(e){
@@ -73,7 +72,7 @@ export default function Hero() {
         <CameraMouseMove mouse={mouse}/>
         <Bounds clip observe margin={1}>
           <Center>
-            <Room/>
+            {/* <Room/> */}
           </Center>
         </Bounds>
       </Canvas>
