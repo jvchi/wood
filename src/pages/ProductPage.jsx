@@ -1,4 +1,4 @@
-import { useState, Suspense } from 'react'
+import { useEffect, useRef, useState, Suspense } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useProduct } from '../hooks/useProduct'
 import { useCart } from '../context/CartContext'
@@ -53,6 +53,20 @@ export default function ProductPage() {
   const { addToast } = useToast()
   const [selectedVariant, setSelectedVariant] = useState(null)
   const [activeTab, setActiveTab] = useState('photos')
+  const [showMobileBuyBar, setShowMobileBuyBar] = useState(true)
+  const productInfoRef = useRef(null)
+
+  useEffect(() => {
+    if (!product || !productInfoRef.current || !('IntersectionObserver' in window)) return undefined
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowMobileBuyBar(!entry.isIntersecting),
+      { threshold: 0.08 },
+    )
+
+    observer.observe(productInfoRef.current)
+    return () => observer.disconnect()
+  }, [product])
 
   if (loading) return (
     <div className="page-shell page-top pb-16 md:pb-20">
@@ -71,9 +85,13 @@ export default function ProductPage() {
   )
 
   const wishlisted = isInWishlist(product.id)
+  const handleAddToCart = () => {
+    addItem(product, selectedVariant)
+    addToast(`${product.name} added to cart`)
+  }
 
   return (
-    <div className="page-shell page-top pb-16 md:pb-20">
+    <div className="page-shell page-top pb-32 md:pb-20">
       <nav className="mb-8" aria-label="Breadcrumb">
         <ol className="meta-text flex flex-wrap items-center gap-2">
           <li><Link to="/" className="pressable">Home</Link></li>
@@ -109,7 +127,7 @@ export default function ProductPage() {
           )}
         </div>
 
-        <div className="lg:sticky lg:top-24 lg:h-fit lg:pt-4">
+        <div ref={productInfoRef} className="lg:sticky lg:top-24 lg:h-fit lg:pt-4">
           <p className="label-text-compact mb-3 text-[var(--color-muted)]">{product.category}</p>
           <h1 className="page-title mb-4">{product.name}</h1>
           <p className="summary-total mb-8">{formatPrice(product.price, product.currency)}</p>
@@ -136,7 +154,7 @@ export default function ProductPage() {
           )}
 
           <div className="mb-10 flex gap-3">
-            <Button onClick={() => { addItem(product, selectedVariant); addToast(`${product.name} added to cart`) }} className="flex-1">Add to Cart</Button>
+            <Button onClick={handleAddToCart} className="flex-1">Add to Cart</Button>
             <button
               type="button"
               onClick={() => toggleItem(product)}
@@ -168,6 +186,29 @@ export default function ProductPage() {
               <p className="meta-text text-[var(--color-primary)] tabular-nums">{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-border)] bg-white/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur transition-[opacity,transform] duration-[180ms] ease-[var(--ease-out)] md:hidden ${
+        showMobileBuyBar ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-full opacity-0'
+      }`}>
+        <div className="mx-auto flex max-w-[30rem] items-center gap-2.5">
+          <div className="min-w-0 flex-1">
+            <p className="product-title truncate">{product.name}</p>
+            <p className="product-price mt-0.5">{formatPrice(product.price, product.currency)}</p>
+          </div>
+          <Button onClick={handleAddToCart} size="sm" className="shrink-0 px-4">Add to Cart</Button>
+          <button
+            type="button"
+            onClick={() => toggleItem(product)}
+            className={`pressable icon-button wishlist-toggle relative shrink-0 border border-[var(--color-border)] bg-white ${wishlisted ? 'is-active' : ''}`}
+            aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+            aria-pressed={wishlisted}
+          >
+            <span className="sr-only">{wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}</span>
+            <svg className="heart-icon heart-outline" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <svg className="heart-icon heart-filled" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)" stroke="var(--color-primary)" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </button>
         </div>
       </div>
     </div>
