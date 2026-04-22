@@ -9,7 +9,7 @@ export default function ProductCard({ product }) {
   const wishlisted = isInWishlist(product.id)
 
   return (
-    <article className="group">
+    <article className="product-card group">
       <div className="product-media">
         <Link to={`/product/${product.id}`} className="block h-full">
           {!imageLoaded && (
@@ -42,7 +42,7 @@ export default function ProductCard({ product }) {
             height="18"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="var(--color-primary)"
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -55,8 +55,8 @@ export default function ProductCard({ product }) {
             width="18"
             height="18"
             viewBox="0 0 24 24"
-            fill="var(--color-primary)"
-            stroke="var(--color-primary)"
+            fill="currentColor"
+            stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -66,7 +66,7 @@ export default function ProductCard({ product }) {
         </button>
       </div>
 
-      <div className="mt-2 min-w-0 space-y-0.5">
+      <div className="product-card-meta">
         <Link to={`/product/${product.id}`}>
           <h3 className="product-title break-words">
             {product.name}

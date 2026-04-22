@@ -1,7 +1,7 @@
 import { useGLTF, Center } from '@react-three/drei'
 
 export default function Couch() {
-  const gltf = useGLTF('../public/models/couch.glb')
+  const gltf = useGLTF('/models/couch.glb')
   return (
     <group >
       <Center>

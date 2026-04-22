@@ -5,8 +5,6 @@ const navLinks = [
   { to: '/', label: 'Home' },
   { to: '/shop', label: 'Shop' },
   { to: '/about', label: 'About' },
-  { to: '/cart', label: 'Cart' },
-  { to: '/wishlist', label: 'Wishlist' },
 ]
 
 export default function MobileNav({ isOpen, onClose }) {
@@ -73,15 +71,6 @@ export default function MobileNav({ isOpen, onClose }) {
             {link.label}
           </Link>
         ))}
-      </div>
-
-      <div className="page-shell grid shrink-0 grid-cols-2 gap-3 border-t border-[var(--color-border)] py-5">
-        <Link to="/wishlist" onClick={onClose} className={`pressable nav-link label-text inline-flex min-h-11 items-center ${location.pathname === '/wishlist' ? 'is-current' : ''}`}>
-          Wishlist
-        </Link>
-        <Link to="/cart" onClick={onClose} className={`pressable nav-link label-text inline-flex min-h-11 items-center justify-end ${location.pathname === '/cart' ? 'is-current' : ''}`}>
-          Cart
-        </Link>
       </div>
     </div>
   )

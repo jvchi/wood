@@ -23,10 +23,10 @@ export default function CartPage() {
       </h1>
 
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-3 lg:gap-16">
-        <div className="lg:col-span-2 space-y-0">
+        <div className="lg:col-span-2 space-y-3">
           {items.map(item => (
-            <div key={item.key} className="flex gap-4 border-b border-[var(--color-border)] py-6 md:gap-6 md:py-8">
-              <Link to={`/product/${item.product.id}`} className="h-32 w-24 shrink-0 overflow-hidden bg-[var(--color-surface)] md:h-40 md:w-32">
+            <div key={item.key} className="cart-item">
+              <Link to={`/product/${item.product.id}`} className="cart-item-image">
                 <img src={item.product.images[0]} alt={item.product.name} width="256" height="320" className="h-full w-full object-cover" loading="lazy" />
               </Link>
 
@@ -40,7 +40,7 @@ export default function CartPage() {
                 </div>
 
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center border border-[var(--color-border)]">
+                  <div className="cart-quantity">
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.key, item.quantity - 1)}
@@ -65,7 +65,7 @@ export default function CartPage() {
         </div>
 
         <div className="h-fit lg:sticky lg:top-24">
-          <div className="border border-[var(--color-border)] bg-white p-6 md:p-8">
+          <div className="cart-summary bg-white p-6 md:p-8">
             <h2 className="label-text-compact mb-6 text-[var(--color-muted)]">Order Summary</h2>
             <div className="space-y-3 mb-8">
               <div className="summary-row flex justify-between gap-4">
@@ -77,7 +77,7 @@ export default function CartPage() {
                 <span className="text-right">At checkout</span>
               </div>
             </div>
-            <div className="mb-8 border-t border-[var(--color-border)] pt-4">
+            <div className="mb-8 pt-4">
               <div className="flex justify-between">
                 <span className="summary-total">Total</span>
                 <span className="summary-total">{formatPrice(totalPrice)}</span>

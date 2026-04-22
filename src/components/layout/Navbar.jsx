@@ -50,7 +50,7 @@ export default function Navbar() {
             ))}
           </div>
 
-          <div className="flex items-center gap-1 md:gap-3">
+          <div className="navbar-actions flex items-center gap-1 md:gap-3">
             <Link
               to="/wishlist"
               className={`pressable icon-button wishlist-toggle relative ${hasWishlistItems ? 'is-active' : ''}`}
@@ -82,7 +82,7 @@ export default function Navbar() {
             </Link>
 
             <button
-              className="pressable icon-button md:hidden"
+              className="pressable icon-button mobile-menu-button"
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
               aria-expanded={mobileOpen}

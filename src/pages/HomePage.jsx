@@ -1,82 +1,66 @@
-import { useMemo, useState } from 'react'
-import { useProducts } from '../hooks/useProducts'
-import ProductCard from '../components/ui/ProductCard'
+import { Suspense, useEffect, useRef } from 'react'
 import Skeleton from '../components/ui/Skeleton'
-
-const ALL_CATEGORY = 'all'
-const MOBILE_CATEGORY_LABELS = {
-  all: 'all',
-  sectionals: 'sect.',
-  ottomans: 'otto.',
-  benches: 'bench',
-}
-
-function HomeSkeleton() {
-  return (
-    <div className="product-grid">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i}>
-          <Skeleton className="aspect-square" />
-          <Skeleton className="mt-3 h-4 w-28" />
-          <Skeleton className="mt-2 h-4 w-16" />
-        </div>
-      ))}
-    </div>
-  )
-}
+import HeroScene from '../components/three/HeroScene'
 
 export default function HomePage() {
-  const { products, loading } = useProducts()
-  const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY)
+  const stickyRef = useRef(null)
+  const scrollRef = useRef(null)
 
-  const categories = useMemo(() => {
-    const uniqueCategories = [...new Set(products.map(product => product.category))]
-    return [ALL_CATEGORY, ...uniqueCategories]
-  }, [products])
+  useEffect(() => {
+    let rafId = 0
 
-  const featured = useMemo(() => {
-    if (activeCategory === ALL_CATEGORY) return products
-    return products.filter(product => product.category === activeCategory)
-  }, [activeCategory, products])
+    function updateProgress() {
+      rafId = 0
+      if (!stickyRef.current || !scrollRef.current) return
+      const scrollLength = Math.max(1, scrollRef.current.offsetHeight - window.innerHeight)
+      const progress = Math.min(1, Math.max(0, window.scrollY / scrollLength))
+      scrollRef.current.style.setProperty('--home-progress', progress.toFixed(4))
+      scrollRef.current.style.setProperty('--home-radius', `${progress * 2}rem`)
+      scrollRef.current.style.setProperty('--home-shadow-y', `${progress * 1.5}rem`)
+      scrollRef.current.style.setProperty('--home-shadow-blur', `${progress * 5}rem`)
+      scrollRef.current.style.setProperty('--home-sticky-y', `${progress * -1.25}rem`)
+      scrollRef.current.style.setProperty('--home-scale', `${1 - progress * 0.06}`)
+      scrollRef.current.style.setProperty('--home-title-y', `${progress * -5}rem`)
+      scrollRef.current.style.setProperty('--home-title-opacity', `${1 - progress * 0.7}`)
+      scrollRef.current.style.setProperty('--home-mobile-panel-y', `${progress * -2.5}rem`)
+      scrollRef.current.style.setProperty('--home-mobile-panel-opacity', `${1 - progress * 0.45}`)
+    }
+
+    function requestUpdate() {
+      if (rafId) return
+      rafId = window.requestAnimationFrame(updateProgress)
+    }
+
+    updateProgress()
+    window.addEventListener('scroll', requestUpdate, { passive: true })
+    window.addEventListener('resize', requestUpdate)
+
+    return () => {
+      window.removeEventListener('scroll', requestUpdate)
+      window.removeEventListener('resize', requestUpdate)
+      if (rafId) window.cancelAnimationFrame(rafId)
+    }
+  }, [])
 
   return (
-    <div className="page-shell page-top pb-16 md:pb-20">
-      <header className="mb-8 grid min-w-0 gap-8 md:mb-10 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
-        <div>
-          <p className="label-text mb-3 text-[var(--color-muted)]">New</p>
-          <h1 className="display-heading" translate="no">Wood</h1>
-        </div>
-        <nav className="filter-row md:justify-end" aria-label="Filter by category">
-          {!loading && categories.map(category => (
-            <button
-              key={category}
-              type="button"
-              onClick={() => setActiveCategory(category)}
-              className={`pressable label-text-compact min-h-11 ${activeCategory === category ? 'text-[var(--color-primary)] underline underline-offset-4' : 'text-[var(--color-secondary)]'}`}
-              aria-current={activeCategory === category ? 'true' : undefined}
-            >
-              <span className="md:hidden">{MOBILE_CATEGORY_LABELS[category] || category}</span>
-              <span className="hidden md:inline">{category}</span>
-            </button>
-          ))}
-        </nav>
-      </header>
-
-      {loading ? <HomeSkeleton /> : (
-        <section aria-label="Featured products">
-          <div className="product-grid">
-            {featured.map(product => (
-              <ProductCard key={product.id} product={product} />
-            ))}
+    <div className="home-couch-page">
+      <section ref={scrollRef} className="home-couch-scroll" aria-label="Couch Place">
+        <div ref={stickyRef} className="home-couch-sticky">
+          <div className="home-couch-stage" aria-hidden="true">
+            <Suspense fallback={<Skeleton className="h-full w-full" />}>
+              <HeroScene scrollDriven />
+            </Suspense>
           </div>
-        </section>
-      )}
-
-      {!loading && featured.length === 0 && (
-        <section className="section-rule mt-12 py-16 text-center">
-          <h2 className="label-text">No Products Found</h2>
-        </section>
-      )}
+          <h1 className="home-couch-title" translate="no">
+            <span>wood</span>
+          </h1>
+          <div className="home-mobile-panel">
+            <p className="label-text-compact">Couch Place</p>
+            <p>A quiet room built around one couch.</p>
+            <span>Scroll</span>
+          </div>
+        </div>
+      </section>
     </div>
   )
 }
