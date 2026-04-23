@@ -36,6 +36,11 @@
       "sourceType": "github",
       "computedHash": "8c50b1493812bd88f3ed0637c0c3c5d846afdb322157b67b2ffba4ce8e552835"
     },
+    "threejs-interaction": {
+      "source": "cloudai-x/threejs-skills",
+      "sourceType": "github",
+      "computedHash": "988d235b7ebd85276a584c6f81ce7c801280ebc45b401017b334136dc8a7ec82"
+    },
     "ui-ux-pro-max": {
       "source": "nextlevelbuilder/ui-ux-pro-max-skill",
       "sourceType": "github",

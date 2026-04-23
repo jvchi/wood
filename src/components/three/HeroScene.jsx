@@ -1,12 +1,33 @@
 /* eslint-disable react-hooks/immutability */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Center, Environment } from '@react-three/drei'
+import { OrbitControls, Center, Environment, Text } from '@react-three/drei'
+import * as THREE from 'three'
 import Room from '../../../components/Room'
 
 const POINTER_LEAVE_RESET_MS = 120
 const CAMERA_POSITION = [7, 0, -1]
 const CAMERA_LOOK_AT_Y = -0.05
+const FURNITURE_LABELS = [
+  {
+    name: 'Luna Sectional',
+    price: '$1,280',
+    anchor: [-0.62, 0.72, 1.12],
+    label: [-1.04, 1, 1.28],
+  },
+  {
+    name: 'Mesa Coffee Table',
+    price: '$420',
+    anchor: [-0.22, 0.22, 0.08],
+    label: [-0.52, 0.6, 0.56],
+  },
+  {
+    name: 'Walnut TV Drawer',
+    price: '$690',
+    anchor: [0.42, 0.62, -2.16],
+    label: [-0.6, 1.02, -1.52],
+  },
+]
 
 function getCoverFov(aspect) {
   return aspect < 0.8 ? 28 : 30
@@ -50,6 +71,62 @@ function ScrollDrivenCamera({ scrollDriven, scrollProgressRef }) {
   return null
 }
 
+function FurnitureLabel({ name, price, anchor, label }) {
+  const textRef = useRef(null)
+  const { camera } = useThree()
+  const lineGeometry = useMemo(() => {
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute([...anchor, ...label], 3))
+    geometry.computeBoundingSphere()
+    return geometry
+  }, [anchor, label])
+
+  useEffect(() => {
+    return () => lineGeometry.dispose()
+  }, [lineGeometry])
+
+  useFrame(() => {
+    textRef.current?.lookAt(camera.position)
+  })
+
+  return (
+    <group>
+      <mesh position={anchor}>
+        <sphereGeometry args={[0.014, 18, 18]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.72} depthTest />
+      </mesh>
+      <line geometry={lineGeometry}>
+        <lineBasicMaterial color="#ffffff" transparent opacity={0.28} depthTest />
+      </line>
+      <group ref={textRef} position={label}>
+        <Text
+          position={[0, 0.035, 0]}
+          fontSize={0.055}
+          color="#ffffff"
+          anchorX="left"
+          anchorY="middle"
+          letterSpacing={0}
+          maxWidth={0.7}
+          depthTest
+        >
+          {name.toUpperCase()}
+        </Text>
+        <Text
+          position={[0, -0.04, 0]}
+          fontSize={0.085}
+          color="#ffffff"
+          anchorX="left"
+          anchorY="middle"
+          letterSpacing={0}
+          depthTest
+        >
+          {price}
+        </Text>
+      </group>
+    </group>
+  )
+}
+
 function ScrollDrivenScene({ scrollDriven, pointer, scrollProgressRef }) {
   const groupRef = useRef(null)
   const easedPointer = useRef({ x: 0, y: 0 })
@@ -70,6 +147,15 @@ function ScrollDrivenScene({ scrollDriven, pointer, scrollProgressRef }) {
     <Center>
       <group ref={groupRef}>
         <Room />
+        {FURNITURE_LABELS.map((label) => (
+          <FurnitureLabel
+            key={label.name}
+            name={label.name}
+            price={label.price}
+            anchor={label.anchor}
+            label={label.label}
+          />
+        ))}
       </group>
     </Center>
   )
