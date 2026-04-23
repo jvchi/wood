@@ -5,16 +5,27 @@ import HeroScene from '../components/three/HeroScene'
 export default function HomePage() {
   const stickyRef = useRef(null)
   const scrollRef = useRef(null)
+  const titleRef = useRef(null)
   const progressRef = useRef(0)
 
   useEffect(() => {
     let rafId = 0
+
+    function easeTitleDrop(progress) {
+      const powered = 1 - Math.pow(1 - progress, 3.6)
+      const settle = Math.sin(powered * Math.PI) * 0.055 * (1 - powered)
+      return Math.min(1, Math.max(0, powered + settle))
+    }
 
     function updateProgress() {
       rafId = 0
       if (!stickyRef.current || !scrollRef.current) return
       const scrollLength = Math.max(1, scrollRef.current.offsetHeight - window.innerHeight)
       const progress = Math.min(1, Math.max(0, window.scrollY / scrollLength))
+      const titleDropProgress = easeTitleDrop(progress)
+      const titleDropDistance = titleRef.current
+        ? Math.max(0, stickyRef.current.offsetHeight - titleRef.current.offsetTop - titleRef.current.offsetHeight)
+        : 0
       progressRef.current = progress
       scrollRef.current.style.setProperty('--home-progress', progress.toFixed(4))
       scrollRef.current.style.setProperty('--home-radius', `${progress * 2}rem`)
@@ -23,8 +34,8 @@ export default function HomePage() {
       scrollRef.current.style.setProperty('--home-sticky-y', `${progress * -1.25}rem`)
       scrollRef.current.style.setProperty('--home-scale', `${1 - progress * 0.15}`)
       scrollRef.current.style.setProperty('--home-stage-y', `${progress * -4}rem`)
-      scrollRef.current.style.setProperty('--home-title-y', `${progress * -5}rem`)
-      scrollRef.current.style.setProperty('--home-title-opacity', `${1 - progress * 0.7}`)
+      scrollRef.current.style.setProperty('--home-title-y', `${titleDropProgress * titleDropDistance}px`)
+      scrollRef.current.style.setProperty('--home-title-opacity', '1')
       scrollRef.current.style.setProperty('--home-mobile-panel-y', `${progress * -2.5}rem`)
       scrollRef.current.style.setProperty('--home-mobile-panel-opacity', `${1 - progress * 0.45}`)
     }
@@ -55,7 +66,7 @@ export default function HomePage() {
                 <HeroScene scrollDriven scrollProgressRef={progressRef} />
               </Suspense>
             </div>
-            <h1 className="home-couch-title" translate="no">
+            <h1 ref={titleRef} className="home-couch-title" translate="no">
               <span>wood</span>
             </h1>
             <div className="home-mobile-panel">

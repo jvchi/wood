@@ -450,13 +450,16 @@ input {
   background: transparent;
 }
 
+.navbar-home .page-shell {
+  mix-blend-mode: difference;
+}
+
 .navbar-brand {
   color: var(--color-primary);
 }
 
 .navbar-home .navbar-brand {
   color: var(--color-white);
-  mix-blend-mode: difference;
 }
 
 .nav-link {
@@ -465,7 +468,6 @@ input {
 
 .navbar-home .nav-link {
   color: var(--color-white);
-  mix-blend-mode: difference;
 }
 
 .navbar-default .nav-link:hover {
@@ -503,6 +505,12 @@ input {
 
 .navbar-home .icon-button {
   color: var(--color-white);
+}
+
+.navbar-home svg,
+.navbar-home .heart-icon,
+.navbar-home .navbar-brand,
+.navbar-home .nav-link {
   mix-blend-mode: difference;
 }
 
