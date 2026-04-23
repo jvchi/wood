@@ -12,9 +12,12 @@ export default function HomePage() {
     let rafId = 0
 
     function easeTitleDrop(progress) {
-      const powered = 1 - Math.pow(1 - progress, 3.6)
-      const settle = Math.sin(powered * Math.PI) * 0.055 * (1 - powered)
-      return Math.min(1, Math.max(0, powered + settle))
+      const delayed = Math.min(1, Math.max(0, (progress - 0.08) / 0.92))
+      const slowPull = Math.pow(delayed, 1.55) * 0.38
+      const snapCatch = 1 - Math.pow(1 - delayed, 5.4)
+      const snapWeight = Math.pow(delayed, 2.35)
+      const settle = Math.sin(snapCatch * Math.PI) * 0.045 * (1 - delayed)
+      return Math.min(1, Math.max(0, slowPull * (1 - snapWeight) + snapCatch * snapWeight + settle))
     }
 
     function updateProgress() {
