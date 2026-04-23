@@ -31,7 +31,7 @@ export default function Navbar() {
         <div className="page-shell flex h-16 items-center justify-between gap-4">
           <Link
             to="/"
-            className="pressable text-base font-bold uppercase"
+            className="pressable navbar-brand text-base font-bold uppercase"
             aria-label="Wood home"
             translate="no"
           >

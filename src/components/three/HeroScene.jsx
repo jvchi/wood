@@ -8,6 +8,8 @@ import Room from '../../../components/Room'
 const POINTER_LEAVE_RESET_MS = 120
 const CAMERA_POSITION = [7, 0, -1]
 const CAMERA_LOOK_AT_Y = -0.05
+const SCROLL_DAMPING = 7.5
+const POINTER_DAMPING = 8.5
 const FURNITURE_LABELS = [
   {
     name: 'Luna Sectional',
@@ -59,14 +61,17 @@ function CoverCamera() {
 function ScrollDrivenCamera({ scrollDriven, scrollProgressRef }) {
   const { camera, size } = useThree()
   const aspect = size.width / Math.max(1, size.height)
+  const easedProgress = useRef(0)
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const progress = scrollDriven ? (scrollProgressRef?.current ?? 0) : 0
-    const targetFov = getCoverFov(aspect) - progress * 3.2
+    easedProgress.current = THREE.MathUtils.damp(easedProgress.current, progress, SCROLL_DAMPING, delta)
+    const smoothProgress = easedProgress.current
+    const targetFov = getCoverFov(aspect) - smoothProgress * 3.2
 
-    camera.position.set(CAMERA_POSITION[0], CAMERA_POSITION[1] + progress * 0.02, CAMERA_POSITION[2])
+    camera.position.set(CAMERA_POSITION[0], CAMERA_POSITION[1] + smoothProgress * 0.02, CAMERA_POSITION[2])
     camera.fov = targetFov
-    camera.lookAt(0, CAMERA_LOOK_AT_Y - progress * 0.015, 0)
+    camera.lookAt(0, CAMERA_LOOK_AT_Y - smoothProgress * 0.015, 0)
     camera.updateProjectionMatrix()
   })
 
@@ -137,18 +142,21 @@ function FurnitureLabel({ name, price, anchor, label }) {
 
 function ScrollDrivenScene({ scrollDriven, pointer, scrollProgressRef }) {
   const groupRef = useRef(null)
+  const easedProgress = useRef(0)
   const easedPointer = useRef({ x: 0, y: 0 })
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!groupRef.current) return
     const progress = scrollDriven ? (scrollProgressRef?.current ?? 0) : 0
-    easedPointer.current.x += (pointer.current.x - easedPointer.current.x) * 0.07
-    easedPointer.current.y += (pointer.current.y - easedPointer.current.y) * 0.07
+    easedProgress.current = THREE.MathUtils.damp(easedProgress.current, progress, SCROLL_DAMPING, delta)
+    easedPointer.current.x = THREE.MathUtils.damp(easedPointer.current.x, pointer.current.x, POINTER_DAMPING, delta)
+    easedPointer.current.y = THREE.MathUtils.damp(easedPointer.current.y, pointer.current.y, POINTER_DAMPING, delta)
+    const smoothProgress = easedProgress.current
 
-    groupRef.current.rotation.y = progress * 0.08 + easedPointer.current.x * 0.035
+    groupRef.current.rotation.y = smoothProgress * 0.08 + easedPointer.current.x * 0.035
     groupRef.current.position.x = easedPointer.current.x * 0.08
-    groupRef.current.position.y = progress * -0.02 + easedPointer.current.y * 0.035
-    groupRef.current.scale.setScalar(1.02 + progress * 0.22)
+    groupRef.current.position.y = smoothProgress * -0.02 + easedPointer.current.y * 0.035
+    groupRef.current.scale.setScalar(1.02 + smoothProgress * 0.22)
   })
 
   return (
@@ -175,6 +183,7 @@ export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch
   const lastPointerMoveAt = useRef(0)
 
   function handlePointerMove(event) {
+    if (event.pointerType === 'touch') return
     const bounds = event.currentTarget.getBoundingClientRect()
     lastPointerMoveAt.current = performance.now()
     pointer.current.x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2
@@ -211,6 +220,7 @@ export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch
         style={{ position: 'absolute', inset: 0 }}
         camera={{ position: [7, 0, -1], fov: 30 }}
         dpr={[1, 1.5]}
+        resize={{ scroll: false }}
       >
         {!scrollDriven && <CoverCamera />}
         {scrollDriven && <ScrollDrivenCamera scrollDriven scrollProgressRef={scrollProgressRef} />}
