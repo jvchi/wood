@@ -10,6 +10,11 @@ const CAMERA_POSITION = [7, 0, -1]
 const CAMERA_LOOK_AT_Y = -0.05
 const SCROLL_DAMPING = 7.5
 const POINTER_DAMPING = 8.5
+const LABEL_HOVER_DAMPING = 12
+const LABEL_HOVER_SCALE = 1.055
+const LABEL_HOVER_WIDTH = 120
+const LABEL_HOVER_HEIGHT = 46
+const LABEL_HOVER_ACTIVE_MULTIPLIER = 1.55
 const TOUCH_PAN_STRENGTH = 1.15
 const TOUCH_PAN_LIMIT = 0.42
 const FURNITURE_LABELS = [
@@ -80,7 +85,53 @@ function ScrollDrivenCamera({ scrollDriven, scrollProgressRef }) {
   return null
 }
 
-function FurnitureLabel({ name, price, anchor, label }) {
+function HoverFocusController({ pointerScreen, hoveredLabel, sceneGroupRef, setHoveredLabel }) {
+  const { camera, size } = useThree()
+  const localPoint = useRef(new THREE.Vector3())
+  const worldPoint = useRef(new THREE.Vector3())
+  const projectedPoint = useRef(new THREE.Vector3())
+
+  useFrame(() => {
+    if (!pointerScreen.current.inside || !sceneGroupRef.current) {
+      if (hoveredLabel !== null) setHoveredLabel(null)
+      return
+    }
+
+    let nextHoveredLabel = null
+    let nearestDistance = Infinity
+
+    for (const item of FURNITURE_LABELS) {
+      localPoint.current.set(...item.label)
+      worldPoint.current.copy(localPoint.current)
+      sceneGroupRef.current.localToWorld(worldPoint.current)
+      projectedPoint.current.copy(worldPoint.current).project(camera)
+
+      const screenX = ((projectedPoint.current.x + 1) * 0.5) * size.width
+      const screenY = ((1 - projectedPoint.current.y) * 0.5) * size.height
+      const isActive = hoveredLabel === item.name
+      const halfWidth = (LABEL_HOVER_WIDTH * (isActive ? LABEL_HOVER_ACTIVE_MULTIPLIER : 1)) * 0.5
+      const halfHeight = (LABEL_HOVER_HEIGHT * (isActive ? LABEL_HOVER_ACTIVE_MULTIPLIER : 1)) * 0.5
+      const deltaX = Math.abs(pointerScreen.current.x - screenX)
+      const deltaY = Math.abs(pointerScreen.current.y - screenY)
+
+      if (deltaX > halfWidth || deltaY > halfHeight) continue
+
+      const distance = deltaX + deltaY
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        nextHoveredLabel = item.name
+      }
+    }
+
+    if (nextHoveredLabel !== hoveredLabel) {
+      setHoveredLabel(nextHoveredLabel)
+    }
+  })
+
+  return null
+}
+
+function FurnitureLabel({ name, price, anchor, label, hovered }) {
   const lineGeometry = useMemo(() => {
     const geometry = new THREE.BufferGeometry()
     const anchorPoint = new THREE.Vector3(...anchor)
@@ -102,6 +153,15 @@ function FurnitureLabel({ name, price, anchor, label }) {
     return () => lineGeometry.dispose()
   }, [lineGeometry])
 
+  const labelRef = useRef(null)
+  const hoverScale = hovered ? LABEL_HOVER_SCALE : 1
+
+  useFrame((_, delta) => {
+    if (!labelRef.current) return
+    const nextScale = THREE.MathUtils.damp(labelRef.current.scale.x, hoverScale, LABEL_HOVER_DAMPING, delta)
+    labelRef.current.scale.setScalar(nextScale)
+  })
+
   return (
     <group>
       <mesh position={anchor}>
@@ -111,7 +171,7 @@ function FurnitureLabel({ name, price, anchor, label }) {
       <line geometry={lineGeometry}>
         <lineBasicMaterial color="#ffffff" transparent opacity={0.28} depthTest />
       </line>
-      <group position={label} rotation={LABEL_ROTATION}>
+      <group ref={labelRef} position={label} rotation={LABEL_ROTATION}>
         <Text
           position={[0, 0.035, 0]}
           fontSize={0.055}
@@ -142,28 +202,27 @@ function FurnitureLabel({ name, price, anchor, label }) {
   )
 }
 
-function ScrollDrivenScene({ scrollDriven, pointer, scrollProgressRef }) {
-  const groupRef = useRef(null)
+function ScrollDrivenScene({ scrollDriven, pointer, scrollProgressRef, sceneGroupRef, hoveredLabel }) {
   const easedProgress = useRef(0)
   const easedPointer = useRef({ x: 0, y: 0 })
 
   useFrame((_, delta) => {
-    if (!groupRef.current) return
+    if (!sceneGroupRef.current) return
     const progress = scrollDriven ? (scrollProgressRef?.current ?? 0) : 0
     easedProgress.current = THREE.MathUtils.damp(easedProgress.current, progress, SCROLL_DAMPING, delta)
     easedPointer.current.x = THREE.MathUtils.damp(easedPointer.current.x, pointer.current.x, POINTER_DAMPING, delta)
     easedPointer.current.y = THREE.MathUtils.damp(easedPointer.current.y, pointer.current.y, POINTER_DAMPING, delta)
     const smoothProgress = easedProgress.current
 
-    groupRef.current.rotation.y = smoothProgress * 0.08 + easedPointer.current.x * 0.035
-    groupRef.current.position.x = easedPointer.current.x * 0.08
-    groupRef.current.position.y = smoothProgress * -0.02 + easedPointer.current.y * 0.035
-    groupRef.current.scale.setScalar(1.02 + smoothProgress * 0.22)
+    sceneGroupRef.current.rotation.y = smoothProgress * 0.08 + easedPointer.current.x * 0.035
+    sceneGroupRef.current.position.x = easedPointer.current.x * 0.08
+    sceneGroupRef.current.position.y = smoothProgress * -0.02 + easedPointer.current.y * 0.035
+    sceneGroupRef.current.scale.setScalar(1.02 + smoothProgress * 0.22)
   })
 
   return (
     <Center>
-      <group ref={groupRef}>
+      <group ref={sceneGroupRef}>
         <Room />
         {FURNITURE_LABELS.map((label) => (
           <FurnitureLabel
@@ -172,6 +231,7 @@ function ScrollDrivenScene({ scrollDriven, pointer, scrollProgressRef }) {
             price={label.price}
             anchor={label.anchor}
             label={label.label}
+            hovered={hoveredLabel === label.name}
           />
         ))}
       </group>
@@ -182,8 +242,18 @@ function ScrollDrivenScene({ scrollDriven, pointer, scrollProgressRef }) {
 export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch', scrollDriven = false, scrollProgressRef }) {
   const [webglAvailable] = useState(canUseWebGL)
   const pointer = useRef({ x: 0, y: 0 })
+  const pointerScreen = useRef({ x: 0, y: 0, inside: false })
   const lastPointerMoveAt = useRef(0)
   const touchPan = useRef(null)
+  const sceneGroupRef = useRef(null)
+  const [hoveredLabel, setHoveredLabel] = useState(null)
+
+  useEffect(() => {
+    document.body.style.cursor = hoveredLabel ? 'pointer' : ''
+    return () => {
+      document.body.style.cursor = ''
+    }
+  }, [hoveredLabel])
 
   function handleTouchPanStart(event) {
     if (event.pointerType !== 'touch' || !event.isPrimary) return
@@ -214,12 +284,17 @@ export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch
     if (event.pointerType !== 'touch' || !event.isPrimary) return
     touchPan.current = null
     pointer.current = { x: 0, y: 0 }
+    pointerScreen.current.inside = false
+    setHoveredLabel(null)
   }
 
   function handlePointerMove(event) {
     if (handleTouchPanMove(event)) return
     const bounds = event.currentTarget.getBoundingClientRect()
     lastPointerMoveAt.current = performance.now()
+    pointerScreen.current.x = event.clientX - bounds.left
+    pointerScreen.current.y = event.clientY - bounds.top
+    pointerScreen.current.inside = true
     pointer.current.x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2
     pointer.current.y = ((event.clientY - bounds.top) / bounds.height - 0.5) * -2
   }
@@ -227,7 +302,9 @@ export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch
   function handlePointerLeave() {
     if (scrollDriven && performance.now() - lastPointerMoveAt.current > POINTER_LEAVE_RESET_MS) return
     pointer.current = { x: 0, y: 0 }
+    pointerScreen.current.inside = false
     touchPan.current = null
+    setHoveredLabel(null)
   }
 
   if (!webglAvailable) {
@@ -263,11 +340,23 @@ export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch
       >
         {!scrollDriven && <CoverCamera />}
         {scrollDriven && <ScrollDrivenCamera scrollDriven scrollProgressRef={scrollProgressRef} />}
+        <HoverFocusController
+          pointerScreen={pointerScreen}
+          hoveredLabel={hoveredLabel}
+          sceneGroupRef={sceneGroupRef}
+          setHoveredLabel={setHoveredLabel}
+        />
         <ambientLight intensity={0.65} />
         <directionalLight position={[2, 5, 5]} intensity={0.85} />
         <Environment preset="apartment" />
         {!scrollDriven && <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.45} />}
-        <ScrollDrivenScene scrollDriven={scrollDriven} pointer={pointer} scrollProgressRef={scrollProgressRef} />
+        <ScrollDrivenScene
+          scrollDriven={scrollDriven}
+          pointer={pointer}
+          scrollProgressRef={scrollProgressRef}
+          sceneGroupRef={sceneGroupRef}
+          hoveredLabel={hoveredLabel}
+        />
       </Canvas>
     </div>
   )

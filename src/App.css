@@ -11,6 +11,7 @@
   --color-white: #ffffff;
 
   --font-body: 'Archivo', 'Helvetica Neue', sans-serif;
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', 'Times New Roman', serif;
 
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -44,7 +45,6 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   background: var(--color-background);
-  scroll-behavior: smooth;
   scrollbar-width: none;
   -ms-overflow-style: none;
   overscroll-behavior-x: none;
@@ -65,6 +65,19 @@ body {
   overscroll-behavior-y: auto;
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0.08);
   touch-action: manipulation;
+}
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-stopped {
+  overflow: clip;
 }
 
 html::-webkit-scrollbar,
@@ -173,7 +186,7 @@ input {
 }
 
 .home-couch-scroll {
-  min-height: 190dvh;
+  min-height: 132dvh;
   background: var(--color-background);
   overscroll-behavior-x: none;
   overscroll-behavior-y: auto;
@@ -196,12 +209,10 @@ input {
   min-height: 100svh;
   height: 100%;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(10, 10, 10, 0.1), rgba(10, 10, 10, 0.28)),
-    var(--color-white);
+  background: var(--color-white);
   border-bottom-left-radius: var(--home-radius);
   border-bottom-right-radius: var(--home-radius);
-  box-shadow: 0 var(--home-shadow-y) var(--home-shadow-blur) rgba(0, 0, 0, 0.18);
+  box-shadow: 0 var(--home-shadow-y) var(--home-shadow-blur) rgba(0, 0, 0, 0.08);
   transform: translateY(var(--home-sticky-y)) scale(var(--home-scale));
   transform-origin: top center;
   transition: border-bottom-left-radius 120ms linear, border-bottom-right-radius 120ms linear, box-shadow 120ms linear;
@@ -270,6 +281,90 @@ input {
   font-weight: 700;
   line-height: 1;
   text-transform: uppercase;
+}
+
+.home-chair-section {
+  position: relative;
+  isolation: isolate;
+  min-height: 92dvh;
+  padding: clamp(2rem, 6vw, 4.5rem) var(--page-x) calc(1.5rem + env(safe-area-inset-bottom));
+  overflow: clip;
+  background: var(--color-white);
+  --chair-progress: 0;
+}
+
+.home-chair-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.home-chair-backdrop span {
+  position: absolute;
+  left: 50%;
+  top: clamp(1rem, 4vw, 2rem);
+  color: rgba(17, 17, 17, 0.9);
+  font-family: var(--font-body);
+  font-size: clamp(4.5rem, 15vw, 11rem);
+  font-weight: 500;
+  line-height: 0.84;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+  transform: translate3d(-50%, calc((1 - var(--chair-progress)) * 3.5rem), 0);
+  opacity: calc(0.2 + var(--chair-progress) * 0.8);
+  transition: opacity 180ms linear, transform 180ms linear;
+  will-change: opacity, transform;
+}
+
+.home-chair-stage {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 72rem);
+  height: clamp(24rem, 44vw, 34rem);
+  margin: 0 auto;
+  pointer-events: auto;
+}
+
+.chair-scene-shell,
+.chair-scene-fallback {
+  position: absolute;
+  inset: 0;
+}
+
+.chair-scene-shell {
+  cursor: grab;
+  touch-action: none;
+}
+
+.chair-scene-shell:active {
+  cursor: grabbing;
+}
+
+.chair-scene-shell canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.home-chair-copy {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(1rem, 2.5vw, 1.5rem);
+  z-index: 2;
+  width: max-content;
+  max-width: calc(100% - 2rem);
+  color: rgba(17, 17, 17, 0.64);
+  transform: translate3d(-50%, calc((1 - var(--chair-progress)) * 1.25rem), 0);
+  opacity: calc(var(--chair-progress) * 1.05);
+  transition: opacity 180ms linear, transform 180ms linear;
+}
+
+.home-chair-caption {
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-wrap: pretty;
 }
 
 .page-title {
@@ -628,6 +723,33 @@ input {
 
 .animate-toast-in {
   animation: toast-in 180ms var(--ease-out) forwards;
+}
+
+@media (max-width: 767px) {
+  .home-chair-section {
+    min-height: 86dvh;
+    padding-top: 1rem;
+  }
+
+  .home-chair-backdrop span {
+    top: 0.75rem;
+    left: 1rem;
+    right: 1rem;
+    transform: translate3d(0, calc((1 - var(--chair-progress)) * 2.5rem), 0);
+    font-size: clamp(3.5rem, 19vw, 5.4rem);
+    line-height: 0.88;
+  }
+
+  .home-chair-stage {
+    width: calc(100% + 2rem);
+    height: min(68vw, 21rem);
+    margin: 3rem -1rem 0;
+  }
+
+  .home-chair-copy {
+    bottom: 0.75rem;
+    max-width: calc(100% - 2rem);
+  }
 }
 
 @media (min-width: 768px) {

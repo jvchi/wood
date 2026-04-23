@@ -1,12 +1,15 @@
 import { Suspense, useEffect, useRef } from 'react'
 import Skeleton from '../components/ui/Skeleton'
 import HeroScene from '../components/three/HeroScene'
+import ChairShowcaseScene from '../components/three/ChairShowcaseScene'
 
 export default function HomePage() {
   const stickyRef = useRef(null)
   const scrollRef = useRef(null)
   const titleRef = useRef(null)
   const progressRef = useRef(0)
+  const showcaseRef = useRef(null)
+  const showcaseProgressRef = useRef(0)
 
   useEffect(() => {
     let rafId = 0
@@ -41,6 +44,15 @@ export default function HomePage() {
       scrollRef.current.style.setProperty('--home-title-opacity', '1')
       scrollRef.current.style.setProperty('--home-mobile-panel-y', `${progress * -2.5}rem`)
       scrollRef.current.style.setProperty('--home-mobile-panel-opacity', `${1 - progress * 0.45}`)
+
+      if (showcaseRef.current) {
+        const rect = showcaseRef.current.getBoundingClientRect()
+        const revealStart = window.innerHeight * 0.92
+        const revealDistance = Math.max(window.innerHeight * 0.9, rect.height * 0.75)
+        const showcaseProgress = Math.min(1, Math.max(0, (revealStart - rect.top) / revealDistance))
+        showcaseProgressRef.current = showcaseProgress
+        showcaseRef.current.style.setProperty('--chair-progress', showcaseProgress.toFixed(4))
+      }
     }
 
     function requestUpdate() {
@@ -78,6 +90,22 @@ export default function HomePage() {
               <span>Scroll</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section ref={showcaseRef} className="home-chair-section" aria-label="Pipo chair showcase">
+        <div className="home-chair-backdrop" aria-hidden="true">
+          <span>Pipo Chair</span>
+        </div>
+
+        <div className="home-chair-stage">
+          <Suspense fallback={<Skeleton className="h-full w-full" />}>
+            <ChairShowcaseScene sectionProgressRef={showcaseProgressRef} />
+          </Suspense>
+        </div>
+
+        <div className="home-chair-copy">
+          <p className="home-chair-caption">Walnut frame, soft seat, quieter presence.</p>
         </div>
       </section>
     </div>

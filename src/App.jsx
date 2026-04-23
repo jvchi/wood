@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import Lenis from 'lenis'
 import { CartProvider } from './context/CartContext'
 import { WishlistProvider } from './context/WishlistContext'
 import { ToastProvider } from './context/ToastContext'
@@ -13,6 +15,22 @@ import AboutPage from './pages/AboutPage'
 import NotFoundPage from './pages/NotFoundPage'
 
 export default function App() {
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined
+
+    const lenis = new Lenis({
+      autoRaf: true,
+      duration: 1,
+      smoothWheel: true,
+      smoothTouch: false,
+      wheelMultiplier: 0.95,
+    })
+
+    return () => {
+      lenis.destroy()
+    }
+  }, [])
+
   return (
     <ErrorBoundary fallback={<div style={{ padding: 40, fontFamily: 'sans-serif' }}>Something went wrong. Check the browser console for details.</div>}>
       <BrowserRouter>
