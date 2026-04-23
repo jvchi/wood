@@ -10,6 +10,8 @@ const CAMERA_POSITION = [7, 0, -1]
 const CAMERA_LOOK_AT_Y = -0.05
 const SCROLL_DAMPING = 7.5
 const POINTER_DAMPING = 8.5
+const TOUCH_PAN_STRENGTH = 1.15
+const TOUCH_PAN_LIMIT = 0.42
 const FURNITURE_LABELS = [
   {
     name: 'Luna Sectional',
@@ -181,9 +183,41 @@ export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch
   const [webglAvailable] = useState(canUseWebGL)
   const pointer = useRef({ x: 0, y: 0 })
   const lastPointerMoveAt = useRef(0)
+  const touchPan = useRef(null)
+
+  function handleTouchPanStart(event) {
+    if (event.pointerType !== 'touch' || !event.isPrimary) return
+    touchPan.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      width: Math.max(1, event.currentTarget.getBoundingClientRect().width),
+    }
+  }
+
+  function handleTouchPanMove(event) {
+    if (event.pointerType !== 'touch' || !event.isPrimary || !touchPan.current) return false
+    const deltaX = event.clientX - touchPan.current.startX
+    const deltaY = event.clientY - touchPan.current.startY
+
+    if (Math.abs(deltaY) > Math.abs(deltaX) * 1.25) return true
+
+    pointer.current.x = THREE.MathUtils.clamp(
+      (deltaX / touchPan.current.width) * TOUCH_PAN_STRENGTH,
+      -TOUCH_PAN_LIMIT,
+      TOUCH_PAN_LIMIT,
+    )
+    pointer.current.y = 0
+    return true
+  }
+
+  function handleTouchPanEnd(event) {
+    if (event.pointerType !== 'touch' || !event.isPrimary) return
+    touchPan.current = null
+    pointer.current = { x: 0, y: 0 }
+  }
 
   function handlePointerMove(event) {
-    if (event.pointerType === 'touch') return
+    if (handleTouchPanMove(event)) return
     const bounds = event.currentTarget.getBoundingClientRect()
     lastPointerMoveAt.current = performance.now()
     pointer.current.x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2
@@ -193,6 +227,7 @@ export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch
   function handlePointerLeave() {
     if (scrollDriven && performance.now() - lastPointerMoveAt.current > POINTER_LEAVE_RESET_MS) return
     pointer.current = { x: 0, y: 0 }
+    touchPan.current = null
   }
 
   if (!webglAvailable) {
@@ -213,7 +248,11 @@ export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch
   return (
     <div
       className="absolute inset-0"
+      style={{ touchAction: 'pan-y' }}
+      onPointerDown={handleTouchPanStart}
       onPointerMove={handlePointerMove}
+      onPointerUp={handleTouchPanEnd}
+      onPointerCancel={handleTouchPanEnd}
       onPointerLeave={handlePointerLeave}
     >
       <Canvas
