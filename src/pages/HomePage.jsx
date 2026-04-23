@@ -1,4 +1,6 @@
 import { Suspense, useEffect, useRef } from 'react'
+import gsap from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Skeleton from '../components/ui/Skeleton'
 import HeroScene from '../components/three/HeroScene'
 import ChairShowcaseScene from '../components/three/ChairShowcaseScene'
@@ -12,8 +14,6 @@ export default function HomePage() {
   const showcaseProgressRef = useRef(0)
 
   useEffect(() => {
-    let rafId = 0
-
     function easeTitleDrop(progress) {
       const delayed = Math.min(1, Math.max(0, (progress - 0.08) / 0.92))
       const slowPull = Math.pow(delayed, 1.55) * 0.38
@@ -23,11 +23,8 @@ export default function HomePage() {
       return Math.min(1, Math.max(0, slowPull * (1 - snapWeight) + snapCatch * snapWeight + settle))
     }
 
-    function updateProgress() {
-      rafId = 0
+    function updateHeroProgress(progress) {
       if (!stickyRef.current || !scrollRef.current) return
-      const scrollLength = Math.max(1, scrollRef.current.offsetHeight - window.innerHeight)
-      const progress = Math.min(1, Math.max(0, window.scrollY / scrollLength))
       const titleDropProgress = easeTitleDrop(progress)
       const titleDropDistance = titleRef.current
         ? Math.max(0, stickyRef.current.offsetHeight - titleRef.current.offsetTop - titleRef.current.offsetHeight)
@@ -44,7 +41,9 @@ export default function HomePage() {
       scrollRef.current.style.setProperty('--home-title-opacity', '1')
       scrollRef.current.style.setProperty('--home-mobile-panel-y', `${progress * -2.5}rem`)
       scrollRef.current.style.setProperty('--home-mobile-panel-opacity', `${1 - progress * 0.45}`)
+    }
 
+    function updateChairProgress() {
       if (showcaseRef.current) {
         const rect = showcaseRef.current.getBoundingClientRect()
         const revealStart = window.innerHeight * 0.92
@@ -55,20 +54,47 @@ export default function HomePage() {
       }
     }
 
-    function requestUpdate() {
-      if (rafId) return
-      rafId = window.requestAnimationFrame(updateProgress)
-    }
+    const ctx = gsap.context(() => {
+      const heroTrigger = ScrollTrigger.create({
+        id: 'home-hero-lift',
+        trigger: scrollRef.current,
+        start: 'top top',
+        end: () => showcaseRef.current?.offsetTop ?? Math.max(1, scrollRef.current.offsetHeight - window.innerHeight),
+        onUpdate: (self) => {
+          const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
+          const liftDistance = Math.max(1, scrollRef.current.offsetHeight - window.innerHeight)
+          const liftProgress = Math.min(1, Math.max(0, (currentScroll - self.start) / liftDistance))
+          updateHeroProgress(liftProgress)
+          updateChairProgress()
+        },
+        onRefresh: (self) => {
+          const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
+          const liftDistance = Math.max(1, scrollRef.current.offsetHeight - window.innerHeight)
+          const liftProgress = Math.min(1, Math.max(0, (currentScroll - self.start) / liftDistance))
+          updateHeroProgress(liftProgress)
+          updateChairProgress()
+        },
+      })
 
-    updateProgress()
-    window.addEventListener('scroll', requestUpdate, { passive: true })
-    window.addEventListener('resize', requestUpdate)
+      const chairTrigger = ScrollTrigger.create({
+        id: 'home-chair-progress',
+        trigger: showcaseRef.current,
+        start: 'top 92%',
+        end: 'bottom 20%',
+        onUpdate: updateChairProgress,
+        onRefresh: updateChairProgress,
+      })
 
-    return () => {
-      window.removeEventListener('scroll', requestUpdate)
-      window.removeEventListener('resize', requestUpdate)
-      if (rafId) window.cancelAnimationFrame(rafId)
-    }
+      updateHeroProgress(heroTrigger.progress)
+      updateChairProgress()
+
+      return () => {
+        chairTrigger.kill()
+        heroTrigger.kill()
+      }
+    })
+
+    return () => ctx.revert()
   }, [])
 
   return (

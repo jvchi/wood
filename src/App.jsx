@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import gsap from 'gsap'
 import Lenis from 'lenis'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { CartProvider } from './context/CartContext'
 import { WishlistProvider } from './context/WishlistContext'
 import { ToastProvider } from './context/ToastContext'
@@ -14,6 +16,8 @@ import WishlistPage from './pages/WishlistPage'
 import AboutPage from './pages/AboutPage'
 import NotFoundPage from './pages/NotFoundPage'
 
+gsap.registerPlugin(ScrollTrigger)
+
 export default function App() {
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined
@@ -26,7 +30,15 @@ export default function App() {
       wheelMultiplier: 0.95,
     })
 
+    lenis.on('scroll', ScrollTrigger.update)
+    window.__lenis = lenis
+    ScrollTrigger.refresh()
+
     return () => {
+      lenis.off('scroll', ScrollTrigger.update)
+      if (window.__lenis === lenis) {
+        window.__lenis = undefined
+      }
       lenis.destroy()
     }
   }, [])
