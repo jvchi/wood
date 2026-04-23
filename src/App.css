@@ -144,6 +144,7 @@ input {
   --home-shadow-blur: 0rem;
   --home-sticky-y: 0rem;
   --home-scale: 1;
+  --home-stage-y: 0rem;
   --home-title-y: 0rem;
   --home-title-opacity: 1;
   --home-mobile-panel-y: 0rem;
@@ -159,9 +160,15 @@ input {
   top: 0;
   height: 100dvh;
   overflow: hidden;
+}
+
+.home-couch-frame {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
   background:
     linear-gradient(180deg, rgba(10, 10, 10, 0.1), rgba(10, 10, 10, 0.28)),
-    #d7d8d1;
+    var(--color-white);
   border-bottom-left-radius: var(--home-radius);
   border-bottom-right-radius: var(--home-radius);
   box-shadow: 0 var(--home-shadow-y) var(--home-shadow-blur) rgba(0, 0, 0, 0.18);
@@ -173,7 +180,15 @@ input {
 
 .home-couch-stage {
   position: absolute;
-  inset: 0;
+  inset: -10dvh -8vw;
+  transform: translateY(var(--home-stage-y));
+  will-change: transform;
+}
+
+.home-couch-stage canvas {
+  width: 100% !important;
+  max-width: none;
+  height: 100% !important;
 }
 
 .home-couch-title {
@@ -431,13 +446,13 @@ input {
 }
 
 .product-wishlist {
-  min-width: 34px;
-  min-height: 34px;
+  min-width: 36px;
+  min-height: 36px;
   color: var(--color-secondary);
-  background: rgba(255, 255, 255, 0.58);
-  opacity: 0.62;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
-  backdrop-filter: blur(10px);
+  background: transparent;
+  opacity: 0.72;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .product-wishlist:hover,
@@ -446,9 +461,8 @@ input {
 }
 
 .product-wishlist.is-active {
-  color: var(--color-white);
-  background: var(--color-primary);
-  box-shadow: none;
+  color: var(--color-primary);
+  background: transparent;
 }
 
 .product-wishlist .heart-icon {
@@ -459,8 +473,9 @@ input {
 .cart-item {
   display: flex;
   gap: 1rem;
-  background: var(--color-surface);
+  background: transparent;
   padding: 0.75rem;
+  box-shadow: none;
 }
 
 .cart-item-image {
@@ -468,20 +483,18 @@ input {
   aspect-ratio: 1 / 1;
   flex-shrink: 0;
   overflow: hidden;
-  background: var(--color-surface-muted);
+  background: var(--color-white);
 }
 
 .cart-quantity {
   display: inline-flex;
   width: fit-content;
   align-items: center;
-  background: var(--color-white);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  background: transparent;
 }
 
 .cart-summary {
-  background: var(--color-surface);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  background: transparent;
 }
 
 .wishlist-toggle .heart-icon {
