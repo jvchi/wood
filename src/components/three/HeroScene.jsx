@@ -13,21 +13,23 @@ const FURNITURE_LABELS = [
     name: 'Luna Sectional',
     price: '$1,280',
     anchor: [-0.62, 0.72, 1.12],
-    label: [-1.04, 1, 1.28],
+    label: [-0.82, 0.98, 1.22],
   },
   {
     name: 'Mesa Coffee Table',
     price: '$420',
     anchor: [-0.22, 0.22, 0.08],
-    label: [-0.52, 0.6, 0.56],
+    label: [-0.34, 0.58, 0.2],
   },
   {
     name: 'Walnut TV Drawer',
     price: '$690',
     anchor: [0.42, 0.62, -2.16],
-    label: [-0.6, 1.02, -1.52],
+    label: [0.08, 1.02, -1.72],
   },
 ]
+const LABEL_ROTATION = [0, 1.68, 0]
+const LABEL_LINE_GAP = 0.08
 
 function getCoverFov(aspect) {
   return aspect < 0.8 ? 28 : 30
@@ -72,11 +74,19 @@ function ScrollDrivenCamera({ scrollDriven, scrollProgressRef }) {
 }
 
 function FurnitureLabel({ name, price, anchor, label }) {
-  const textRef = useRef(null)
-  const { camera } = useThree()
   const lineGeometry = useMemo(() => {
     const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute([...anchor, ...label], 3))
+    const anchorPoint = new THREE.Vector3(...anchor)
+    const labelPoint = new THREE.Vector3(...label)
+    const lineEnd = labelPoint.clone()
+    const direction = labelPoint.clone().sub(anchorPoint)
+    const length = direction.length()
+
+    if (length > LABEL_LINE_GAP) {
+      lineEnd.add(direction.normalize().multiplyScalar(-LABEL_LINE_GAP))
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute([...anchor, ...lineEnd.toArray()], 3))
     geometry.computeBoundingSphere()
     return geometry
   }, [anchor, label])
@@ -84,10 +94,6 @@ function FurnitureLabel({ name, price, anchor, label }) {
   useEffect(() => {
     return () => lineGeometry.dispose()
   }, [lineGeometry])
-
-  useFrame(() => {
-    textRef.current?.lookAt(camera.position)
-  })
 
   return (
     <group>
@@ -98,16 +104,17 @@ function FurnitureLabel({ name, price, anchor, label }) {
       <line geometry={lineGeometry}>
         <lineBasicMaterial color="#ffffff" transparent opacity={0.28} depthTest />
       </line>
-      <group ref={textRef} position={label}>
+      <group position={label} rotation={LABEL_ROTATION}>
         <Text
           position={[0, 0.035, 0]}
           fontSize={0.055}
           color="#ffffff"
-          anchorX="left"
+          anchorX="center"
           anchorY="middle"
           letterSpacing={0}
           maxWidth={0.7}
           depthTest
+          material-side={THREE.DoubleSide}
         >
           {name.toUpperCase()}
         </Text>
@@ -115,10 +122,11 @@ function FurnitureLabel({ name, price, anchor, label }) {
           position={[0, -0.04, 0]}
           fontSize={0.085}
           color="#ffffff"
-          anchorX="left"
+          anchorX="center"
           anchorY="middle"
           letterSpacing={0}
           depthTest
+          material-side={THREE.DoubleSide}
         >
           {price}
         </Text>

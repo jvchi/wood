@@ -10,6 +10,7 @@ export default function Navbar() {
   const { items: wishlistItems } = useWishlist()
   const location = useLocation()
   const hasWishlistItems = wishlistItems.length > 0
+  const isHome = location.pathname === '/'
 
   const navLinks = [
     { to: '/', label: 'New' },
@@ -23,7 +24,7 @@ export default function Navbar() {
         Skip to Main Content
       </a>
       <nav
-        className="fixed left-0 right-0 top-0 z-50 border-b border-[var(--color-border)] bg-white"
+        className={`navbar fixed left-0 right-0 top-0 z-50 ${isHome ? 'navbar-home' : 'navbar-default'}`}
         role="navigation"
         aria-label="Main navigation"
       >
