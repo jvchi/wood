@@ -44,6 +44,7 @@ function ImageGallery({ images, name, productId }) {
   const heroRef = useSharedHeroTransition(productId, {
     duration: 500,
     easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+    enabled: loaded[activeIndex],
   })
 
   const setImage = index => {

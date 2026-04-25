@@ -11,11 +11,121 @@
  * breaks category-filter transitions and other layout animations.
  */
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 
 /* ── module-level store (survives route changes) ── */
 const _snapshots = {}
 export const _returnSnapshots = {}
+
+function getSnapshotRect(element) {
+  const rect = element.getBoundingClientRect()
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  }
+}
+
+function getVisualTarget(element) {
+  if (!element) return null
+  if (element.tagName === 'IMG') return element
+  return element.querySelector('img')
+}
+
+function createGhostImage(snapshot, targetRect, objectFit) {
+  const ghost = document.createElement('img')
+  ghost.src = snapshot.src
+  ghost.setAttribute('aria-hidden', 'true')
+  ghost.setAttribute('alt', '')
+  Object.assign(ghost.style, {
+    position: 'fixed',
+    left: `${targetRect.left}px`,
+    top: `${targetRect.top}px`,
+    width: `${targetRect.width}px`,
+    height: `${targetRect.height}px`,
+    margin: '0',
+    padding: '0',
+    objectFit,
+    zIndex: '9999',
+    pointerEvents: 'none',
+    outline: 'none',
+    borderRadius: '0',
+    transformOrigin: 'top left',
+    willChange: 'transform, opacity',
+  })
+  return ghost
+}
+
+function runGhostTransition({
+  snapshot,
+  targetElement,
+  targetRect,
+  duration,
+  easing,
+  objectFit,
+}) {
+  const ghost = createGhostImage(snapshot, targetRect, objectFit)
+  const deltaX = snapshot.left - targetRect.left
+  const deltaY = snapshot.top - targetRect.top
+  const scaleX = snapshot.width / targetRect.width
+  const scaleY = snapshot.height / targetRect.height
+
+  if (
+    Math.abs(deltaX) < 2 &&
+    Math.abs(deltaY) < 2 &&
+    Math.abs(1 - scaleX) < 0.01 &&
+    Math.abs(1 - scaleY) < 0.01
+  ) {
+    return null
+  }
+
+  const priorOpacity = targetElement.style.opacity
+  targetElement.style.opacity = '0'
+  document.body.appendChild(ghost)
+
+  const ghostAnimation = ghost.animate(
+    [
+      {
+        opacity: 1,
+        transform: `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`,
+      },
+      {
+        opacity: 1,
+        transform: 'translate(0px, 0px) scale(1, 1)',
+      },
+    ],
+    {
+      duration,
+      easing,
+      fill: 'forwards',
+    },
+  )
+
+  const targetAnimation = targetElement.animate(
+    [
+      { opacity: 0 },
+      { opacity: 0, offset: 0.7 },
+      { opacity: 1 },
+    ],
+    {
+      duration,
+      easing: 'linear',
+      fill: 'forwards',
+    },
+  )
+
+  const cleanup = () => {
+    targetElement.style.opacity = priorOpacity
+    targetAnimation.cancel()
+    ghost.remove()
+  }
+
+  ghostAnimation.onfinish = cleanup
+  ghostAnimation.oncancel = cleanup
+
+  return cleanup
+}
 
 /**
  * Call from the source page: captures the rect + src of the given image element.
@@ -60,10 +170,12 @@ export function useSharedHeroTransition(id, options = {}) {
     enabled = true,
   } = options
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!enabled || hasAnimated.current) return
     const el = targetRef.current
     if (!el) return
+    const targetImage = getVisualTarget(el)
+    if (!targetImage) return
 
     const snap = _snapshots[id]
     if (!snap || Date.now() - snap.timestamp > 2000) {
@@ -81,84 +193,21 @@ export function useSharedHeroTransition(id, options = {}) {
     hasAnimated.current = true
     delete _snapshots[id]
 
-    // Defer to next frame so the gallery frame has its final layout
-    requestAnimationFrame(() => {
-      const targetRect = el.getBoundingClientRect()
+    const frame = requestAnimationFrame(() => {
+      const targetRect = getSnapshotRect(targetImage)
       if (targetRect.width < 1 || targetRect.height < 1) return
 
-      const deltaX = snap.left - targetRect.left
-      const deltaY = snap.top - targetRect.top
-      const scaleX = snap.width / targetRect.width
-      const scaleY = snap.height / targetRect.height
-
-      // Skip if barely moved
-      if (
-        Math.abs(deltaX) < 2 &&
-        Math.abs(deltaY) < 2 &&
-        Math.abs(1 - scaleX) < 0.01 &&
-        Math.abs(1 - scaleY) < 0.01
-      ) {
-        return
-      }
-
-      // Build a ghost image that flies from source → target
-      const ghost = document.createElement('img')
-      ghost.src = snap.src
-      ghost.setAttribute('aria-hidden', 'true')
-      ghost.setAttribute('alt', '')
-      Object.assign(ghost.style, {
-        position: 'fixed',
-        left: `${snap.left}px`,
-        top: `${snap.top}px`,
-        width: `${snap.width}px`,
-        height: `${snap.height}px`,
-        margin: '0',
-        padding: '0',
+      runGhostTransition({
+        snapshot: snap,
+        targetElement: targetImage,
+        targetRect,
+        duration,
+        easing,
         objectFit: 'cover',
-        zIndex: '9999',
-        pointerEvents: 'none',
-        outline: 'none',
-        borderRadius: '0',
-        willChange: 'left, top, width, height',
       })
-
-      // Dim the gallery frame during animation so there's no flash
-      const priorOpacity = el.style.opacity
-      el.style.opacity = '0'
-      document.body.appendChild(ghost)
-
-      const animation = ghost.animate(
-        [
-          {
-            left: `${snap.left}px`,
-            top: `${snap.top}px`,
-            width: `${snap.width}px`,
-            height: `${snap.height}px`,
-            objectFit: 'cover',
-          },
-          {
-            left: `${targetRect.left}px`,
-            top: `${targetRect.top}px`,
-            width: `${targetRect.width}px`,
-            height: `${targetRect.height}px`,
-            objectFit: 'contain',
-          },
-        ],
-        {
-          duration,
-          easing,
-          fill: 'forwards',
-        },
-      )
-
-      const cleanup = () => {
-        el.style.opacity = priorOpacity
-        ghost.remove()
-      }
-
-      animation.onfinish = cleanup
-      animation.oncancel = cleanup
     })
+
+    return () => window.cancelAnimationFrame(frame)
   }, [id, duration, easing, enabled])
 
   // Continuously track the element's position so we have a valid snapshot even if unmount zeroes it out
@@ -167,9 +216,10 @@ export function useSharedHeroTransition(id, options = {}) {
     if (!el) return
 
     const updateSnapshot = () => {
-      const rect = el.getBoundingClientRect()
+      const img = getVisualTarget(el)
+      const subject = img || el
+      const rect = subject.getBoundingClientRect()
       if (rect.width > 0 && rect.height > 0) {
-        const img = el.tagName === 'IMG' ? el : el.querySelector('img')
         _returnSnapshots[id] = {
           left: rect.left,
           top: rect.top,
@@ -209,10 +259,11 @@ export function useSharedReturnTransition(id, options = {}) {
     duration = DEFAULT_DURATION,
     easing = DEFAULT_EASING,
     enabled = true,
+    ready = true,
   } = options
 
-  useEffect(() => {
-    if (!enabled || hasAnimated.current) return
+  useLayoutEffect(() => {
+    if (!enabled || !ready || hasAnimated.current) return
     const el = targetRef.current
     if (!el) return
 
@@ -232,72 +283,25 @@ export function useSharedReturnTransition(id, options = {}) {
     hasAnimated.current = true
     delete _returnSnapshots[id]
 
-    requestAnimationFrame(() => {
-      const targetRect = el.getBoundingClientRect()
+    const frame = requestAnimationFrame(() => {
+      const targetRect = getSnapshotRect(el)
       if (targetRect.width < 1 || targetRect.height < 1) return
 
-      const deltaX = snap.left - targetRect.left
-      const deltaY = snap.top - targetRect.top
-
-      if (Math.abs(deltaX) < 2 && Math.abs(deltaY) < 2) return
-
-      const ghost = document.createElement('img')
-      ghost.src = snap.src || (el.tagName === 'IMG' ? el.src : '')
-      ghost.setAttribute('aria-hidden', 'true')
-      ghost.setAttribute('alt', '')
-      Object.assign(ghost.style, {
-        position: 'fixed',
-        left: `${snap.left}px`,
-        top: `${snap.top}px`,
-        width: `${snap.width}px`,
-        height: `${snap.height}px`,
-        margin: '0',
-        padding: '0',
-        objectFit: 'contain',
-        zIndex: '9999',
-        pointerEvents: 'none',
-        outline: 'none',
-        borderRadius: '0',
-        willChange: 'left, top, width, height',
-      })
-
-      const priorOpacity = el.style.opacity
-      el.style.opacity = '0'
-      document.body.appendChild(ghost)
-
-      const animation = ghost.animate(
-        [
-          {
-            left: `${snap.left}px`,
-            top: `${snap.top}px`,
-            width: `${snap.width}px`,
-            height: `${snap.height}px`,
-            objectFit: 'contain',
-          },
-          {
-            left: `${targetRect.left}px`,
-            top: `${targetRect.top}px`,
-            width: `${targetRect.width}px`,
-            height: `${targetRect.height}px`,
-            objectFit: 'cover',
-          },
-        ],
-        {
-          duration,
-          easing,
-          fill: 'forwards',
+      runGhostTransition({
+        snapshot: {
+          ...snap,
+          src: snap.src || el.src,
         },
-      )
-
-      const cleanup = () => {
-        el.style.opacity = priorOpacity
-        ghost.remove()
-      }
-
-      animation.onfinish = cleanup
-      animation.oncancel = cleanup
+        targetElement: el,
+        targetRect,
+        duration,
+        easing,
+        objectFit: 'cover',
+      })
     })
-  }, [id, duration, easing, enabled])
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [id, duration, easing, enabled, ready])
 
   return targetRef
 }

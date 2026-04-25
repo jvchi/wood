@@ -1,35 +1,69 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useState, useCallback, forwardRef } from 'react'
+import { useState, forwardRef, useEffect } from 'react'
 import { formatPrice } from '../../utils/formatPrice'
 import { useWishlist } from '../../context/WishlistContext'
 import { captureElement, useSharedReturnTransition } from '../../hooks/useSharedHeroTransition'
 
 const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
   const [imageLoaded, setImageLoaded] = useState(false)
+  const [isTall, setIsTall] = useState(false)
+  const [layoutEvaluated, setLayoutEvaluated] = useState(false)
   const { isInWishlist, toggleItem } = useWishlist()
   const wishlisted = isInWishlist(product.id)
   const isMasonry = variant === 'masonry'
   const navigate = useNavigate()
-  const imageRef = useSharedReturnTransition(product.id)
+  const imageRef = useSharedReturnTransition(product.id, { ready: imageLoaded && layoutEvaluated })
 
   /* Shared layout animation: snapshot the image rect before navigating
      so ProductPage can run a FLIP animation from this position. */
-  const handleProductClick = useCallback((e) => {
+  const handleProductClick = e => {
     e.preventDefault()
     captureElement(product.id, imageRef.current)
     navigate(`/product/${product.id}`)
-  }, [product.id, navigate])
+  }
+
+  useEffect(() => {
+    if (!imageRef.current || !imageLoaded) return
+    const img = imageRef.current
+    const card = img.closest('.product-card')
+    if (!card) {
+      const frame = window.requestAnimationFrame(() => {
+        setLayoutEvaluated(true)
+      })
+      return () => window.cancelAnimationFrame(frame)
+    }
+
+    const updateLayout = () => {
+      if (!img.naturalWidth) return
+      const ratio = img.naturalHeight / img.naturalWidth
+      // Evaluate if the card would exceed ~500px in height before applying flex-row
+      const parentWidth = card.clientWidth
+      if (parentWidth * ratio >= 500 && ratio > 1.25) {
+        setIsTall(true)
+      } else {
+        setIsTall(false)
+      }
+      setLayoutEvaluated(true)
+    }
+
+    const observer = new ResizeObserver(() => {
+      updateLayout()
+    })
+    
+    observer.observe(card)
+    return () => observer.disconnect()
+  }, [imageLoaded, imageRef])
 
   return (
     <article
       ref={ref}
-      className={`product-card group ${isMasonry ? 'product-card-masonry' : ''}`}
+      className={`product-card group ${isMasonry ? 'product-card-masonry' : ''} ${isTall ? 'is-tall' : ''}`}
       style={isMasonry ? { '--masonry-index': index % 6 } : undefined}
     >
       <div className={`product-media ${isMasonry ? 'product-media-masonry' : ''}`}>
         <Link to={`/product/${product.id}`} className="block h-full" onClick={handleProductClick}>
           {!imageLoaded && (
-            <div className="absolute inset-0 bg-white" />
+            <div className="absolute inset-0 bg-[var(--color-surface-muted)]" />
           )}
           <img
             ref={imageRef}
