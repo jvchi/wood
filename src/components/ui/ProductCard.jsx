@@ -1,10 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useCallback, forwardRef } from 'react'
 import { formatPrice } from '../../utils/formatPrice'
 import { useWishlist } from '../../context/WishlistContext'
 import { captureElement, useSharedReturnTransition } from '../../hooks/useSharedHeroTransition'
 
-export default function ProductCard({ product, index = 0, variant }) {
+const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
   const [imageLoaded, setImageLoaded] = useState(false)
   const { isInWishlist, toggleItem } = useWishlist()
   const wishlisted = isInWishlist(product.id)
@@ -22,6 +22,7 @@ export default function ProductCard({ product, index = 0, variant }) {
 
   return (
     <article
+      ref={ref}
       className={`product-card group ${isMasonry ? 'product-card-masonry' : ''}`}
       style={isMasonry ? { '--masonry-index': index % 6 } : undefined}
     >
@@ -94,4 +95,6 @@ export default function ProductCard({ product, index = 0, variant }) {
       </div>
     </article>
   )
-}
+})
+
+export default ProductCard
