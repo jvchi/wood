@@ -11,25 +11,25 @@ export default function Footer() {
   const currentYear = new Date().getFullYear()
 
   return (
-    <footer className="section-rule bg-white" role="contentinfo">
-      <div className="page-shell flex flex-col items-center gap-4 py-6 text-center md:justify-center md:py-12">
+    <footer className="site-footer" role="contentinfo">
+      <div className="site-footer-inner page-shell">
         <nav
-          className="flex w-full flex-col items-center gap-1 sm:max-w-2xl sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-8 sm:gap-y-2"
+          className="site-footer-nav"
           aria-label="Footer links"
         >
           {footerLinks.map(link => (
             link.to ? (
-              <Link key={link.label} to={link.to} className="pressable nav-link label-text-compact inline-flex min-h-8 items-center justify-center px-1 md:min-h-11">
+              <Link key={link.label} to={link.to} className="pressable site-footer-link">
                 {link.label}
               </Link>
             ) : (
-              <span key={link.label} className="label-text-compact inline-flex min-h-8 items-center justify-center px-1 text-[var(--color-primary)] md:min-h-11">
+              <span key={link.label} className="site-footer-link">
                 {link.label}
               </span>
             )
           ))}
         </nav>
-        <p className="text-center text-xs text-[var(--color-secondary)] tabular-nums">
+        <p className="site-footer-copy">
           © {currentYear} Wood
         </p>
       </div>

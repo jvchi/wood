@@ -3,14 +3,18 @@ import { useState } from 'react'
 import { formatPrice } from '../../utils/formatPrice'
 import { useWishlist } from '../../context/WishlistContext'
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, index = 0, variant }) {
   const [imageLoaded, setImageLoaded] = useState(false)
   const { isInWishlist, toggleItem } = useWishlist()
   const wishlisted = isInWishlist(product.id)
+  const isMasonry = variant === 'masonry'
 
   return (
-    <article className="product-card group">
-      <div className="product-media">
+    <article
+      className={`product-card group ${isMasonry ? 'product-card-masonry' : ''}`}
+      style={isMasonry ? { '--masonry-index': index % 6 } : undefined}
+    >
+      <div className={`product-media ${isMasonry ? 'product-media-masonry' : ''}`}>
         <Link to={`/product/${product.id}`} className="block h-full">
           {!imageLoaded && (
             <div className="absolute inset-0 bg-white" />

@@ -26,28 +26,25 @@ export default function ShopPage() {
   }, [products, activeCategory])
 
   return (
-    <div className="page-shell page-top pb-16 md:pb-20">
-      <header className="mb-8 grid min-w-0 gap-6 md:mb-10 md:grid-cols-[minmax(0,0.6fr)_minmax(0,1fr)]">
+    <div className="shop-page page-shell page-top pb-16 md:pb-20">
+      <header className="shop-header">
         <div>
-          <p className="label-text mb-3 text-[var(--color-muted)]">Shop</p>
-          <h1 className="display-heading">Collection</h1>
+          <p className="shop-eyebrow">Shop</p>
+          <h1 className="shop-heading">Collection</h1>
         </div>
-        <p className="body-copy hidden md:block md:pt-7">
-          Permanent furniture in a direct catalog layout. Filter by category, compare proportions, and go straight to the piece.
-        </p>
       </header>
 
       {!loading && (
-        <nav className="filter-row mb-8 md:mb-10" aria-label="Filter by category">
+        <nav className="shop-filter-row" aria-label="Filter by category">
           {categories.map(cat => (
             <button
               key={cat}
               type="button"
               onClick={() => setActiveCategory(cat)}
-              className={`pressable label-text-compact min-h-11 ${
+              className={`pressable shop-filter ${
                 activeCategory === cat
-                  ? 'text-[var(--color-primary)] underline underline-offset-4'
-                  : 'text-[var(--color-secondary)]'
+                  ? 'is-active'
+                  : ''
               }`}
               aria-current={activeCategory === cat ? 'true' : undefined}
             >
@@ -59,19 +56,19 @@ export default function ShopPage() {
       )}
 
       {loading ? (
-        <div className="product-grid">
+        <div className="shop-masonry">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i}>
-              <Skeleton className="aspect-square" />
-              <Skeleton className="mt-3 h-4 w-24" />
+              <Skeleton className="aspect-[4/5]" />
+              <Skeleton className="mt-2 h-3 w-24" />
               <Skeleton className="mt-2 h-4 w-16" />
             </div>
           ))}
         </div>
       ) : (
-        <div className="product-grid">
-          {filtered.map(product => (
-            <ProductCard key={product.id} product={product} />
+        <div className="shop-masonry">
+          {filtered.map((product, index) => (
+            <ProductCard key={product.id} product={product} index={index} variant="masonry" />
           ))}
         </div>
       )}
