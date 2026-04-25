@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import Navbar from './Navbar'
 import Footer from './Footer'
@@ -7,6 +8,14 @@ export default function PageLayout({ children }) {
   const { pathname } = useLocation()
   const showFooter = pathname === '/shop' || pathname === '/about'
   const isHome = pathname === '/'
+
+  useEffect(() => {
+    if (window.__lenis) {
+      window.__lenis.scrollTo(0, { immediate: true })
+    } else {
+      window.scrollTo(0, 0)
+    }
+  }, [pathname])
 
   return (
     <div className={`min-h-dvh flex flex-col ${isHome ? 'app-shell-home' : 'bg-white'}`}>

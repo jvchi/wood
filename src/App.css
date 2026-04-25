@@ -904,6 +904,7 @@ input {
   justify-content: center;
   background: transparent;
   touch-action: pan-y;
+  transition: aspect-ratio 360ms var(--ease-out);
 }
 
 .product-gallery-frame img {
