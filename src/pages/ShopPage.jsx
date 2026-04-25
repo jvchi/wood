@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { useProducts } from '../hooks/useProducts'
 import ProductCard from '../components/ui/ProductCard'
 import Skeleton from '../components/ui/Skeleton'
@@ -70,21 +70,18 @@ export default function ShopPage() {
         </div>
       ) : (
         <motion.div layout className="shop-masonry">
-          <AnimatePresence>
-            {filtered.map((product, index) => (
-              <MotionProductCard 
-                key={product.id} 
-                product={product} 
-                index={index} 
-                variant="masonry" 
-                layout="position"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.25 } }}
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              />
-            ))}
-          </AnimatePresence>
+          {filtered.map((product, index) => (
+            <MotionProductCard 
+              key={product.id} 
+              product={product} 
+              index={index} 
+              variant="masonry" 
+              layout="position"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            />
+          ))}
         </motion.div>
       )}
 
