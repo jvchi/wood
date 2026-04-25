@@ -5,7 +5,7 @@ export default function ToastContainer() {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-6 left-4 right-4 z-[200] flex flex-col gap-3 sm:left-auto sm:right-6 sm:w-80"
+      className="pointer-events-none fixed top-6 bottom-auto left-4 right-4 z-[200] flex flex-col gap-3 sm:top-auto sm:bottom-6 sm:left-auto sm:right-6 sm:w-80"
       role="status"
       aria-live="polite"
     >
