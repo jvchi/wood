@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, Suspense } from 'react'
+import { Suspense, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useProduct } from '../hooks/useProduct'
 import { useCart } from '../context/CartContext'
@@ -9,28 +9,75 @@ import Button from '../components/ui/Button'
 import Skeleton from '../components/ui/Skeleton'
 import ProductViewer from '../components/three/ProductViewer'
 
+function HeartIcon({ filled = false }) {
+  return (
+    <svg
+      className={`heart-icon ${filled ? 'heart-filled' : 'heart-outline'}`}
+      aria-hidden="true"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill={filled ? 'var(--color-primary)' : 'none'}
+      stroke="var(--color-primary)"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  )
+}
+
 function ImageGallery({ images, name }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [loaded, setLoaded] = useState({})
+  const touchStartX = useRef(null)
+  const touchStartY = useRef(null)
+
+  const setImage = index => {
+    setActiveIndex((index + images.length) % images.length)
+  }
+
+  const handleTouchStart = event => {
+    const touch = event.touches[0]
+    touchStartX.current = touch.clientX
+    touchStartY.current = touch.clientY
+  }
+
+  const handleTouchEnd = event => {
+    if (touchStartX.current === null || touchStartY.current === null || images.length < 2) return
+
+    const touch = event.changedTouches[0]
+    const deltaX = touch.clientX - touchStartX.current
+    const deltaY = touch.clientY - touchStartY.current
+
+    touchStartX.current = null
+    touchStartY.current = null
+
+    if (Math.abs(deltaX) < 44 || Math.abs(deltaX) < Math.abs(deltaY) * 1.2) return
+    setImage(deltaX < 0 ? activeIndex + 1 : activeIndex - 1)
+  }
 
   return (
-    <div className="flex flex-col-reverse gap-3 md:flex-row">
-      <div className="flex gap-3 overflow-x-auto md:flex-col md:overflow-visible">
+    <div className="product-gallery">
+      <div className="product-thumbnails">
         {images.map((img, i) => (
           <button
-            key={i}
+            key={img}
             type="button"
             onClick={() => setActiveIndex(i)}
-            className={`pressable h-20 w-16 shrink-0 overflow-hidden border md:h-24 md:w-20 ${
-              activeIndex === i ? 'border-[var(--color-primary)] opacity-100' : 'border-transparent opacity-55'
-            }`}
+            className={`pressable product-thumbnail ${activeIndex === i ? 'is-active' : ''}`}
             aria-label={`View image ${i + 1}`}
           >
-            <img src={img} alt="" width="160" height="200" className="h-full w-full object-cover" loading="lazy" />
+            <img src={img} alt="" width="160" height="200" loading="lazy" />
           </button>
         ))}
       </div>
-      <div className="relative aspect-[3/4] flex-1 overflow-hidden bg-[var(--color-surface)] md:aspect-[4/5]">
+      <div
+        className="product-gallery-frame"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {!loaded[activeIndex] && <div className="absolute inset-0 bg-[var(--color-surface-muted)] animate-pulse" />}
         <img
           src={images[activeIndex]}
@@ -38,8 +85,13 @@ function ImageGallery({ images, name }) {
           width="900"
           height="1125"
           onLoad={() => setLoaded(p => ({ ...p, [activeIndex]: true }))}
-          className={`h-full w-full object-cover transition-opacity duration-[180ms] ease-[var(--ease-out)] ${loaded[activeIndex] ? 'opacity-100' : 'opacity-0'}`}
+          className={loaded[activeIndex] ? 'opacity-100' : 'opacity-0'}
         />
+        {images.length > 1 && (
+          <p className="product-gallery-count" aria-live="polite">
+            {activeIndex + 1} / {images.length}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -53,20 +105,6 @@ export default function ProductPage() {
   const { addToast } = useToast()
   const [selectedVariant, setSelectedVariant] = useState(null)
   const [activeTab, setActiveTab] = useState('photos')
-  const [showMobileBuyBar, setShowMobileBuyBar] = useState(true)
-  const productInfoRef = useRef(null)
-
-  useEffect(() => {
-    if (!product || !productInfoRef.current || !('IntersectionObserver' in window)) return undefined
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setShowMobileBuyBar(!entry.isIntersecting),
-      { threshold: 0.08 },
-    )
-
-    observer.observe(productInfoRef.current)
-    return () => observer.disconnect()
-  }, [product])
 
   if (loading) return (
     <div className="page-shell page-top pb-16 md:pb-20">
@@ -91,60 +129,74 @@ export default function ProductPage() {
   }
 
   return (
-    <div className="page-shell page-top pb-32 md:pb-20">
-      <nav className="mb-8" aria-label="Breadcrumb">
-        <ol className="meta-text flex flex-wrap items-center gap-2">
+    <div className="product-page page-shell page-top pb-16 md:pb-20">
+      <nav className="product-breadcrumb" aria-label="Breadcrumb">
+        <ol>
           <li><Link to="/" className="pressable">Home</Link></li>
           <li>/</li>
           <li><Link to="/shop" className="pressable">Shop</Link></li>
           <li>/</li>
-          <li className="text-[var(--color-primary)]">{product.name}</li>
+          <li>{product.name}</li>
         </ol>
       </nav>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
-        <div>
-          <div className="mb-4 flex gap-4">
+      <div className="product-detail-grid">
+        <div className="product-media-column">
+          <div className="product-view-tabs">
             {['photos', '3d'].map(tab => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`pressable label-text-compact min-h-11 ${activeTab === tab ? 'text-[var(--color-primary)] underline underline-offset-4' : 'text-[var(--color-secondary)]'}`}
+                className={`pressable ${activeTab === tab ? 'is-active' : ''}`}
               >
                 {tab === '3d' ? '3D View' : 'Photos'}
               </button>
             ))}
           </div>
+
           {activeTab === 'photos' ? (
             <ImageGallery images={product.images} name={product.name} />
           ) : (
-            <div className="aspect-[3/4] md:aspect-[4/5]">
+            <div className="product-gallery-frame">
               <Suspense fallback={<Skeleton className="w-full h-full" />}>
                 <ProductViewer />
               </Suspense>
             </div>
           )}
+
+          <div className="product-actions">
+            <Button onClick={handleAddToCart} className="product-add-button">Add to Cart</Button>
+            <button
+              type="button"
+              onClick={() => toggleItem(product)}
+              className={`pressable icon-button wishlist-toggle product-action-wishlist ${wishlisted ? 'is-active' : ''}`}
+              aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              aria-pressed={wishlisted}
+            >
+              <span className="sr-only">{wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}</span>
+              <HeartIcon />
+              <HeartIcon filled />
+            </button>
+          </div>
         </div>
 
-        <div ref={productInfoRef} className="lg:sticky lg:top-24 lg:h-fit lg:pt-4">
-          <p className="label-text-compact mb-3 text-[var(--color-muted)]">{product.category}</p>
-          <h1 className="page-title mb-4">{product.name}</h1>
-          <p className="summary-total mb-8">{formatPrice(product.price, product.currency)}</p>
-          <p className="body-copy mb-10">{product.description}</p>
+        <div className="product-info-panel">
+          <p className="product-detail-category">{product.category}</p>
+          <h1 className="product-detail-title">{product.name}</h1>
+          <p className="product-detail-price">{formatPrice(product.price, product.currency)}</p>
+          <p className="product-detail-description">{product.description}</p>
 
           {product.variants?.length > 0 && (
-            <div className="mb-8">
-              <p className="label-text-compact mb-4 text-[var(--color-muted)]">Variant</p>
-              <div className="flex flex-wrap gap-3">
+            <div className="product-detail-section">
+              <p className="product-detail-label">Variant</p>
+              <div className="product-variant-row">
                 {product.variants.map(v => (
                   <button
                     key={v}
                     type="button"
                     onClick={() => setSelectedVariant(v)}
-                    className={`pressable label-text-compact min-h-11 border px-5 py-2 ${
-                      selectedVariant === v ? 'border-[var(--color-primary)] bg-[var(--color-primary)] text-white' : 'border-[var(--color-border)] text-[var(--color-secondary)]'
-                    }`}
+                    className={`pressable product-variant-option ${selectedVariant === v ? 'is-active' : ''}`}
                   >
                     {v}
                   </button>
@@ -153,62 +205,24 @@ export default function ProductPage() {
             </div>
           )}
 
-          <div className="mb-10 flex gap-3">
-            <Button onClick={handleAddToCart} className="flex-1">Add to Cart</Button>
-            <button
-              type="button"
-              onClick={() => toggleItem(product)}
-              className={`pressable icon-button wishlist-toggle relative border border-[var(--color-border)] ${wishlisted ? 'is-active' : ''}`}
-              aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-              aria-pressed={wishlisted}
-            >
-              <span className="sr-only">{wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}</span>
-              <svg className="heart-icon heart-outline" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-              <svg className="heart-icon heart-filled" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)" stroke="var(--color-primary)" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            </button>
-          </div>
-
-          <div className="space-y-6 border-t border-[var(--color-border)] pt-8">
+          <div className="product-spec-list">
             {product.dimensions && (
               <div>
-                <p className="label-text-compact mb-2 text-[var(--color-muted)]">Dimensions</p>
-                <p className="meta-text text-[var(--color-primary)] tabular-nums">{product.dimensions.width}W × {product.dimensions.depth}D × {product.dimensions.height}H cm</p>
+                <p className="product-detail-label">Dimensions</p>
+                <p className="product-spec-value tabular-nums">{product.dimensions.width}W x {product.dimensions.depth}D x {product.dimensions.height}H cm</p>
               </div>
             )}
             {product.materials && (
               <div>
-                <p className="label-text-compact mb-2 text-[var(--color-muted)]">Materials</p>
-                <p className="meta-text text-[var(--color-primary)]">{product.materials.join(', ')}</p>
+                <p className="product-detail-label">Materials</p>
+                <p className="product-spec-value">{product.materials.join(', ')}</p>
               </div>
             )}
             <div>
-              <p className="label-text-compact mb-2 text-[var(--color-muted)]">Availability</p>
-              <p className="meta-text text-[var(--color-primary)] tabular-nums">{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
+              <p className="product-detail-label">Availability</p>
+              <p className="product-spec-value tabular-nums">{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-border)] bg-white/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur transition-[opacity,transform] duration-[180ms] ease-[var(--ease-out)] md:hidden ${
-        showMobileBuyBar ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-full opacity-0'
-      }`}>
-        <div className="mx-auto flex max-w-[30rem] items-center gap-2.5">
-          <div className="min-w-0 flex-1">
-            <p className="product-title truncate">{product.name}</p>
-            <p className="product-price mt-0.5">{formatPrice(product.price, product.currency)}</p>
-          </div>
-          <Button onClick={handleAddToCart} size="sm" className="shrink-0 px-4">Add to Cart</Button>
-          <button
-            type="button"
-            onClick={() => toggleItem(product)}
-            className={`pressable icon-button wishlist-toggle relative shrink-0 border border-[var(--color-border)] bg-white ${wishlisted ? 'is-active' : ''}`}
-            aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-            aria-pressed={wishlisted}
-          >
-            <span className="sr-only">{wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}</span>
-            <svg className="heart-icon heart-outline" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            <svg className="heart-icon heart-filled" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)" stroke="var(--color-primary)" strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          </button>
         </div>
       </div>
     </div>
