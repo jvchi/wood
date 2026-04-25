@@ -1,13 +1,24 @@
-import { Link } from 'react-router-dom'
-import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useState, useRef, useCallback } from 'react'
 import { formatPrice } from '../../utils/formatPrice'
 import { useWishlist } from '../../context/WishlistContext'
+import { captureElement } from '../../hooks/useSharedHeroTransition'
 
 export default function ProductCard({ product, index = 0, variant }) {
   const [imageLoaded, setImageLoaded] = useState(false)
   const { isInWishlist, toggleItem } = useWishlist()
   const wishlisted = isInWishlist(product.id)
   const isMasonry = variant === 'masonry'
+  const navigate = useNavigate()
+  const imageRef = useRef(null)
+
+  /* Shared layout animation: snapshot the image rect before navigating
+     so ProductPage can run a FLIP animation from this position. */
+  const handleProductClick = useCallback((e) => {
+    e.preventDefault()
+    captureElement(product.id, imageRef.current)
+    navigate(`/product/${product.id}`)
+  }, [product.id, navigate])
 
   return (
     <article
@@ -15,11 +26,12 @@ export default function ProductCard({ product, index = 0, variant }) {
       style={isMasonry ? { '--masonry-index': index % 6 } : undefined}
     >
       <div className={`product-media ${isMasonry ? 'product-media-masonry' : ''}`}>
-        <Link to={`/product/${product.id}`} className="block h-full">
+        <Link to={`/product/${product.id}`} className="block h-full" onClick={handleProductClick}>
           {!imageLoaded && (
             <div className="absolute inset-0 bg-white" />
           )}
           <img
+            ref={imageRef}
             src={product.images[0]}
             alt={product.name}
             width="800"

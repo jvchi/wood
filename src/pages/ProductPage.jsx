@@ -8,7 +8,8 @@ import { formatPrice } from '../utils/formatPrice'
 import Button from '../components/ui/Button'
 import Skeleton from '../components/ui/Skeleton'
 import ProductViewer from '../components/three/ProductViewer'
-import { useSharedLayoutTransition } from '../hooks/useSharedLayoutTransition'
+
+import { useSharedHeroTransition } from '../hooks/useSharedHeroTransition'
 
 function HeartIcon({ filled = false }) {
   return (
@@ -29,12 +30,18 @@ function HeartIcon({ filled = false }) {
   )
 }
 
-function ImageGallery({ images, name }) {
+function ImageGallery({ images, name, productId }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [loaded, setLoaded] = useState({})
   const [imageRatios, setImageRatios] = useState({})
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
+
+  /* Shared layout animation: FLIP from shop card position → gallery position */
+  const heroRef = useSharedHeroTransition(productId, {
+    duration: 500,
+    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  })
 
   const setImage = index => {
     setActiveIndex((index + images.length) % images.length)
@@ -76,6 +83,7 @@ function ImageGallery({ images, name }) {
         ))}
       </div>
       <div
+        ref={heroRef}
         className="product-gallery-frame"
         style={imageRatios[activeIndex] ? { '--active-image-ratio': imageRatios[activeIndex] } : undefined}
         onTouchStart={handleTouchStart}
@@ -109,18 +117,10 @@ function ProductActionControls({
   wishlisted,
   onAddToCart,
   onToggleWishlist,
-  active,
-  floating = false,
-  actionRef,
+  className = '',
 }) {
   return (
-    <div
-      ref={actionRef}
-      className={`product-actions ${floating ? 'product-actions-floating' : ''} ${active ? 'is-active' : ''}`}
-      data-shared-layout-id="product-actions"
-      data-shared-layout-active={active ? 'true' : 'false'}
-      aria-hidden={!active}
-    >
+    <div className={`product-actions ${className}`}>
       <Button onClick={onAddToCart} className="product-add-button">Add to Cart</Button>
       <button
         type="button"
@@ -145,20 +145,24 @@ export default function ProductPage() {
   const { addToast } = useToast()
   const [selectedVariant, setSelectedVariant] = useState(null)
   const [activeTab, setActiveTab] = useState('photos')
-  const [inlineActionsVisible, setInlineActionsVisible] = useState(false)
-  const inlineActionsRef = useRef(null)
-
-  useSharedLayoutTransition('product-actions', inlineActionsVisible ? 'inline' : 'floating')
+  const [isSticky, setIsSticky] = useState(false)
+  const actionContainerRef = useRef(null)
 
   useEffect(() => {
-    if (!inlineActionsRef.current || !('IntersectionObserver' in window)) return undefined
+    // Only apply sticky behavior on mobile
+    if (window.innerWidth >= 768) return
+
+    if (!actionContainerRef.current || !('IntersectionObserver' in window)) return
 
     const observer = new IntersectionObserver(
-      ([entry]) => setInlineActionsVisible(entry.isIntersecting),
-      { threshold: 0.55 },
+      ([entry]) => {
+        // Stick to bottom when not fully visible
+        setIsSticky(!entry.isIntersecting)
+      },
+      { threshold: 1.0 }
     )
 
-    observer.observe(inlineActionsRef.current)
+    observer.observe(actionContainerRef.current)
     return () => observer.disconnect()
   }, [product])
 
@@ -212,7 +216,7 @@ export default function ProductPage() {
           </div>
 
           {activeTab === 'photos' ? (
-            <ImageGallery images={product.images} name={product.name} />
+            <ImageGallery images={product.images} name={product.name} productId={product.id} />
           ) : (
             <div className="product-gallery-frame">
               <Suspense fallback={<Skeleton className="w-full h-full" />}>
@@ -220,21 +224,22 @@ export default function ProductPage() {
               </Suspense>
             </div>
           )}
-
-          <ProductActionControls
-            product={product}
-            wishlisted={wishlisted}
-            onAddToCart={handleAddToCart}
-            onToggleWishlist={toggleItem}
-            active={inlineActionsVisible}
-            actionRef={inlineActionsRef}
-          />
         </div>
 
         <div className="product-info-panel">
           <p className="product-detail-category">{product.category}</p>
           <h1 className="product-detail-title">{product.name}</h1>
           <p className="product-detail-price">{formatPrice(product.price, product.currency)}</p>
+
+          <div ref={actionContainerRef} className="product-actions-container">
+            <ProductActionControls
+              product={product}
+              wishlisted={wishlisted}
+              onAddToCart={handleAddToCart}
+              onToggleWishlist={toggleItem}
+              className={`product-actions-responsive ${isSticky ? 'is-fixed-bottom' : ''}`}
+            />
+          </div>
           <p className="product-detail-description">{product.description}</p>
 
           {product.variants?.length > 0 && (
@@ -276,14 +281,7 @@ export default function ProductPage() {
         </div>
       </div>
 
-      <ProductActionControls
-        product={product}
-        wishlisted={wishlisted}
-        onAddToCart={handleAddToCart}
-        onToggleWishlist={toggleItem}
-        active={!inlineActionsVisible}
-        floating
-      />
+
     </div>
   )
 }
