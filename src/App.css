@@ -902,7 +902,7 @@ input {
   max-height: min(72vh, 48rem);
   align-items: center;
   justify-content: center;
-  background: var(--color-surface);
+  background: transparent;
   touch-action: pan-y;
 }
 
@@ -933,11 +933,20 @@ input {
   margin-top: 0.85rem;
   background: var(--color-background);
   transform-origin: top left;
-  will-change: transform;
 }
 
 .product-actions:not(.is-active) {
+  visibility: hidden;
   pointer-events: none;
+}
+
+.product-actions:not(.is-active):not(.product-actions-floating) {
+  opacity: 0;
+}
+
+.product-actions.is-active {
+  visibility: visible;
+  opacity: 1;
 }
 
 .product-add-button {
@@ -948,26 +957,40 @@ input {
 
 .product-action-wishlist {
   position: relative;
+  display: inline-flex;
   width: 2.75rem;
   min-width: 2.75rem;
   min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
   border: 0;
   background: var(--color-white);
 }
 
 .product-actions-floating {
   position: fixed;
-  left: 1rem;
-  right: 1rem;
-  bottom: calc(0.85rem + env(safe-area-inset-bottom));
+  left: 50%;
+  right: auto;
+  bottom: max(0.85rem, env(safe-area-inset-bottom));
   z-index: 45;
   display: none;
-  max-width: 34rem;
+  width: min(calc(100vw - 2rem), 34rem);
+  max-width: none;
   margin: 0 auto;
   padding: 0.5rem;
+  translate: -50% 0;
   border: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 0.75rem 2.5rem rgba(0, 0, 0, 0.08);
+}
+
+.shared-layout-ghost {
+  contain: layout style paint;
+}
+
+.shared-layout-ghost,
+.shared-layout-ghost * {
+  pointer-events: none !important;
 }
 
 .product-info-panel {
@@ -1397,12 +1420,21 @@ input {
 
   .product-actions-floating {
     display: grid;
-    transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+    grid-template-columns: minmax(0, 1fr) 3rem;
+    transition:
+      opacity 180ms var(--ease-out),
+      translate 180ms var(--ease-out),
+      visibility 0ms linear 180ms;
   }
 
   .product-actions-floating:not(.is-active) {
     opacity: 0;
-    transform: translateY(calc(100% + 1rem));
+    translate: -50% calc(100% + 1rem);
+  }
+
+  .product-actions-floating.is-active {
+    translate: -50% 0;
+    transition-delay: 0ms;
   }
 
   .product-info-panel {
