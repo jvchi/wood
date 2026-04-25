@@ -1,4 +1,4 @@
-import { Suspense, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useProduct } from '../hooks/useProduct'
 import { useCart } from '../context/CartContext'
@@ -8,6 +8,7 @@ import { formatPrice } from '../utils/formatPrice'
 import Button from '../components/ui/Button'
 import Skeleton from '../components/ui/Skeleton'
 import ProductViewer from '../components/three/ProductViewer'
+import { useSharedLayoutTransition } from '../hooks/useSharedLayoutTransition'
 
 function HeartIcon({ filled = false }) {
   return (
@@ -31,6 +32,7 @@ function HeartIcon({ filled = false }) {
 function ImageGallery({ images, name }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [loaded, setLoaded] = useState({})
+  const [imageRatios, setImageRatios] = useState({})
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
 
@@ -75,6 +77,7 @@ function ImageGallery({ images, name }) {
       </div>
       <div
         className="product-gallery-frame"
+        style={imageRatios[activeIndex] ? { '--active-image-ratio': imageRatios[activeIndex] } : undefined}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -82,9 +85,13 @@ function ImageGallery({ images, name }) {
         <img
           src={images[activeIndex]}
           alt={name}
-          width="900"
-          height="1125"
-          onLoad={() => setLoaded(p => ({ ...p, [activeIndex]: true }))}
+          onLoad={event => {
+            const { naturalWidth, naturalHeight } = event.currentTarget
+            setLoaded(p => ({ ...p, [activeIndex]: true }))
+            if (naturalWidth && naturalHeight) {
+              setImageRatios(p => ({ ...p, [activeIndex]: `${naturalWidth} / ${naturalHeight}` }))
+            }
+          }}
           className={loaded[activeIndex] ? 'opacity-100' : 'opacity-0'}
         />
         {images.length > 1 && (
@@ -97,6 +104,39 @@ function ImageGallery({ images, name }) {
   )
 }
 
+function ProductActionControls({
+  product,
+  wishlisted,
+  onAddToCart,
+  onToggleWishlist,
+  active,
+  floating = false,
+  actionRef,
+}) {
+  return (
+    <div
+      ref={actionRef}
+      className={`product-actions ${floating ? 'product-actions-floating' : ''} ${active ? 'is-active' : ''}`}
+      data-shared-layout-id="product-actions"
+      data-shared-layout-active={active ? 'true' : 'false'}
+      aria-hidden={!active}
+    >
+      <Button onClick={onAddToCart} className="product-add-button">Add to Cart</Button>
+      <button
+        type="button"
+        onClick={() => onToggleWishlist(product)}
+        className={`pressable icon-button wishlist-toggle product-action-wishlist ${wishlisted ? 'is-active' : ''}`}
+        aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+        aria-pressed={wishlisted}
+      >
+        <span className="sr-only">{wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}</span>
+        <HeartIcon />
+        <HeartIcon filled />
+      </button>
+    </div>
+  )
+}
+
 export default function ProductPage() {
   const { id } = useParams()
   const { product, loading } = useProduct(id)
@@ -105,6 +145,22 @@ export default function ProductPage() {
   const { addToast } = useToast()
   const [selectedVariant, setSelectedVariant] = useState(null)
   const [activeTab, setActiveTab] = useState('photos')
+  const [inlineActionsVisible, setInlineActionsVisible] = useState(false)
+  const inlineActionsRef = useRef(null)
+
+  useSharedLayoutTransition('product-actions', inlineActionsVisible ? 'inline' : 'floating')
+
+  useEffect(() => {
+    if (!inlineActionsRef.current || !('IntersectionObserver' in window)) return undefined
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setInlineActionsVisible(entry.isIntersecting),
+      { threshold: 0.55 },
+    )
+
+    observer.observe(inlineActionsRef.current)
+    return () => observer.disconnect()
+  }, [product])
 
   if (loading) return (
     <div className="page-shell page-top pb-16 md:pb-20">
@@ -165,20 +221,14 @@ export default function ProductPage() {
             </div>
           )}
 
-          <div className="product-actions">
-            <Button onClick={handleAddToCart} className="product-add-button">Add to Cart</Button>
-            <button
-              type="button"
-              onClick={() => toggleItem(product)}
-              className={`pressable icon-button wishlist-toggle product-action-wishlist ${wishlisted ? 'is-active' : ''}`}
-              aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-              aria-pressed={wishlisted}
-            >
-              <span className="sr-only">{wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}</span>
-              <HeartIcon />
-              <HeartIcon filled />
-            </button>
-          </div>
+          <ProductActionControls
+            product={product}
+            wishlisted={wishlisted}
+            onAddToCart={handleAddToCart}
+            onToggleWishlist={toggleItem}
+            active={inlineActionsVisible}
+            actionRef={inlineActionsRef}
+          />
         </div>
 
         <div className="product-info-panel">
@@ -225,6 +275,15 @@ export default function ProductPage() {
           </div>
         </div>
       </div>
+
+      <ProductActionControls
+        product={product}
+        wishlisted={wishlisted}
+        onAddToCart={handleAddToCart}
+        onToggleWishlist={toggleItem}
+        active={!inlineActionsVisible}
+        floating
+      />
     </div>
   )
 }
