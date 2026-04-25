@@ -899,7 +899,7 @@ input {
   overflow: hidden;
   width: 100%;
   aspect-ratio: var(--active-image-ratio, auto);
-  max-height: min(72vh, 48rem);
+  max-height: min(65vh, 40rem);
   align-items: center;
   justify-content: center;
   background: transparent;
@@ -911,7 +911,7 @@ input {
   width: auto;
   max-width: 100%;
   height: auto;
-  max-height: min(72vh, 48rem);
+  max-height: min(65vh, 40rem);
   object-fit: contain;
   transition: opacity 180ms var(--ease-out);
 }
@@ -1384,11 +1384,11 @@ input {
     width: calc(100% + 2rem);
     margin-right: -1rem;
     margin-left: -1rem;
-    max-height: min(68vh, 38rem);
+    max-height: min(55vh, 32rem);
   }
 
   .product-gallery-frame img {
-    max-height: min(68vh, 38rem);
+    max-height: min(55vh, 32rem);
   }
 
   .product-thumbnails {
@@ -1637,7 +1637,7 @@ input {
   }
 
   .product-gallery-frame {
-    max-height: min(72vh, 48rem);
+    max-height: min(65vh, 40rem);
   }
 
   .home-couch-title {
