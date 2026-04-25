@@ -127,6 +127,35 @@ function runGhostTransition({
   return cleanup
 }
 
+function resetViewportToTop() {
+  if (window.__lenis) {
+    window.__lenis.scrollTo(0, { immediate: true })
+    return
+  }
+
+  window.scrollTo(0, 0)
+}
+
+function scheduleWhenViewportSettles(callback, maxFrames = 4) {
+  let frame = 0
+  let rafId = 0
+
+  const tick = () => {
+    frame += 1
+
+    if (Math.abs(window.scrollY) <= 1 || frame >= maxFrames) {
+      callback()
+      return
+    }
+
+    rafId = window.requestAnimationFrame(tick)
+  }
+
+  rafId = window.requestAnimationFrame(tick)
+
+  return () => window.cancelAnimationFrame(rafId)
+}
+
 /**
  * Call from the source page: captures the rect + src of the given image element.
  */
@@ -193,7 +222,9 @@ export function useSharedHeroTransition(id, options = {}) {
     hasAnimated.current = true
     delete _snapshots[id]
 
-    const frame = requestAnimationFrame(() => {
+    resetViewportToTop()
+
+    return scheduleWhenViewportSettles(() => {
       const targetRect = getSnapshotRect(targetImage)
       if (targetRect.width < 1 || targetRect.height < 1) return
 
@@ -206,8 +237,6 @@ export function useSharedHeroTransition(id, options = {}) {
         objectFit: 'cover',
       })
     })
-
-    return () => window.cancelAnimationFrame(frame)
   }, [id, duration, easing, enabled])
 
   // Continuously track the element's position so we have a valid snapshot even if unmount zeroes it out
