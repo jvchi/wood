@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
+import { LayoutGroup, motion as framerMotion } from 'framer-motion'
 import { useParams, Link } from 'react-router-dom'
 import { useProduct } from '../hooks/useProduct'
 import { useCart } from '../context/CartContext'
@@ -10,6 +11,8 @@ import Skeleton from '../components/ui/Skeleton'
 import ProductViewer from '../components/three/ProductViewer'
 
 import { useSharedHeroTransition } from '../hooks/useSharedHeroTransition'
+
+const MotionDiv = framerMotion.div
 
 function HeartIcon({ filled = false }) {
   return (
@@ -117,10 +120,18 @@ function ProductActionControls({
   wishlisted,
   onAddToCart,
   onToggleWishlist,
+  active = true,
+  layoutId,
   className = '',
 }) {
   return (
-    <div className={`product-actions ${className}`}>
+    <MotionDiv
+      layout
+      layoutId={active ? layoutId : undefined}
+      className={`product-actions ${className} ${active ? 'is-active' : 'is-inactive'}`}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      aria-hidden={!active}
+    >
       <Button onClick={onAddToCart} className="product-add-button">Add to Cart</Button>
       <button
         type="button"
@@ -133,7 +144,7 @@ function ProductActionControls({
         <HeartIcon />
         <HeartIcon filled />
       </button>
-    </div>
+    </MotionDiv>
   )
 }
 
@@ -147,6 +158,7 @@ export default function ProductPage() {
   const [activeTab, setActiveTab] = useState('photos')
   const [isSticky, setIsSticky] = useState(false)
   const actionContainerRef = useRef(null)
+  const actionLayoutId = product ? `product-actions-${product.id}` : undefined
 
   useEffect(() => {
     // Only apply sticky behavior on mobile
@@ -154,16 +166,26 @@ export default function ProductPage() {
 
     if (!actionContainerRef.current || !('IntersectionObserver' in window)) return
 
+    const updateInitialPosition = () => {
+      const rect = actionContainerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      setIsSticky(rect.top < 0 || rect.bottom > window.innerHeight)
+    }
+
+    const frame = window.requestAnimationFrame(updateInitialPosition)
+
     const observer = new IntersectionObserver(
       ([entry]) => {
-        // Stick to bottom when not fully visible
         setIsSticky(!entry.isIntersecting)
       },
-      { threshold: 1.0 }
+      { threshold: 0.98 }
     )
 
     observer.observe(actionContainerRef.current)
-    return () => observer.disconnect()
+    return () => {
+      window.cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
   }, [product])
 
   if (loading) return (
@@ -189,6 +211,7 @@ export default function ProductPage() {
   }
 
   return (
+    <LayoutGroup id={`product-actions-${product.id}`}>
     <div className="product-page page-shell page-top pb-16 md:pb-20">
       <nav className="product-breadcrumb" aria-label="Breadcrumb">
         <ol>
@@ -237,7 +260,9 @@ export default function ProductPage() {
               wishlisted={wishlisted}
               onAddToCart={handleAddToCart}
               onToggleWishlist={toggleItem}
-              className={`product-actions-responsive ${isSticky ? 'is-fixed-bottom' : ''}`}
+              active={!isSticky}
+              layoutId={actionLayoutId}
+              className="product-actions-responsive product-actions-inline"
             />
           </div>
           <p className="product-detail-description">{product.description}</p>
@@ -281,7 +306,16 @@ export default function ProductPage() {
         </div>
       </div>
 
-
+      <ProductActionControls
+        product={product}
+        wishlisted={wishlisted}
+        onAddToCart={handleAddToCart}
+        onToggleWishlist={toggleItem}
+        active={isSticky}
+        layoutId={actionLayoutId}
+        className="product-actions-responsive product-actions-fixed"
+      />
     </div>
+    </LayoutGroup>
   )
 }

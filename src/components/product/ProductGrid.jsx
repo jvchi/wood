@@ -1,5 +1,7 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion as framerMotion } from 'framer-motion'
 import ProductCard from '../ui/ProductCard'
+
+const MotionDiv = framerMotion.div
 
 const productGridTransition = {
   layout: {
@@ -10,7 +12,7 @@ const productGridTransition = {
 
 export default function ProductGrid({ products, selectedProductId, onSelectProduct }) {
   return (
-    <motion.div layout className="shop-masonry" transition={productGridTransition}>
+    <MotionDiv layout className="shop-masonry" transition={productGridTransition}>
       <AnimatePresence initial={false}>
         {products.map((product, index) => (
           <ProductCard
@@ -23,6 +25,6 @@ export default function ProductGrid({ products, selectedProductId, onSelectProdu
           />
         ))}
       </AnimatePresence>
-    </motion.div>
+    </MotionDiv>
   )
 }

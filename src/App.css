@@ -935,6 +935,11 @@ input {
   background: var(--color-background);
 }
 
+.product-actions.is-inactive {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .product-add-button {
   min-width: 0;
   background: transparent;
@@ -967,13 +972,13 @@ input {
   margin-bottom: 1.5rem;
 }
 
-/* When out of view on mobile, it snaps to the bottom */
-.product-actions-responsive.is-fixed-bottom {
+.product-actions-fixed {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 50;
+  display: none;
   margin: 0;
   padding: 0.75rem var(--page-x);
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
@@ -1408,6 +1413,9 @@ input {
     min-width: 3rem;
   }
 
+  .product-actions-fixed {
+    display: grid;
+  }
 
   .product-info-panel {
     display: grid;
@@ -1609,16 +1617,6 @@ input {
     margin-top: 2rem;
     margin-bottom: 2rem;
   }
-  
-  .product-actions-responsive.is-fixed-bottom {
-    position: static;
-    padding: 0;
-    border: none;
-    box-shadow: none;
-    grid-template-columns: minmax(0, 1fr) 2.75rem;
-    gap: 0.75rem;
-  }
-
   .product-info-panel {
     padding-top: 3.25rem;
   }
