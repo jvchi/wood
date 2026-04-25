@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { LayoutGroup, motion as framerMotion } from 'framer-motion'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useProduct } from '../hooks/useProduct'
 import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
@@ -150,6 +150,7 @@ function ProductActionControls({
 
 export default function ProductPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { product, loading } = useProduct(id)
   const { addItem } = useCart()
   const { isInWishlist, toggleItem } = useWishlist()
@@ -213,15 +214,26 @@ export default function ProductPage() {
   return (
     <LayoutGroup id={`product-actions-${product.id}`}>
     <div className="product-page page-shell page-top pb-16 md:pb-20">
-      <nav className="product-breadcrumb" aria-label="Breadcrumb">
-        <ol>
-          <li><Link to="/" className="pressable">Home</Link></li>
-          <li>/</li>
-          <li><Link to="/shop" className="pressable">Shop</Link></li>
-          <li>/</li>
-          <li>{product.name}</li>
-        </ol>
-      </nav>
+      <div className="flex items-start justify-between">
+        <nav className="product-breadcrumb" aria-label="Breadcrumb">
+          <ol>
+            <li><Link to="/" className="pressable">Home</Link></li>
+            <li>/</li>
+            <li><Link to="/shop" className="pressable">Shop</Link></li>
+            <li>/</li>
+            <li>{product.name}</li>
+          </ol>
+        </nav>
+        <button 
+          onClick={() => navigate(-1)} 
+          className="pressable p-2 -mt-2 -mr-2 text-[var(--color-primary)] hover:opacity-70 transition-opacity"
+          aria-label="Close"
+        >
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="square">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
 
       <div className="product-detail-grid">
         <div className="product-media-column">

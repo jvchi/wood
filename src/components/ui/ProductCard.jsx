@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useState, useRef, useCallback } from 'react'
 import { formatPrice } from '../../utils/formatPrice'
 import { useWishlist } from '../../context/WishlistContext'
-import { captureElement } from '../../hooks/useSharedHeroTransition'
+import { captureElement, useSharedReturnTransition } from '../../hooks/useSharedHeroTransition'
 
 export default function ProductCard({ product, index = 0, variant }) {
   const [imageLoaded, setImageLoaded] = useState(false)
@@ -10,7 +10,7 @@ export default function ProductCard({ product, index = 0, variant }) {
   const wishlisted = isInWishlist(product.id)
   const isMasonry = variant === 'masonry'
   const navigate = useNavigate()
-  const imageRef = useRef(null)
+  const imageRef = useSharedReturnTransition(product.id)
 
   /* Shared layout animation: snapshot the image rect before navigating
      so ProductPage can run a FLIP animation from this position. */

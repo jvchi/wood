@@ -9,9 +9,9 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <div className="page-shell page-top pb-16 text-center md:pb-20">
-        <h1 className="page-title mb-5">Your Cart</h1>
-        <p className="body-copy mx-auto mb-10">Your cart is empty.</p>
-        <Link to="/shop"><Button variant="secondary">Continue Shopping</Button></Link>
+        <h1 className="mb-6 text-[var(--font-size-xl)] font-bold uppercase">Your Cart</h1>
+        <p className="mb-10 text-base text-[var(--color-secondary)]">Your cart is empty.</p>
+        <Link to="/shop"><Button variant="secondary">Explore Collection</Button></Link>
       </div>
     )
   }

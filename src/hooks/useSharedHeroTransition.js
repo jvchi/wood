@@ -15,6 +15,7 @@ import { useEffect, useRef, useCallback } from 'react'
 
 /* ── module-level store (survives route changes) ── */
 const _snapshots = {}
+export const _returnSnapshots = {}
 
 /**
  * Call from the source page: captures the rect + src of the given image element.
@@ -141,6 +142,144 @@ export function useSharedHeroTransition(id, options = {}) {
             width: `${targetRect.width}px`,
             height: `${targetRect.height}px`,
             objectFit: 'contain',
+          },
+        ],
+        {
+          duration,
+          easing,
+          fill: 'forwards',
+        },
+      )
+
+      const cleanup = () => {
+        el.style.opacity = priorOpacity
+        ghost.remove()
+      }
+
+      animation.onfinish = cleanup
+      animation.oncancel = cleanup
+    })
+  }, [id, duration, easing, enabled])
+
+  // Continuously track the element's position so we have a valid snapshot even if unmount zeroes it out
+  useEffect(() => {
+    const el = targetRef.current
+    if (!el) return
+
+    const updateSnapshot = () => {
+      const rect = el.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) {
+        const img = el.tagName === 'IMG' ? el : el.querySelector('img')
+        _returnSnapshots[id] = {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+          src: img ? img.src : '',
+          timestamp: Date.now(),
+        }
+      }
+    }
+
+    updateSnapshot()
+    window.addEventListener('scroll', updateSnapshot, { passive: true })
+    window.addEventListener('resize', updateSnapshot, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', updateSnapshot)
+      window.removeEventListener('resize', updateSnapshot)
+      updateSnapshot() // Final attempt on unmount
+    }
+  }, [id])
+
+  return targetRef
+}
+
+/**
+ * Hook: attach to the **product card image** on the shop page.
+ * When the component mounts, it checks for a return snapshot and runs
+ * a ghost-overlay FLIP animation from the product page position to the
+ * card position.
+ */
+export function useSharedReturnTransition(id, options = {}) {
+  const targetRef = useRef(null)
+  const hasAnimated = useRef(false)
+
+  const {
+    duration = DEFAULT_DURATION,
+    easing = DEFAULT_EASING,
+    enabled = true,
+  } = options
+
+  useEffect(() => {
+    if (!enabled || hasAnimated.current) return
+    const el = targetRef.current
+    if (!el) return
+
+    const snap = _returnSnapshots[id]
+    if (!snap || Date.now() - snap.timestamp > 2000) {
+      return
+    }
+
+    const prefersReducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches
+    if (prefersReducedMotion) {
+      delete _returnSnapshots[id]
+      return
+    }
+
+    hasAnimated.current = true
+    delete _returnSnapshots[id]
+
+    requestAnimationFrame(() => {
+      const targetRect = el.getBoundingClientRect()
+      if (targetRect.width < 1 || targetRect.height < 1) return
+
+      const deltaX = snap.left - targetRect.left
+      const deltaY = snap.top - targetRect.top
+
+      if (Math.abs(deltaX) < 2 && Math.abs(deltaY) < 2) return
+
+      const ghost = document.createElement('img')
+      ghost.src = snap.src || (el.tagName === 'IMG' ? el.src : '')
+      ghost.setAttribute('aria-hidden', 'true')
+      ghost.setAttribute('alt', '')
+      Object.assign(ghost.style, {
+        position: 'fixed',
+        left: `${snap.left}px`,
+        top: `${snap.top}px`,
+        width: `${snap.width}px`,
+        height: `${snap.height}px`,
+        margin: '0',
+        padding: '0',
+        objectFit: 'contain',
+        zIndex: '9999',
+        pointerEvents: 'none',
+        outline: 'none',
+        borderRadius: '0',
+        willChange: 'left, top, width, height',
+      })
+
+      const priorOpacity = el.style.opacity
+      el.style.opacity = '0'
+      document.body.appendChild(ghost)
+
+      const animation = ghost.animate(
+        [
+          {
+            left: `${snap.left}px`,
+            top: `${snap.top}px`,
+            width: `${snap.width}px`,
+            height: `${snap.height}px`,
+            objectFit: 'contain',
+          },
+          {
+            left: `${targetRect.left}px`,
+            top: `${targetRect.top}px`,
+            width: `${targetRect.width}px`,
+            height: `${targetRect.height}px`,
+            objectFit: 'cover',
           },
         ],
         {
