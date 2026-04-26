@@ -89,19 +89,6 @@ function runGhostTransition({
   objectFit,
 }) {
   const ghost = createGhostImage(snapshot, targetRect, objectFit)
-  const deltaX = snapshot.left - targetRect.left
-  const deltaY = snapshot.top - targetRect.top
-  const scaleX = snapshot.width / targetRect.width
-  const scaleY = snapshot.height / targetRect.height
-
-  if (
-    Math.abs(deltaX) < 2 &&
-    Math.abs(deltaY) < 2 &&
-    Math.abs(1 - scaleX) < 0.01 &&
-    Math.abs(1 - scaleY) < 0.01
-  ) {
-    return null
-  }
 
   hideTargetElement(targetElement)
   document.body.appendChild(ghost)
@@ -109,12 +96,18 @@ function runGhostTransition({
   const ghostAnimation = ghost.animate(
     [
       {
-        opacity: 1,
-        transform: `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`,
+        left: `${snapshot.left}px`,
+        top: `${snapshot.top}px`,
+        width: `${snapshot.width}px`,
+        height: `${snapshot.height}px`,
+        objectFit: 'cover',
       },
       {
-        opacity: 1,
-        transform: 'translate(0px, 0px) scale(1, 1)',
+        left: `${targetRect.left}px`,
+        top: `${targetRect.top}px`,
+        width: `${targetRect.width}px`,
+        height: `${targetRect.height}px`,
+        objectFit: 'contain',
       },
     ],
     {
@@ -432,20 +425,21 @@ export function useSharedReturnTransition(id, options = {}) {
 
       const cleanup = activeGhost
         ? (() => {
-            const deltaX = snapshot.left - targetRect.left
-            const deltaY = snapshot.top - targetRect.top
-            const scaleX = snapshot.width / targetRect.width
-            const scaleY = snapshot.height / targetRect.height
-
             const ghostAnimation = activeGhost.animate(
               [
                 {
-                  opacity: 1,
-                  transform: `translate(0px, 0px) scale(1, 1)`,
+                  left: `${snapshot.left}px`,
+                  top: `${snapshot.top}px`,
+                  width: `${snapshot.width}px`,
+                  height: `${snapshot.height}px`,
+                  objectFit: 'contain',
                 },
                 {
-                  opacity: 1,
-                  transform: `translate(${-deltaX}px, ${-deltaY}px) scale(${1 / scaleX}, ${1 / scaleY})`,
+                  left: `${targetRect.left}px`,
+                  top: `${targetRect.top}px`,
+                  width: `${targetRect.width}px`,
+                  height: `${targetRect.height}px`,
+                  objectFit: 'cover',
                 },
               ],
               {
