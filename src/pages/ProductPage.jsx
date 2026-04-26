@@ -10,7 +10,7 @@ import Button from '../components/ui/Button'
 import Skeleton from '../components/ui/Skeleton'
 import ProductViewer from '../components/three/ProductViewer'
 
-import { useSharedHeroTransition } from '../hooks/useSharedHeroTransition'
+import { startReturnTransition, useSharedHeroTransition } from '../hooks/useSharedHeroTransition'
 
 const MotionDiv = framerMotion.div
 
@@ -212,6 +212,13 @@ export default function ProductPage() {
     addToast(`${product.name} added to cart`)
   }
 
+  const handleClose = () => {
+    if (activeTab === 'photos') {
+      startReturnTransition(product.id)
+    }
+    navigate(-1)
+  }
+
   return (
     <LayoutGroup id={`product-actions-${product.id}`}>
     <div className="product-page page-shell page-top pb-16 md:pb-20">
@@ -226,7 +233,7 @@ export default function ProductPage() {
           </ol>
         </nav>
         <button 
-          onClick={() => navigate(-1)} 
+          onClick={handleClose} 
           className="pressable p-2 -mt-2 -mr-2 text-[var(--color-primary)] hover:opacity-70 transition-opacity"
           aria-label="Close"
         >

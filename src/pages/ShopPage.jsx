@@ -1,10 +1,8 @@
 import { useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { motion as Motion } from 'framer-motion'
 import { useProducts } from '../hooks/useProducts'
 import ProductCard from '../components/ui/ProductCard'
 import Skeleton from '../components/ui/Skeleton'
-
-const MotionProductCard = motion(ProductCard)
 
 const ALL_CATEGORY = 'all'
 const MOBILE_CATEGORY_LABELS = {
@@ -69,20 +67,16 @@ export default function ShopPage() {
           ))}
         </div>
       ) : (
-        <motion.div layout className="shop-masonry">
+        <Motion.div layout className="shop-masonry">
           {filtered.map((product, index) => (
-            <MotionProductCard 
+            <ProductCard 
               key={product.id} 
               product={product} 
               index={index} 
               variant="masonry" 
-              layout="position"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             />
           ))}
-        </motion.div>
+        </Motion.div>
       )}
 
       {!loading && filtered.length === 0 && (

@@ -16,6 +16,7 @@ import { useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 /* ── module-level store (survives route changes) ── */
 const _snapshots = {}
 export const _returnSnapshots = {}
+const _activeReturnGhosts = {}
 
 function getSnapshotRect(element) {
   const rect = element.getBoundingClientRect()
@@ -31,6 +32,10 @@ function getVisualTarget(element) {
   if (!element) return null
   if (element.tagName === 'IMG') return element
   return element.querySelector('img')
+}
+
+function getReturnSurfaceTarget(element) {
+  return element?.closest('.product-media') || element
 }
 
 function createGhostImage(snapshot, targetRect, objectFit) {
@@ -57,6 +62,24 @@ function createGhostImage(snapshot, targetRect, objectFit) {
   return ghost
 }
 
+function createGhostFromSnapshot(snapshot, objectFit) {
+  return createGhostImage(snapshot, snapshot, objectFit)
+}
+
+function hideTargetElement(targetElement) {
+  if (targetElement.dataset.sharedTransitionHidden === 'true') return
+  targetElement.dataset.sharedTransitionHidden = 'true'
+  targetElement.dataset.sharedTransitionPrevOpacity = targetElement.style.opacity
+  targetElement.style.opacity = '0'
+}
+
+function revealTargetElement(targetElement) {
+  if (targetElement.dataset.sharedTransitionHidden !== 'true') return
+  targetElement.style.opacity = targetElement.dataset.sharedTransitionPrevOpacity || ''
+  delete targetElement.dataset.sharedTransitionHidden
+  delete targetElement.dataset.sharedTransitionPrevOpacity
+}
+
 function runGhostTransition({
   snapshot,
   targetElement,
@@ -80,8 +103,7 @@ function runGhostTransition({
     return null
   }
 
-  const priorOpacity = targetElement.style.opacity
-  targetElement.style.opacity = '0'
+  hideTargetElement(targetElement)
   document.body.appendChild(ghost)
 
   const ghostAnimation = ghost.animate(
@@ -116,7 +138,7 @@ function runGhostTransition({
   )
 
   const cleanup = () => {
-    targetElement.style.opacity = priorOpacity
+    revealTargetElement(targetElement)
     targetAnimation.cancel()
     ghost.remove()
   }
@@ -156,6 +178,54 @@ function scheduleWhenViewportSettles(callback, maxFrames = 4) {
   return () => window.cancelAnimationFrame(rafId)
 }
 
+function rectDifference(a, b) {
+  if (!a || !b) return Number.POSITIVE_INFINITY
+  return Math.max(
+    Math.abs(a.left - b.left),
+    Math.abs(a.top - b.top),
+    Math.abs(a.width - b.width),
+    Math.abs(a.height - b.height),
+  )
+}
+
+function scheduleWhenRectSettles(element, callback, stableFrames = 2, maxFrames = 12) {
+  let rafId = 0
+  let frame = 0
+  let stableCount = 0
+  let previousRect = null
+
+  const tick = () => {
+    frame += 1
+    const nextRect = getSnapshotRect(element)
+
+    if (nextRect.width < 1 || nextRect.height < 1) {
+      if (frame < maxFrames) {
+        rafId = window.requestAnimationFrame(tick)
+      }
+      return
+    }
+
+    if (rectDifference(previousRect, nextRect) < 0.5) {
+      stableCount += 1
+    } else {
+      stableCount = 0
+    }
+
+    previousRect = nextRect
+
+    if (stableCount >= stableFrames || frame >= maxFrames) {
+      callback(nextRect)
+      return
+    }
+
+    rafId = window.requestAnimationFrame(tick)
+  }
+
+  rafId = window.requestAnimationFrame(tick)
+
+  return () => window.cancelAnimationFrame(rafId)
+}
+
 /**
  * Call from the source page: captures the rect + src of the given image element.
  */
@@ -170,6 +240,22 @@ export function captureElement(id, element) {
     src: element.src || element.querySelector?.('img')?.src || '',
     timestamp: Date.now(),
   }
+  return true
+}
+
+export function startReturnTransition(id) {
+  const snapshot = _returnSnapshots[id]
+  if (!snapshot || Date.now() - snapshot.timestamp > 2000) {
+    return false
+  }
+
+  if (_activeReturnGhosts[id]) {
+    return true
+  }
+
+  const ghost = createGhostFromSnapshot(snapshot, 'cover')
+  document.body.appendChild(ghost)
+  _activeReturnGhosts[id] = ghost
   return true
 }
 
@@ -292,9 +378,33 @@ export function useSharedReturnTransition(id, options = {}) {
   } = options
 
   useLayoutEffect(() => {
+    if (!enabled || hasAnimated.current) return
+    const el = targetRef.current
+    if (!el) return
+    const surface = getReturnSurfaceTarget(el)
+
+    const snap = _returnSnapshots[id]
+    const hasFreshSnapshot = snap && Date.now() - snap.timestamp <= 2000
+
+    if (!hasFreshSnapshot) {
+      revealTargetElement(surface)
+      return
+    }
+
+    hideTargetElement(surface)
+
+    return () => {
+      if (!hasAnimated.current) {
+        revealTargetElement(surface)
+      }
+    }
+  }, [id, enabled])
+
+  useLayoutEffect(() => {
     if (!enabled || !ready || hasAnimated.current) return
     const el = targetRef.current
     if (!el) return
+    const surface = getReturnSurfaceTarget(el)
 
     const snap = _returnSnapshots[id]
     if (!snap || Date.now() - snap.timestamp > 2000) {
@@ -312,24 +422,95 @@ export function useSharedReturnTransition(id, options = {}) {
     hasAnimated.current = true
     delete _returnSnapshots[id]
 
-    const frame = requestAnimationFrame(() => {
-      const targetRect = getSnapshotRect(el)
-      if (targetRect.width < 1 || targetRect.height < 1) return
+    return scheduleWhenRectSettles(el, targetRect => {
+      hideTargetElement(surface)
+      const activeGhost = _activeReturnGhosts[id]
+      const snapshot = {
+        ...snap,
+        src: snap.src || el.src,
+      }
 
-      runGhostTransition({
-        snapshot: {
-          ...snap,
-          src: snap.src || el.src,
-        },
-        targetElement: el,
-        targetRect,
-        duration,
-        easing,
-        objectFit: 'cover',
-      })
+      const cleanup = activeGhost
+        ? (() => {
+            const deltaX = snapshot.left - targetRect.left
+            const deltaY = snapshot.top - targetRect.top
+            const scaleX = snapshot.width / targetRect.width
+            const scaleY = snapshot.height / targetRect.height
+
+            const ghostAnimation = activeGhost.animate(
+              [
+                {
+                  opacity: 1,
+                  transform: `translate(0px, 0px) scale(1, 1)`,
+                },
+                {
+                  opacity: 1,
+                  transform: `translate(${-deltaX}px, ${-deltaY}px) scale(${1 / scaleX}, ${1 / scaleY})`,
+                },
+              ],
+              {
+                duration,
+                easing,
+                fill: 'forwards',
+              },
+            )
+
+            const targetAnimation = el.animate(
+              [
+                { opacity: 0 },
+                { opacity: 0, offset: 0.7 },
+                { opacity: 1 },
+              ],
+              {
+                duration,
+                easing: 'linear',
+                fill: 'forwards',
+              },
+            )
+
+            const surfaceAnimation = surface === el
+              ? null
+              : surface.animate(
+                  [
+                    { opacity: 0 },
+                    { opacity: 0, offset: 0.7 },
+                    { opacity: 1 },
+                  ],
+                  {
+                    duration,
+                    easing: 'linear',
+                    fill: 'forwards',
+                  },
+                )
+
+            const finish = () => {
+              revealTargetElement(surface)
+              targetAnimation.cancel()
+              if (surfaceAnimation) {
+                surfaceAnimation.cancel()
+              }
+              activeGhost.remove()
+              delete _activeReturnGhosts[id]
+            }
+
+            ghostAnimation.onfinish = finish
+            ghostAnimation.oncancel = finish
+
+            return finish
+          })()
+        : runGhostTransition({
+            snapshot,
+            targetElement: surface,
+            targetRect,
+            duration,
+            easing,
+            objectFit: 'cover',
+          })
+
+      if (!cleanup) {
+        revealTargetElement(surface)
+      }
     })
-
-    return () => window.cancelAnimationFrame(frame)
   }, [id, duration, easing, enabled, ready])
 
   return targetRef
