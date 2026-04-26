@@ -1,36 +1,37 @@
-import { Link, useNavigate } from 'react-router-dom'
-import { useState, forwardRef, useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { motion as framerMotion } from 'framer-motion'
+import { useState, forwardRef, useEffect, useRef } from 'react'
 import { formatPrice } from '../../utils/formatPrice'
 import { useWishlist } from '../../context/WishlistContext'
-import { captureElement, useSharedReturnTransition } from '../../hooks/useSharedHeroTransition'
+
+const MotionDiv = framerMotion.div
+const MotionImg = framerMotion.img
+
+const sharedImageTransition = {
+  layout: {
+    duration: 0.68,
+    ease: [0.22, 1, 0.36, 1],
+  },
+  opacity: {
+    duration: 0,
+  },
+}
 
 const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [isTall, setIsTall] = useState(false)
-  const [layoutEvaluated, setLayoutEvaluated] = useState(false)
   const { isInWishlist, toggleItem } = useWishlist()
   const wishlisted = isInWishlist(product.id)
   const isMasonry = variant === 'masonry'
-  const navigate = useNavigate()
-  const imageRef = useSharedReturnTransition(product.id, { ready: imageLoaded && layoutEvaluated })
-
-  /* Shared layout animation: snapshot the image rect before navigating
-     so ProductPage can run a FLIP animation from this position. */
-  const handleProductClick = e => {
-    e.preventDefault()
-    captureElement(product.id, imageRef.current)
-    navigate(`/product/${product.id}`)
-  }
+  const imageRef = useRef(null)
+  const location = useLocation()
 
   useEffect(() => {
     if (!imageRef.current || !imageLoaded) return
     const img = imageRef.current
     const card = img.closest('.product-card')
     if (!card) {
-      const frame = window.requestAnimationFrame(() => {
-        setLayoutEvaluated(true)
-      })
-      return () => window.cancelAnimationFrame(frame)
+      return undefined
     }
 
     const updateLayout = () => {
@@ -43,7 +44,6 @@ const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
       } else {
         setIsTall(false)
       }
-      setLayoutEvaluated(true)
     }
 
     const observer = new ResizeObserver(() => {
@@ -60,22 +60,39 @@ const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
       className={`product-card group ${isMasonry ? 'product-card-masonry' : ''} ${isTall ? 'is-tall' : ''}`}
       style={isMasonry ? { '--masonry-index': index % 6 } : undefined}
     >
-      <div className={`product-media ${isMasonry ? 'product-media-masonry' : ''}`}>
-        <Link to={`/product/${product.id}`} className="block h-full" onClick={handleProductClick}>
+      <MotionDiv
+        layout
+        layoutId={`product-media-${product.id}`}
+        className={`product-media ${isMasonry ? 'product-media-masonry' : ''}`}
+        transition={sharedImageTransition}
+        initial={false}
+        animate={{ opacity: 1, borderRadius: 0 }}
+        exit={{ opacity: 1 }}
+        style={{ opacity: 1 }}
+      >
+        <Link
+          to={`/product/${product.id}`}
+          state={{ backgroundLocation: location }}
+          className="block h-full"
+        >
           {!imageLoaded && (
             <div className="absolute inset-0 bg-[var(--color-surface-muted)]" />
           )}
-          <img
+          <MotionImg
             ref={imageRef}
+            layoutId={`product-image-${product.id}`}
+            layout
             src={product.images[0]}
             alt={product.name}
             width="800"
             height="1067"
             loading="lazy"
+            transition={sharedImageTransition}
+            initial={false}
+            animate={{ opacity: 1, borderRadius: 0 }}
+            exit={{ opacity: 1 }}
+            style={{ opacity: 1 }}
             onLoad={() => setImageLoaded(true)}
-            className={
-              imageLoaded ? 'opacity-100' : 'opacity-0'
-            }
           />
         </Link>
         <button
@@ -115,7 +132,7 @@ const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
           </svg>
         </button>
-      </div>
+      </MotionDiv>
 
       <div className="product-card-meta">
         <Link to={`/product/${product.id}`}>
@@ -124,7 +141,7 @@ const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
           </h3>
         </Link>
         <p className="product-price">
-          {formatPrice(product.price, product.currency)}
+          {product.stock_quantity <= 0 || product.stock <= 0 ? 'Out of stock' : formatPrice(product.price, product.currency)}
         </p>
       </div>
     </article>

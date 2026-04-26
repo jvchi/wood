@@ -4,8 +4,6 @@ import { useProducts } from '../hooks/useProducts'
 import ProductCard from '../components/ui/ProductCard'
 import Skeleton from '../components/ui/Skeleton'
 
-const MotionProductCard = Motion(ProductCard)
-
 const ALL_CATEGORY = 'all'
 const MOBILE_CATEGORY_LABELS = {
   all: 'all',
@@ -71,15 +69,11 @@ export default function ShopPage() {
       ) : (
         <Motion.div layout className="shop-masonry">
           {filtered.map((product, index) => (
-            <MotionProductCard 
+            <ProductCard
               key={product.id} 
               product={product} 
               index={index} 
               variant="masonry" 
-              layout="position"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             />
           ))}
         </Motion.div>

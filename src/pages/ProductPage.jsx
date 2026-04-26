@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { LayoutGroup, motion as framerMotion } from 'framer-motion'
+import { motion as framerMotion } from 'framer-motion'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useProduct } from '../hooks/useProduct'
 import { useCart } from '../context/CartContext'
@@ -10,9 +10,18 @@ import Button from '../components/ui/Button'
 import Skeleton from '../components/ui/Skeleton'
 import ProductViewer from '../components/three/ProductViewer'
 
-import { startReturnTransition, useSharedHeroTransition } from '../hooks/useSharedHeroTransition'
-
 const MotionDiv = framerMotion.div
+const MotionImg = framerMotion.img
+
+/* const sharedImageTransition = {
+  layout: {
+    duration: 0.68,
+    ease: [0.22, 1, 0.36, 1],
+  },
+  opacity: {
+    duration: 0,
+  },
+} */
 
 function HeartIcon({ filled = false }) {
   return (
@@ -39,13 +48,6 @@ function ImageGallery({ images, name, productId }) {
   const [imageRatios, setImageRatios] = useState({})
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
-
-  /* Shared layout animation: FLIP from shop card position → gallery position */
-  const heroRef = useSharedHeroTransition(productId, {
-    duration: 500,
-    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-    enabled: loaded[activeIndex],
-  })
 
   const setImage = index => {
     setActiveIndex((index + images.length) % images.length)
@@ -86,17 +88,32 @@ function ImageGallery({ images, name, productId }) {
           </button>
         ))}
       </div>
-      <div
-        ref={heroRef}
+      <MotionDiv
+        /* layout */
+        /* layoutId={activeIndex === 0 ? `product-media-${productId}` : undefined} */
         className="product-gallery-frame"
-        style={imageRatios[activeIndex] ? { '--active-image-ratio': imageRatios[activeIndex] } : undefined}
+        /* transition={sharedImageTransition} */
+        /* initial={false} */
+        /* animate={{ opacity: 1, borderRadius: 0 }} */
+        /* exit={{ opacity: 1 }} */
+        style={{
+          opacity: 1,
+          ...(imageRatios[activeIndex] ? { '--active-image-ratio': imageRatios[activeIndex] } : {}),
+        }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
         {!loaded[activeIndex] && <div className="absolute inset-0 bg-[var(--color-surface-muted)] animate-pulse" />}
-        <img
+        <MotionImg
+          /* layoutId={activeIndex === 0 ? `product-image-${productId}` : undefined} */
+          /* layout */
           src={images[activeIndex]}
           alt={name}
+          /* transition={sharedImageTransition} */
+          /* initial={false} */
+          /* animate={{ opacity: 1, borderRadius: 0 }} */
+          /* exit={{ opacity: 1 }} */
+          style={{ opacity: 1 }}
           onLoad={event => {
             const { naturalWidth, naturalHeight } = event.currentTarget
             setLoaded(p => ({ ...p, [activeIndex]: true }))
@@ -104,14 +121,13 @@ function ImageGallery({ images, name, productId }) {
               setImageRatios(p => ({ ...p, [activeIndex]: `${naturalWidth} / ${naturalHeight}` }))
             }
           }}
-          className={loaded[activeIndex] ? 'opacity-100' : 'opacity-0'}
         />
         {images.length > 1 && (
           <p className="product-gallery-count" aria-live="polite">
             {activeIndex + 1} / {images.length}
           </p>
         )}
-      </div>
+      </MotionDiv>
     </div>
   )
 }
@@ -122,18 +138,20 @@ function ProductActionControls({
   onAddToCart,
   onToggleWishlist,
   active = true,
-  layoutId,
+  /* layoutId, */
   className = '',
 }) {
   return (
     <MotionDiv
-      layout
-      layoutId={active ? layoutId : undefined}
+      /* layout */
+      /* layoutId={active ? layoutId : undefined} */
       className={`product-actions ${className} ${active ? 'is-active' : 'is-inactive'}`}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      /* transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} */
       aria-hidden={!active}
     >
-      <Button onClick={onAddToCart} className="product-add-button">Add to Cart</Button>
+      <Button onClick={onAddToCart} className="product-add-button" disabled={product.stock_quantity <= 0 || product.stock <= 0}>
+        {product.stock_quantity <= 0 || product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
+      </Button>
       <button
         type="button"
         onClick={() => onToggleWishlist(product)}
@@ -149,7 +167,7 @@ function ProductActionControls({
   )
 }
 
-export default function ProductPage() {
+export default function ProductPage({ isOverlay = false }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const { product, loading } = useProduct(id)
@@ -160,7 +178,7 @@ export default function ProductPage() {
   const [activeTab, setActiveTab] = useState('photos')
   const [isSticky, setIsSticky] = useState(false)
   const actionContainerRef = useRef(null)
-  const actionLayoutId = product ? `product-actions-${product.id}` : undefined
+  // const actionLayoutId = product ? `product-actions-${product.id}` : undefined
 
   useEffect(() => {
     // Only apply sticky behavior on mobile
@@ -208,20 +226,20 @@ export default function ProductPage() {
 
   const wishlisted = isInWishlist(product.id)
   const handleAddToCart = () => {
+    if (product.stock_quantity <= 0 || product.stock <= 0) {
+      addToast(`${product.name} is out of stock`)
+      return
+    }
     addItem(product, selectedVariant)
     addToast(`${product.name} added to cart`)
   }
 
   const handleClose = () => {
-    if (activeTab === 'photos') {
-      startReturnTransition(product.id)
-    }
     navigate(-1)
   }
 
   return (
-    <LayoutGroup id={`product-actions-${product.id}`}>
-    <div className="product-page page-shell page-top pb-16 md:pb-20">
+    <div className={`product-page page-shell page-top pb-16 md:pb-20 ${isOverlay ? 'product-page-overlay' : ''}`}>
       <div className="flex items-start justify-between">
         <nav className="product-breadcrumb" aria-label="Breadcrumb">
           <ol>
@@ -263,7 +281,7 @@ export default function ProductPage() {
           ) : (
             <div className="product-gallery-frame">
               <Suspense fallback={<Skeleton className="w-full h-full" />}>
-                <ProductViewer />
+                <ProductViewer modelUrl={product.model_url} modelScale={product.model_scale} modelRotation={product.model_rotation} />
               </Suspense>
             </div>
           )}
@@ -281,7 +299,7 @@ export default function ProductPage() {
               onAddToCart={handleAddToCart}
               onToggleWishlist={toggleItem}
               active={!isSticky}
-              layoutId={actionLayoutId}
+              /* layoutId={actionLayoutId} */
               className="product-actions-responsive product-actions-inline"
             />
           </div>
@@ -332,10 +350,9 @@ export default function ProductPage() {
         onAddToCart={handleAddToCart}
         onToggleWishlist={toggleItem}
         active={isSticky}
-        layoutId={actionLayoutId}
+        /* layoutId={actionLayoutId} */
         className="product-actions-responsive product-actions-fixed"
       />
     </div>
-    </LayoutGroup>
   )
 }
