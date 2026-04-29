@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import LazyThreeScene from '../components/three/LazyThreeScene'
@@ -19,15 +19,42 @@ export default function HomePage() {
   const showcaseProgressRef = useRef(0)
   const showcaseTargetProgressRef = useRef(0)
   const showcaseDisplayProgressRef = useRef(0)
+  const [heroSceneActive, setHeroSceneActive] = useState(true)
+  const [chairSceneActive, setChairSceneActive] = useState(true)
   const heroScene = useMemo(() => ({ active }) => (
     <LazyThreeScene
       fallback={<ThreeModelPlaceholder variant="room" label="Loading room view" />}
       variant="room"
       label="Loading room view"
     >
-      <HeroScene active={active} scrollDriven scrollProgressRef={progressRef} />
+      <HeroScene active={active && heroSceneActive} scrollDriven scrollProgressRef={progressRef} />
     </LazyThreeScene>
-  ), [])
+  ), [heroSceneActive])
+
+  useEffect(() => {
+    if (!('IntersectionObserver' in window)) {
+      return undefined
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.target === scrollRef.current) {
+          setHeroSceneActive(entry.isIntersecting)
+        }
+        if (entry.target === showcaseRef.current) {
+          setChairSceneActive(entry.isIntersecting)
+        }
+      })
+    }, {
+      rootMargin: '35% 0px 35% 0px',
+      threshold: 0,
+    })
+
+    if (scrollRef.current) observer.observe(scrollRef.current)
+    if (showcaseRef.current) observer.observe(showcaseRef.current)
+
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     function easeTitleDrop(progress) {
@@ -180,7 +207,7 @@ export default function HomePage() {
               variant="chair"
               label="Loading chair view"
             >
-              <ChairShowcaseScene sectionProgressRef={showcaseProgressRef} />
+              <ChairShowcaseScene active={chairSceneActive} sectionProgressRef={showcaseProgressRef} />
             </LazyThreeScene>
           </Suspense>
         </div>

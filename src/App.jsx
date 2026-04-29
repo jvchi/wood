@@ -11,19 +11,20 @@ import { SharedProductTransitionContext } from './context/SharedProductTransitio
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import PageLayout from './components/layout/PageLayout'
 import { PersistentThreeSceneProvider } from './components/three/PersistentThreeSceneProvider'
+import { routeLoaders } from './lib/routePreload'
 
-const HomePage = lazy(() => import('./pages/HomePage'))
-const ShopPage = lazy(() => import('./pages/ShopPage'))
-const ProductPage = lazy(() => import('./pages/ProductPage'))
-const CartPage = lazy(() => import('./pages/CartPage'))
-const WishlistPage = lazy(() => import('./pages/WishlistPage'))
-const AboutPage = lazy(() => import('./pages/AboutPage'))
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
-const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
-const AdminOverview = lazy(() => import('./pages/admin/AdminOverview'))
-const AdminProductsPage = lazy(() => import('./pages/admin/AdminProductsPage'))
-const AdminTaxonomyPage = lazy(() => import('./pages/admin/AdminTaxonomyPage'))
-const AdminPlaceholderPage = lazy(() => import('./pages/admin/AdminPlaceholderPage'))
+const HomePage = lazy(routeLoaders['/'])
+const ShopPage = lazy(routeLoaders['/shop'])
+const ProductPage = lazy(routeLoaders['/product'])
+const CartPage = lazy(routeLoaders['/cart'])
+const WishlistPage = lazy(routeLoaders['/wishlist'])
+const AboutPage = lazy(routeLoaders['/about'])
+const NotFoundPage = lazy(routeLoaders['*'])
+const AdminLayout = lazy(routeLoaders['/admin'])
+const AdminOverview = lazy(routeLoaders['/admin/index'])
+const AdminProductsPage = lazy(routeLoaders['/admin/products'])
+const AdminTaxonomyPage = lazy(routeLoaders['/admin/taxonomy'])
+const AdminPlaceholderPage = lazy(routeLoaders['/admin/placeholder'])
 
 gsap.registerPlugin(ScrollTrigger)
 

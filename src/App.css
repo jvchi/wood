@@ -163,8 +163,8 @@ input {
 }
 
 .route-fallback {
-  min-height: 100lvh;
-  background: var(--color-background);
+  min-height: 0;
+  background: transparent;
 }
 
 .page-top {
@@ -263,9 +263,8 @@ input {
 .three-placeholder {
   position: relative;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.22), transparent 42%),
-    linear-gradient(180deg, #d8d2c8 0%, #c5beb4 48%, #b7afa4 100%);
+  background: transparent;
+  pointer-events: none;
 }
 
 .three-placeholder img {
@@ -282,7 +281,7 @@ input {
   width: min(68%, 44rem);
   aspect-ratio: 2.8 / 1;
   border-radius: 999px 999px 18px 18px;
-  background: rgba(25, 22, 20, 0.16);
+  background: rgba(25, 22, 20, 0.12);
   filter: blur(0.2px);
   transform: translateX(-50%);
 }
@@ -307,9 +306,7 @@ input {
 
 .three-placeholder-chair,
 .three-placeholder-product {
-  background:
-    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.95), transparent 34%),
-    linear-gradient(180deg, #f7f7f5 0%, #eceae6 100%);
+  background: transparent;
 }
 
 .three-placeholder-chair .three-placeholder-silhouette,

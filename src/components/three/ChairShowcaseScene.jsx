@@ -232,7 +232,7 @@ export default function ChairShowcaseScene({ active = true, sectionProgressRef }
       onPointerLeave={handlePointerLeave}
     >
       <Canvas
-        shadows
+        shadows={{ type: THREE.PCFShadowMap }}
         dpr={[1, profile.dpr]}
         frameloop={active ? 'always' : 'demand'}
         resize={{ scroll: false }}

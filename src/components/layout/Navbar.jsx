@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useCart } from '../../context/CartContext'
 import { useWishlist } from '../../context/WishlistContext'
+import { preloadAppRoute } from '../../lib/routePreload'
 import MobileNav from './MobileNav'
 
 export default function Navbar() {
@@ -20,6 +21,14 @@ export default function Navbar() {
     { to: '/shop', label: 'Shop' },
     { to: '/about', label: 'About' },
   ]
+
+  function getPreloadProps(to) {
+    return {
+      onPointerEnter: () => preloadAppRoute(to),
+      onFocus: () => preloadAppRoute(to),
+      onTouchStart: () => preloadAppRoute(to),
+    }
+  }
 
   useEffect(() => {
     lastScrollY.current = window.scrollY
@@ -72,6 +81,7 @@ export default function Navbar() {
             className={`pressable navbar-brand text-base font-bold uppercase ${isHome ? 'mix-blend-difference' : ''}`}
             aria-label="Wood home"
             translate="no"
+            {...getPreloadProps('/')}
           >
             Wood
           </Link>
@@ -83,6 +93,7 @@ export default function Navbar() {
                 to={link.to}
                 className={`pressable nav-link label-text ${isHome ? 'mix-blend-difference' : ''} ${location.pathname === link.to ? 'is-current' : ''}`}
                 aria-current={location.pathname === link.to ? 'page' : undefined}
+                {...getPreloadProps(link.to)}
               >
                 {link.label}
               </Link>
@@ -94,6 +105,7 @@ export default function Navbar() {
               to="/wishlist"
               className={`pressable icon-button wishlist-toggle relative ${isHome ? 'mix-blend-difference' : ''} ${hasWishlistItems ? 'is-active' : ''}`}
               aria-label="Wishlist"
+              {...getPreloadProps('/wishlist')}
             >
               <svg className="heart-icon heart-outline" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
@@ -107,6 +119,7 @@ export default function Navbar() {
               to="/cart"
               className={`pressable icon-button relative ${isHome ? 'mix-blend-difference' : ''}`}
               aria-label={`Cart with ${totalItems} items`}
+              {...getPreloadProps('/cart')}
             >
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
