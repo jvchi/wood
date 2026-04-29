@@ -1,5 +1,18 @@
 import { useState } from 'react'
 
+const principles = [
+  ['01', 'Structure', 'Every piece starts with a room plan, then resolves into a clear object with a quiet footprint.'],
+  ['02', 'Material', 'Solid timber, honest textiles, and replaceable surfaces keep the collection useful beyond one season.'],
+  ['03', 'Service', 'Dimensions, care, delivery, and repair information stay visible so ownership is straightforward.'],
+]
+
+const specs = [
+  ['2019', 'Founded'],
+  ['25 yr', 'Frame warranty'],
+  ['100%', 'Natural materials'],
+  ['12', 'Core forms'],
+]
+
 export default function AboutPage() {
   const [heroLoaded, setHeroLoaded] = useState(false)
   const [detailLoaded, setDetailLoaded] = useState(false)
@@ -7,21 +20,22 @@ export default function AboutPage() {
   return (
     <div className="about-page">
       <header className="about-hero" aria-labelledby="about-title">
-        <p className="about-kicker">About</p>
-        <h1 id="about-title" className="about-title">
-          WOOD
-          <span>ROOM</span>
-          <span>OBJECTS</span>
-        </h1>
-        <div className="about-hero-index" aria-hidden="true">
-          <span>01</span>
-          <span>Materials</span>
-          <span>Rooms</span>
-          <span>Care</span>
+        <div className="about-grid">
+          <p className="about-kicker">About / Wood</p>
+          <h1 id="about-title" className="about-title">Furniture for rooms that are used every day.</h1>
+          <p className="about-hero-copy">
+            We design direct, durable living room objects with clear proportions, natural materials, and enough restraint to sit quietly in the background.
+          </p>
+          <div className="about-hero-index" aria-label="About page sections">
+            <span>Index</span>
+            <span>Materials</span>
+            <span>Rooms</span>
+            <span>Care</span>
+          </div>
         </div>
       </header>
 
-      <section className="about-hero-image" aria-label="Living room">
+      <section className="about-hero-image" aria-label="Minimal living room">
         {!heroLoaded && <div className="about-image-placeholder" />}
         <img
           src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1600&q=80"
@@ -34,11 +48,7 @@ export default function AboutPage() {
       </section>
 
       <section className="about-stats" aria-label="Company facts">
-        {[
-          ['2019', 'FOUNDED'],
-          ['100%', 'NATURAL MATERIALS'],
-          ['25YR', 'FRAME WARRANTY'],
-        ].map(([number, label]) => (
+        {specs.map(([number, label]) => (
           <div key={label}>
             <p>{number}</p>
             <span>{label}</span>
@@ -48,14 +58,11 @@ export default function AboutPage() {
 
       <section className="about-editorial" aria-labelledby="about-edit-title">
         <div className="about-editorial-copy">
-          <p className="about-kicker">02</p>
-          <h2 id="about-edit-title">Start with the room.</h2>
-          <ul>
-            <li>Solid frames</li>
-            <li>Natural textiles</li>
-            <li>Replaceable covers</li>
-            <li>No seasonal excess</li>
-          </ul>
+          <p className="about-kicker">Method</p>
+          <h2 id="about-edit-title">Start with the room. Reduce everything else.</h2>
+          <p>
+            Each product is reviewed against the same simple requirements: stable construction, readable dimensions, repairable parts, and forms that do not dominate the space around them.
+          </p>
         </div>
         <div className="about-editorial-media">
           {!detailLoaded && <div className="about-image-placeholder" />}
@@ -71,7 +78,17 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="about-manifesto" aria-label="Design principles">
+      <section className="about-principles" aria-label="Design principles">
+        {principles.map(([number, title, text]) => (
+          <article key={title}>
+            <span>{number}</span>
+            <h3>{title}</h3>
+            <p>{text}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="about-manifesto" aria-label="Design statement">
         <p>Useful forms.</p>
         <p>Durable materials.</p>
         <p>Direct presentation.</p>

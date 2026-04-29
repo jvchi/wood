@@ -41,6 +41,12 @@
       "sourceType": "github",
       "computedHash": "d606a1146be6d54fb9e73f718b5320b9acac5ff2ba2d7230a555df4b5a923b4a"
     },
+    "swiss-design": {
+      "source": "zeke/swiss-design-skill",
+      "sourceType": "github",
+      "skillPath": "swiss-design/SKILL.md",
+      "computedHash": "06219489ab5db1655af37ddb3efc84242961b9a9ad1fb5a4885c58e8eedf34f3"
+    },
     "systematic-debugging": {
       "source": "obra/superpowers",
       "sourceType": "github",
