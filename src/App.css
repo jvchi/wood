@@ -172,7 +172,7 @@ input {
 }
 
 .home-couch-page {
-  min-height: 100dvh;
+  min-height: 100lvh;
   background: var(--color-background);
   --home-progress: 0;
   --home-radius: 0rem;
@@ -188,7 +188,7 @@ input {
 }
 
 .home-couch-scroll {
-  min-height: 132dvh;
+  min-height: 132lvh;
   background: var(--color-background);
   overscroll-behavior-x: none;
   overscroll-behavior-y: auto;
@@ -197,18 +197,18 @@ input {
 .home-couch-sticky {
   position: sticky;
   top: 0;
-  min-height: 100vh;
-  min-height: 100svh;
-  height: 100vh;
-  height: 100svh;
+  min-height: 100lvh;
+  min-height: 100dvh;
+  height: 100lvh;
+  height: 100dvh;
   overflow: hidden;
   background: var(--color-background);
 }
 
 .home-couch-frame {
   position: relative;
-  min-height: 100vh;
-  min-height: 100svh;
+  min-height: 100lvh;
+  min-height: 100dvh;
   height: 100%;
   overflow: hidden;
   background: var(--color-white);
