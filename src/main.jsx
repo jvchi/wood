@@ -3,7 +3,7 @@ import './App.css'
 import App from './App.jsx'
 
 createRoot(document.getElementById('root')).render(
-  <div classname="main">
+  <div className="main">
     <App />
   </div>
 

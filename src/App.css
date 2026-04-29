@@ -52,6 +52,12 @@ html {
   height: 100%;
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
 body {
   min-width: 320px;
   min-height: 100lvh;
@@ -202,18 +208,18 @@ input {
 .home-couch-sticky {
   position: sticky;
   top: 0;
-  min-height: 100lvh;
   min-height: 100dvh;
-  height: 100lvh;
+  min-height: 100lvh;
   height: 100dvh;
+  height: 100lvh;
   overflow: hidden;
   background: var(--color-background);
 }
 
 .home-couch-frame {
   position: relative;
-  min-height: 100lvh;
   min-height: 100dvh;
+  min-height: 100lvh;
   height: 100%;
   overflow: hidden;
   background: var(--color-white);
