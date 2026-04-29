@@ -10,8 +10,12 @@ export default function HomePage() {
   const scrollRef = useRef(null)
   const titleRef = useRef(null)
   const progressRef = useRef(0)
+  const heroTargetProgressRef = useRef(0)
+  const heroDisplayProgressRef = useRef(0)
   const showcaseRef = useRef(null)
   const showcaseProgressRef = useRef(0)
+  const showcaseTargetProgressRef = useRef(0)
+  const showcaseDisplayProgressRef = useRef(0)
 
   useEffect(() => {
     function easeTitleDrop(progress) {
@@ -23,7 +27,7 @@ export default function HomePage() {
       return Math.min(1, Math.max(0, slowPull * (1 - snapWeight) + snapCatch * snapWeight + settle))
     }
 
-    function updateHeroProgress(progress) {
+    function applyHeroProgress(progress) {
       if (!stickyRef.current || !scrollRef.current) return
       const titleDropProgress = easeTitleDrop(progress)
       const titleDropDistance = titleRef.current
@@ -43,15 +47,24 @@ export default function HomePage() {
       scrollRef.current.style.setProperty('--home-mobile-panel-opacity', `${1 - progress * 0.45}`)
     }
 
-    function updateChairProgress() {
+    function measureChairProgress() {
       if (showcaseRef.current) {
         const rect = showcaseRef.current.getBoundingClientRect()
         const revealStart = window.innerHeight * 0.92
         const revealDistance = Math.max(window.innerHeight * 0.9, rect.height * 0.75)
         const showcaseProgress = Math.min(1, Math.max(0, (revealStart - rect.top) / revealDistance))
-        showcaseProgressRef.current = showcaseProgress
-        showcaseRef.current.style.setProperty('--chair-progress', showcaseProgress.toFixed(4))
+        showcaseTargetProgressRef.current = showcaseProgress
       }
+    }
+
+    function applyChairProgress(progress) {
+      showcaseProgressRef.current = progress
+      showcaseRef.current?.style.setProperty('--chair-progress', progress.toFixed(4))
+    }
+
+    function smoothTo(current, target, factor = 0.18) {
+      const next = current + (target - current) * factor
+      return Math.abs(target - next) < 0.0008 ? target : next
     }
 
     const ctx = gsap.context(() => {
@@ -64,15 +77,19 @@ export default function HomePage() {
           const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
           const liftDistance = Math.max(1, scrollRef.current.offsetHeight - window.innerHeight)
           const liftProgress = Math.min(1, Math.max(0, (currentScroll - self.start) / liftDistance))
-          updateHeroProgress(liftProgress)
-          updateChairProgress()
+          heroTargetProgressRef.current = liftProgress
+          measureChairProgress()
         },
         onRefresh: (self) => {
           const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
           const liftDistance = Math.max(1, scrollRef.current.offsetHeight - window.innerHeight)
           const liftProgress = Math.min(1, Math.max(0, (currentScroll - self.start) / liftDistance))
-          updateHeroProgress(liftProgress)
-          updateChairProgress()
+          heroTargetProgressRef.current = liftProgress
+          heroDisplayProgressRef.current = liftProgress
+          applyHeroProgress(liftProgress)
+          measureChairProgress()
+          showcaseDisplayProgressRef.current = showcaseTargetProgressRef.current
+          applyChairProgress(showcaseTargetProgressRef.current)
         },
       })
 
@@ -81,14 +98,34 @@ export default function HomePage() {
         trigger: showcaseRef.current,
         start: 'top 92%',
         end: 'bottom 20%',
-        onUpdate: updateChairProgress,
-        onRefresh: updateChairProgress,
+        onUpdate: measureChairProgress,
+        onRefresh: measureChairProgress,
       })
 
-      updateHeroProgress(heroTrigger.progress)
-      updateChairProgress()
+      applyHeroProgress(heroTrigger.progress)
+      measureChairProgress()
+      applyChairProgress(showcaseTargetProgressRef.current)
+
+      const smoothing = window.matchMedia('(max-width: 767px)').matches ? 0.14 : 0.2
+      const tick = () => {
+        const nextHeroProgress = smoothTo(heroDisplayProgressRef.current, heroTargetProgressRef.current, smoothing)
+        const nextChairProgress = smoothTo(showcaseDisplayProgressRef.current, showcaseTargetProgressRef.current, smoothing)
+
+        if (nextHeroProgress !== heroDisplayProgressRef.current) {
+          heroDisplayProgressRef.current = nextHeroProgress
+          applyHeroProgress(nextHeroProgress)
+        }
+
+        if (nextChairProgress !== showcaseDisplayProgressRef.current) {
+          showcaseDisplayProgressRef.current = nextChairProgress
+          applyChairProgress(nextChairProgress)
+        }
+      }
+
+      gsap.ticker.add(tick)
 
       return () => {
+        gsap.ticker.remove(tick)
         chairTrigger.kill()
         heroTrigger.kill()
       }
