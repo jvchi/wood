@@ -53,7 +53,7 @@ html {
 
 body {
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100dvh;
   font-family: var(--font-body);
   font-size: var(--font-size-base);
   line-height: 1.5;
@@ -452,7 +452,7 @@ input {
   margin: 0 auto;
 }
 
-.about-grid > * {
+.about-grid>* {
   min-width: 0;
 }
 
