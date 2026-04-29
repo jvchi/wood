@@ -49,6 +49,7 @@ html {
   -ms-overflow-style: none;
   overscroll-behavior-x: none;
   overscroll-behavior-y: auto;
+  min-height: 100lvh;
 }
 
 body {
