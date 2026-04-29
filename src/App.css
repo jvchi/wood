@@ -56,12 +56,14 @@ html,
 body,
 #root {
   min-height: 100vh;
-  min-height: 100lvh;
+  min-height: 100svh;
+  min-height: 100dvh;
 }
 
 body {
   min-width: 320px;
-  min-height: 100lvh;
+  min-height: 100svh;
+  min-height: 100dvh;
   font-family: var(--font-body);
   font-size: var(--font-size-base);
   line-height: 1.5;
@@ -78,12 +80,14 @@ body {
 }
 
 .main {
-  min-height: calc(100lvh + 1px);
+  min-height: 100svh;
+  min-height: 100dvh;
 }
 
 .app-viewport-shell {
   min-height: 100vh;
-  min-height: 100lvh;
+  min-height: 100svh;
+  min-height: 100dvh;
 }
 
 html.lenis,
@@ -194,7 +198,8 @@ input {
 }
 
 .home-couch-page {
-  min-height: 100lvh;
+  min-height: 100svh;
+  min-height: 100dvh;
   background: var(--color-background);
   --home-progress: 0;
   --home-radius: 0rem;
@@ -220,9 +225,7 @@ input {
   position: sticky;
   top: 0;
   min-height: 100dvh;
-  min-height: 100lvh;
   height: 100dvh;
-  height: 100lvh;
   overflow: hidden;
   background: var(--color-background);
 }
@@ -230,7 +233,6 @@ input {
 .home-couch-frame {
   position: relative;
   min-height: 100dvh;
-  min-height: 100lvh;
   height: 100%;
   overflow: hidden;
   background: var(--color-white);
@@ -244,7 +246,7 @@ input {
 
 .home-couch-stage {
   position: absolute;
-  inset: -10dvh -8vw;
+  inset: calc(-10dvh - env(safe-area-inset-top)) -8vw calc(-10dvh - env(safe-area-inset-bottom));
   transform: translate3d(0, var(--home-stage-y), 0);
   will-change: transform;
 }
@@ -346,7 +348,7 @@ input {
   position: absolute;
   left: 1rem;
   right: 1rem;
-  bottom: calc(1.25rem + env(safe-area-inset-bottom));
+  bottom: max(1.25rem, calc(0.85rem + env(safe-area-inset-bottom)));
   z-index: 30;
   display: grid;
   gap: 0.35rem;
@@ -371,6 +373,11 @@ input {
   font-weight: 700;
   line-height: 1;
   text-transform: uppercase;
+}
+
+.home-couch-frame:has(.three-placeholder) .home-couch-title,
+.home-couch-frame:has(.three-placeholder) .home-mobile-panel {
+  display: none;
 }
 
 .home-chair-section {
@@ -2900,6 +2907,23 @@ input {
     bottom: 0.75rem;
     max-width: calc(100% - 2rem);
   }
+
+  .home-couch-frame {
+    min-height: 100svh;
+    min-height: 100dvh;
+  }
+
+  .home-mobile-panel {
+    bottom: max(1rem, calc(0.75rem + env(safe-area-inset-bottom)));
+    max-width: min(100% - 2rem, 18rem);
+  }
+
+  .home-mobile-panel p:last-of-type {
+    max-width: 10.75rem;
+    font-size: clamp(1.35rem, 8vw, 2.15rem);
+    line-height: 1;
+  }
+
 }
 
 @media (min-width: 768px) {

@@ -68,9 +68,10 @@ export default function HomePage() {
 
     function applyHeroProgress(progress) {
       if (!stickyRef.current || !scrollRef.current) return
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight
       const titleDropProgress = easeTitleDrop(progress)
       const titleDropDistance = titleRef.current
-        ? Math.max(0, stickyRef.current.offsetHeight - titleRef.current.offsetTop - titleRef.current.offsetHeight)
+        ? Math.max(0, Math.min(stickyRef.current.offsetHeight, viewportHeight) - titleRef.current.offsetTop - titleRef.current.offsetHeight)
         : 0
       progressRef.current = progress
       scrollRef.current.style.setProperty('--home-progress', progress.toFixed(4))
@@ -89,8 +90,9 @@ export default function HomePage() {
     function measureChairProgress() {
       if (showcaseRef.current) {
         const rect = showcaseRef.current.getBoundingClientRect()
-        const revealStart = window.innerHeight * 0.92
-        const revealDistance = Math.max(window.innerHeight * 0.9, rect.height * 0.75)
+        const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+        const revealStart = viewportHeight * 0.92
+        const revealDistance = Math.max(viewportHeight * 0.9, rect.height * 0.75)
         const showcaseProgress = Math.min(1, Math.max(0, (revealStart - rect.top) / revealDistance))
         showcaseTargetProgressRef.current = showcaseProgress
       }
@@ -114,14 +116,16 @@ export default function HomePage() {
         end: () => showcaseRef.current?.offsetTop ?? Math.max(1, scrollRef.current.offsetHeight - window.innerHeight),
         onUpdate: (self) => {
           const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
-          const liftDistance = Math.max(1, scrollRef.current.offsetHeight - window.innerHeight)
+          const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+          const liftDistance = Math.max(1, scrollRef.current.offsetHeight - viewportHeight)
           const liftProgress = Math.min(1, Math.max(0, (currentScroll - self.start) / liftDistance))
           heroTargetProgressRef.current = liftProgress
           measureChairProgress()
         },
         onRefresh: (self) => {
           const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
-          const liftDistance = Math.max(1, scrollRef.current.offsetHeight - window.innerHeight)
+          const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+          const liftDistance = Math.max(1, scrollRef.current.offsetHeight - viewportHeight)
           const liftProgress = Math.min(1, Math.max(0, (currentScroll - self.start) / liftDistance))
           heroTargetProgressRef.current = liftProgress
           heroDisplayProgressRef.current = liftProgress
@@ -162,8 +166,11 @@ export default function HomePage() {
       }
 
       gsap.ticker.add(tick)
+      const refreshForViewport = () => ScrollTrigger.refresh()
+      window.visualViewport?.addEventListener('resize', refreshForViewport)
 
       return () => {
+        window.visualViewport?.removeEventListener('resize', refreshForViewport)
         gsap.ticker.remove(tick)
         chairTrigger.kill()
         heroTrigger.kill()
