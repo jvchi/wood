@@ -82,16 +82,17 @@ export function getDevicePerformanceProfile() {
   const saveData = navigator.connection?.saveData === true
   const slowConnection = /(^2g$|^3g$|slow-2g)/i.test(navigator.connection?.effectiveType || '')
   const webgl = canUseWebGL()
+  const deviceDpr = Math.min(window.devicePixelRatio || 1, 1.75)
 
   if (!webgl || reducedMotion || saveData || slowConnection) {
     return { tier: 'static', preferStatic: true, preferLite: true, dpr: 1 }
   }
 
   if (coarsePointer || narrow || lowMemory || lowCores) {
-    return { tier: 'balanced', preferStatic: false, preferLite: true, dpr: 1.15 }
+    return { tier: 'balanced', preferStatic: false, preferLite: true, dpr: Math.max(1.35, deviceDpr) }
   }
 
-  return { tier: 'high', preferStatic: false, preferLite: false, dpr: 1.5 }
+  return { tier: 'high', preferStatic: false, preferLite: false, dpr: Math.max(1.5, deviceDpr) }
 }
 
 export function runWhenIdle(callback, timeout = 1500) {

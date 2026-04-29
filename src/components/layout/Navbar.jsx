@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { motion as framerMotion } from 'framer-motion'
 import { useCart } from '../../context/CartContext'
 import { useWishlist } from '../../context/WishlistContext'
 import { preloadAppRoute } from '../../lib/routePreload'
 import MobileNav from './MobileNav'
 
-export default function Navbar() {
+const MotionSpan = framerMotion.span
+
+export default function Navbar({ brandIntroReady = true }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [navHidden, setNavHidden] = useState(false)
   const lastScrollY = useRef(0)
@@ -78,12 +81,24 @@ export default function Navbar() {
         <div className="page-shell flex h-16 items-center justify-between gap-4">
           <Link
             to="/"
-            className={`pressable navbar-brand text-base font-bold uppercase ${isHome ? 'mix-blend-difference' : ''}`}
+            className={`pressable navbar-brand text-base font-bold ${isHome ? 'mix-blend-difference' : ''}`}
             aria-label="Wood home"
             translate="no"
             {...getPreloadProps('/')}
           >
-            Wood
+            {brandIntroReady ? (
+              <MotionSpan
+                layoutId="brand-wordmark"
+                className="navbar-brand-wordmark"
+                transition={{ layout: { duration: 0.72, ease: [0.32, 0.72, 0, 1] } }}
+              >
+                wood
+              </MotionSpan>
+            ) : (
+              <span className="navbar-brand-wordmark navbar-brand-wordmark-placeholder" aria-hidden="true">
+                wood
+              </span>
+            )}
           </Link>
 
           <div className="hidden items-center gap-6 md:flex">

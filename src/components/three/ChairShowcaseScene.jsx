@@ -158,9 +158,7 @@ function ChairModel({ active, pointerRef, dragRef, hoverRef, sectionProgressRef,
 export default function ChairShowcaseScene({ active = true, sectionProgressRef }) {
   const [webglAvailable] = useState(canUseWebGL)
   const [profile] = useState(getDevicePerformanceProfile)
-  const modelAsset = resolveModelAsset(MODEL_ASSETS.pipoChair, {
-    quality: profile.preferLite ? 'lite' : 'full',
-  })
+  const modelAsset = resolveModelAsset(MODEL_ASSETS.pipoChair)
   const pointerRef = useRef({ x: 0, y: 0 })
   const hoverRef = useRef(false)
   const dragRef = useRef({
@@ -177,7 +175,7 @@ export default function ChairShowcaseScene({ active = true, sectionProgressRef }
     pointerRef.current.x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2
     pointerRef.current.y = ((event.clientY - bounds.top) / bounds.height - 0.5) * -2
 
-    if (!dragRef.current.active || dragRef.current.pointerId !== event.pointerId) return
+    if (event.pointerType === 'touch' || !dragRef.current.active || dragRef.current.pointerId !== event.pointerId) return
 
     const nextRotationY = (event.clientX - dragRef.current.startX) * DRAG_ROTATION_Y_STRENGTH
     const nextRotationX = (event.clientY - dragRef.current.startY) * DRAG_ROTATION_X_STRENGTH
@@ -195,6 +193,7 @@ export default function ChairShowcaseScene({ active = true, sectionProgressRef }
   }
 
   function handlePointerDown(event) {
+    if (event.pointerType === 'touch') return
     if (dragRef.current.active) return
     dragRef.current.active = true
     dragRef.current.pointerId = event.pointerId
@@ -204,6 +203,7 @@ export default function ChairShowcaseScene({ active = true, sectionProgressRef }
   }
 
   function handlePointerUp(event) {
+    if (event.pointerType === 'touch') return
     if (dragRef.current.pointerId !== event.pointerId) return
     dragRef.current.active = false
     dragRef.current.pointerId = null
@@ -236,7 +236,7 @@ export default function ChairShowcaseScene({ active = true, sectionProgressRef }
         dpr={[1, profile.dpr]}
         frameloop={active ? 'always' : 'demand'}
         resize={{ scroll: false }}
-        gl={{ antialias: profile.tier === 'high', alpha: true, powerPreference: profile.tier === 'high' ? 'high-performance' : 'default' }}
+        gl={{ antialias: true, alpha: true, powerPreference: profile.tier === 'high' ? 'high-performance' : 'default' }}
         camera={{ position: [0.08, 0.3, 4.2], fov: 20 }}
       >
         <ambientLight intensity={1.2} />

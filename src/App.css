@@ -52,6 +52,11 @@ html {
   height: 100%;
 }
 
+html.intro-lock,
+html.intro-lock body {
+  overflow: clip;
+}
+
 html,
 body,
 #root {
@@ -169,6 +174,79 @@ input {
 .route-fallback {
   min-height: 0;
   background: transparent;
+}
+
+.initial-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--color-primary);
+  pointer-events: auto;
+  contain: layout paint style;
+}
+
+.initial-loader-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(50% + 1px);
+  background: var(--color-white);
+  will-change: transform, opacity;
+}
+
+.initial-loader-panel-top {
+  top: 0;
+}
+
+.initial-loader-panel-bottom {
+  bottom: 0;
+}
+
+.initial-loader::after {
+  position: absolute;
+  left: max(1rem, var(--page-x));
+  right: max(1rem, var(--page-x));
+  top: 50%;
+  z-index: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.16), transparent);
+  transform: scaleX(0.22);
+  opacity: 0.42;
+  content: '';
+}
+
+.initial-loader-wordmark,
+.navbar-brand-wordmark {
+  display: inline-block;
+  color: currentColor;
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.initial-loader-wordmark {
+  position: relative;
+  z-index: 2;
+}
+
+.navbar-brand {
+  display: inline-flex;
+  min-width: 2.45rem;
+  align-items: center;
+  line-height: 1;
+  text-transform: none;
+}
+
+.navbar-brand-wordmark-placeholder {
+  visibility: hidden;
 }
 
 .page-top {
@@ -429,7 +507,7 @@ input {
 
 .chair-scene-shell {
   cursor: grab;
-  touch-action: none;
+  touch-action: pan-y;
 }
 
 .chair-scene-shell:active {

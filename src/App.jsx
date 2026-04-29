@@ -10,7 +10,9 @@ import { ToastProvider } from './context/ToastContext'
 import { SharedProductTransitionContext } from './context/SharedProductTransitionContext'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import PageLayout from './components/layout/PageLayout'
+import InitialLoadTransition from './components/layout/InitialLoadTransition'
 import { PersistentThreeSceneProvider } from './components/three/PersistentThreeSceneProvider'
+import useInitialLoadReady from './hooks/useInitialLoadReady'
 import { routeLoaders } from './lib/routePreload'
 
 const HomePage = lazy(routeLoaders['/'])
@@ -38,11 +40,12 @@ function AppRoutes() {
   const location = useLocation()
   const backgroundLocation = location.state?.backgroundLocation
   const activeProductId = location.state?.sharedProductId ? String(location.state.sharedProductId) : null
+  const initialLoad = useInitialLoadReady(location.pathname)
 
   return (
     <SharedProductTransitionContext.Provider value={{ activeProductId }}>
       <LayoutGroup id="product-shared-layout">
-        <PageLayout>
+        <PageLayout brandIntroReady={initialLoad.ready}>
           <Suspense fallback={<RouteFallback />}>
             <Routes location={backgroundLocation || location}>
               <Route path="/" element={<HomePage />} />
@@ -83,6 +86,13 @@ function AppRoutes() {
             </MotionDiv>
           )}
         </AnimatePresence>
+
+        {!initialLoad.complete && (
+          <InitialLoadTransition
+            ready={initialLoad.ready}
+            onExitComplete={() => initialLoad.setComplete(true)}
+          />
+        )}
       </LayoutGroup>
     </SharedProductTransitionContext.Provider>
   )
@@ -91,6 +101,7 @@ function AppRoutes() {
 export default function App() {
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined
+    if (window.matchMedia('(pointer: coarse)').matches) return undefined
 
     const lenis = new Lenis({
       autoRaf: true,
