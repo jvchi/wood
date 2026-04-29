@@ -26,7 +26,7 @@ export default function PageLayout({ children }) {
   }, [pathname, action, location.state])
 
   return (
-    <div className={`min-h-dvh flex flex-col ${isHome ? 'app-shell-home' : 'bg-white'}`}>
+    <div className={`app-viewport-shell flex flex-col ${isHome ? 'app-shell-home' : 'bg-white'}`}>
       {!isAdmin && <Navbar />}
       <main id="main-content" className="flex-1">{children}</main>
       {showFooter && !isAdmin && <Footer />}

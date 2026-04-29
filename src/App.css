@@ -55,7 +55,8 @@ html {
 html,
 body,
 #root {
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100lvh;
 }
 
 body {
@@ -77,7 +78,12 @@ body {
 }
 
 .main {
-  min-height: calc(100lvh + 1px)
+  min-height: calc(100lvh + 1px);
+}
+
+.app-viewport-shell {
+  min-height: 100vh;
+  min-height: 100lvh;
 }
 
 html.lenis,
@@ -2624,6 +2630,14 @@ input {
 }
 
 @media (max-width: 767px) {
+  @supports (-webkit-touch-callout: none) {
+    .home-couch-frame,
+    .home-couch-stage {
+      transform: none;
+      will-change: auto;
+    }
+  }
+
   .about-grid {
     display: block;
     width: 100%;
