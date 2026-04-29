@@ -69,7 +69,7 @@ export default function Navbar() {
         <div className="page-shell flex h-16 items-center justify-between gap-4">
           <Link
             to="/"
-            className="pressable navbar-brand text-base font-bold uppercase"
+            className={`pressable navbar-brand text-base font-bold uppercase ${isHome ? 'mix-blend-difference' : ''}`}
             aria-label="Wood home"
             translate="no"
           >
@@ -81,7 +81,7 @@ export default function Navbar() {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`pressable nav-link label-text ${location.pathname === link.to ? 'is-current' : ''}`}
+                className={`pressable nav-link label-text ${isHome ? 'mix-blend-difference' : ''} ${location.pathname === link.to ? 'is-current' : ''}`}
                 aria-current={location.pathname === link.to ? 'page' : undefined}
               >
                 {link.label}
@@ -92,7 +92,7 @@ export default function Navbar() {
           <div className="navbar-actions flex items-center gap-1 md:gap-3">
             <Link
               to="/wishlist"
-              className={`pressable icon-button wishlist-toggle relative ${hasWishlistItems ? 'is-active' : ''}`}
+              className={`pressable icon-button wishlist-toggle relative ${isHome ? 'mix-blend-difference' : ''} ${hasWishlistItems ? 'is-active' : ''}`}
               aria-label="Wishlist"
             >
               <svg className="heart-icon heart-outline" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -105,7 +105,7 @@ export default function Navbar() {
 
             <Link
               to="/cart"
-              className="pressable icon-button relative"
+              className={`pressable icon-button relative ${isHome ? 'mix-blend-difference' : ''}`}
               aria-label={`Cart with ${totalItems} items`}
             >
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -114,14 +114,14 @@ export default function Navbar() {
                 <path d="M16 10a4 4 0 0 1-8 0"/>
               </svg>
               {totalItems > 0 && (
-                <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-primary)] px-1 text-[10px] font-bold text-white tabular-nums">
+                <span className={`absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-primary)] px-1 text-[10px] font-bold text-white tabular-nums ${isHome ? 'mix-blend-difference' : ''}`}>
                   {totalItems}
                 </span>
               )}
             </Link>
 
             <button
-              className="pressable icon-button mobile-menu-button"
+              className={`pressable icon-button mobile-menu-button ${isHome ? 'mix-blend-difference' : ''}`}
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
               aria-expanded={mobileOpen}

@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react'
-import { motion as Motion } from 'framer-motion'
 import { useProducts } from '../hooks/useProducts'
 import ProductCard from '../components/ui/ProductCard'
 import Skeleton from '../components/ui/Skeleton'
@@ -67,7 +66,7 @@ export default function ShopPage() {
           ))}
         </div>
       ) : (
-        <Motion.div layout className="shop-masonry">
+        <div className="shop-masonry">
           {filtered.map((product, index) => (
             <ProductCard
               key={product.id} 
@@ -76,7 +75,7 @@ export default function ShopPage() {
               variant="masonry" 
             />
           ))}
-        </Motion.div>
+        </div>
       )}
 
       {!loading && filtered.length === 0 && (

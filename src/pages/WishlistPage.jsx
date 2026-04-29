@@ -38,8 +38,8 @@ export default function WishlistPage() {
               <h3 className="product-title break-words">{product.name}</h3>
               <p className="product-price">{formatPrice(product.price, product.currency)}</p>
             </div>
-            <div className="mt-2 flex gap-2">
-              <Button size="sm" variant="secondary" className="flex-1" onClick={() => { addItem(product); addToast(`${product.name} added to cart`) }}>
+            <div className="wishlist-actions mt-2 flex gap-2">
+              <Button size="sm" variant="secondary" className="wishlist-add-button" onClick={() => { addItem(product); removeItem(product.id); addToast(`${product.name} moved to cart`) }}>
                 Add to Cart
               </Button>
               <button

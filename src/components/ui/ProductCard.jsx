@@ -61,8 +61,8 @@ const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
       style={isMasonry ? { '--masonry-index': index % 6 } : undefined}
     >
       <MotionDiv
-        layout
-        layoutId={`product-media-${product.id}`}
+        layout={!isMasonry}
+        layoutId={isMasonry ? undefined : `product-media-${product.id}`}
         className={`product-media ${isMasonry ? 'product-media-masonry' : ''}`}
         transition={sharedImageTransition}
         initial={false}
@@ -80,8 +80,8 @@ const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
           )}
           <MotionImg
             ref={imageRef}
-            layoutId={`product-image-${product.id}`}
-            layout
+            layoutId={isMasonry ? undefined : `product-image-${product.id}`}
+            layout={!isMasonry}
             src={product.images[0]}
             alt={product.name}
             width="800"

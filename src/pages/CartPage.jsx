@@ -17,13 +17,12 @@ export default function CartPage() {
   }
 
   return (
-    <div className="page-shell page-top pb-16 md:pb-20">
+    <div className="page-shell page-top cart-page pb-16 md:pb-20">
       <h1 className="page-title mb-10 md:mb-12">
         Cart <span className="align-baseline text-[var(--font-size-sm)] text-[var(--color-secondary)] tabular-nums">({totalItems})</span>
       </h1>
 
-      <div className="grid grid-cols-1 gap-12 lg:grid-cols-3 lg:gap-16">
-        <div className="lg:col-span-2 space-y-3">
+      <div className="space-y-3">
           {items.map(item => (
             <div key={item.key} className="cart-item">
               <Link to={`/product/${item.product.id}`} className="cart-item-image">
@@ -62,12 +61,10 @@ export default function CartPage() {
               </div>
             </div>
           ))}
-        </div>
-
-        <div className="h-fit lg:sticky lg:top-24">
-          <div className="cart-summary bg-white p-6 md:p-8">
+        <div className="cart-summary-bar">
+          <div className="cart-summary bg-white">
             <h2 className="label-text-compact mb-6 text-[var(--color-muted)]">Order Summary</h2>
-            <div className="space-y-3 mb-8">
+            <div className="cart-summary-lines">
               <div className="summary-row flex justify-between gap-4">
                 <span>Subtotal</span>
                 <span className="text-[var(--color-primary)] tabular-nums">{formatPrice(totalPrice)}</span>
@@ -77,7 +74,7 @@ export default function CartPage() {
                 <span className="text-right">At checkout</span>
               </div>
             </div>
-            <div className="mb-8 pt-4">
+            <div className="cart-summary-total">
               <div className="flex justify-between">
                 <span className="summary-total">Total</span>
                 <span className="summary-total">{formatPrice(totalPrice)}</span>

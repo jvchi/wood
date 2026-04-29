@@ -42,7 +42,7 @@ function HeartIcon({ filled = false }) {
   )
 }
 
-function ImageGallery({ images, name, productId }) {
+function ImageGallery({ images, name }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [loaded, setLoaded] = useState({})
   const [imageRatios, setImageRatios] = useState({})
@@ -141,6 +141,8 @@ function ProductActionControls({
   /* layoutId, */
   className = '',
 }) {
+  const isOutOfStock = product.stock_quantity <= 0 || product.stock <= 0
+
   return (
     <MotionDiv
       /* layout */
@@ -149,8 +151,8 @@ function ProductActionControls({
       /* transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} */
       aria-hidden={!active}
     >
-      <Button onClick={onAddToCart} className="product-add-button" disabled={product.stock_quantity <= 0 || product.stock <= 0}>
-        {product.stock_quantity <= 0 || product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
+      <Button onClick={onAddToCart} className={`product-add-button ${isOutOfStock ? 'is-out-of-stock' : ''}`} disabled={isOutOfStock}>
+        {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
       </Button>
       <button
         type="button"
@@ -277,7 +279,7 @@ export default function ProductPage({ isOverlay = false }) {
           </div>
 
           {activeTab === 'photos' ? (
-            <ImageGallery images={product.images} name={product.name} productId={product.id} />
+            <ImageGallery images={product.images} name={product.name} />
           ) : (
             <div className="product-gallery-frame">
               <Suspense fallback={<Skeleton className="w-full h-full" />}>
