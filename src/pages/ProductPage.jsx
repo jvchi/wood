@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { motion as framerMotion } from 'framer-motion'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useProduct } from '../hooks/useProduct'
@@ -8,7 +8,10 @@ import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
 import Button from '../components/ui/Button'
 import Skeleton from '../components/ui/Skeleton'
-import ProductViewer from '../components/three/ProductViewer'
+import LazyThreeScene from '../components/three/LazyThreeScene'
+import ThreeModelPlaceholder from '../components/three/ThreeModelPlaceholder'
+
+const ProductViewer = lazy(() => import('../components/three/ProductViewer'))
 
 const MotionDiv = framerMotion.div
 const MotionImg = framerMotion.img
@@ -283,7 +286,21 @@ export default function ProductPage({ isOverlay = false }) {
           ) : (
             <div className="product-gallery-frame">
               <Suspense fallback={<Skeleton className="w-full h-full" />}>
-                <ProductViewer modelUrl={product.model_url} modelScale={product.model_scale} modelRotation={product.model_rotation} />
+                <LazyThreeScene
+                  fallback={<ThreeModelPlaceholder poster={product.fallback_image_url || product.images[0]} variant="product" label="Product preview" />}
+                  poster={product.fallback_image_url || product.images[0]}
+                  variant="product"
+                  label="Product preview"
+                >
+                  <ProductViewer
+                    modelUrl={product.model_url}
+                    modelLiteUrl={product.model_lite_url}
+                    modelVersion={product.model_version || product.updated_at}
+                    modelScale={product.model_scale}
+                    modelRotation={product.model_rotation}
+                    fallbackImage={product.fallback_image_url || product.images[0]}
+                  />
+                </LazyThreeScene>
               </Suspense>
             </div>
           )}

@@ -322,6 +322,8 @@ function mapSupabaseProduct(row) {
     collection: row.collections?.slug || row.collection_id,
     images: images.length ? images : [row.main_image_url].filter(Boolean),
     model_url: model?.url || row.model_url || '',
+    model_lite_url: model?.lite_url || row.model_lite_url || '',
+    model_version: model?.version || row.updated_at || '',
     model_scale: model?.scale || row.model_scale || 1,
     model_rotation: model?.rotation || row.model_rotation || '0,0,0',
   })
@@ -489,6 +491,8 @@ async function replaceProductModel(product) {
   const { error } = await supabase.from('product_models').insert({
     product_id: product.id,
     url: product.model_url,
+    lite_url: product.model_lite_url || null,
+    version: product.model_version || product.updated_at || null,
     fallback_image_url: product.fallback_image_url || product.images[0] || null,
     scale: Number(product.model_scale || 1),
     rotation: product.model_rotation || '0,0,0',
@@ -511,7 +515,10 @@ export async function uploadAsset(file, bucket, productId) {
   if (hasSupabaseConfig) {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
     const path = `${productId || 'draft'}/${Date.now()}-${safeName}`
-    const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true })
+    const { error } = await supabase.storage.from(bucket).upload(path, file, {
+      cacheControl: '31536000',
+      upsert: true,
+    })
     if (error) throw error
     const { data } = supabase.storage.from(bucket).getPublicUrl(path)
     return data.publicUrl

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion as framerMotion } from 'framer-motion'
 import gsap from 'gsap'
@@ -10,22 +10,28 @@ import { ToastProvider } from './context/ToastContext'
 import { SharedProductTransitionContext } from './context/SharedProductTransitionContext'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import PageLayout from './components/layout/PageLayout'
-import HomePage from './pages/HomePage'
-import ShopPage from './pages/ShopPage'
-import ProductPage from './pages/ProductPage'
-import CartPage from './pages/CartPage'
-import WishlistPage from './pages/WishlistPage'
-import AboutPage from './pages/AboutPage'
-import NotFoundPage from './pages/NotFoundPage'
-import AdminLayout from './pages/admin/AdminLayout'
-import AdminOverview from './pages/admin/AdminOverview'
-import AdminProductsPage from './pages/admin/AdminProductsPage'
-import AdminTaxonomyPage from './pages/admin/AdminTaxonomyPage'
-import AdminPlaceholderPage from './pages/admin/AdminPlaceholderPage'
+import { PersistentThreeSceneProvider } from './components/three/PersistentThreeSceneProvider'
+
+const HomePage = lazy(() => import('./pages/HomePage'))
+const ShopPage = lazy(() => import('./pages/ShopPage'))
+const ProductPage = lazy(() => import('./pages/ProductPage'))
+const CartPage = lazy(() => import('./pages/CartPage'))
+const WishlistPage = lazy(() => import('./pages/WishlistPage'))
+const AboutPage = lazy(() => import('./pages/AboutPage'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
+const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'))
+const AdminOverview = lazy(() => import('./pages/admin/AdminOverview'))
+const AdminProductsPage = lazy(() => import('./pages/admin/AdminProductsPage'))
+const AdminTaxonomyPage = lazy(() => import('./pages/admin/AdminTaxonomyPage'))
+const AdminPlaceholderPage = lazy(() => import('./pages/admin/AdminPlaceholderPage'))
 
 gsap.registerPlugin(ScrollTrigger)
 
 const MotionDiv = framerMotion.div
+
+function RouteFallback() {
+  return <div className="route-fallback" role="status" aria-label="Loading page" />
+}
 
 function AppRoutes() {
   const location = useLocation()
@@ -36,25 +42,27 @@ function AppRoutes() {
     <SharedProductTransitionContext.Provider value={{ activeProductId }}>
       <LayoutGroup id="product-shared-layout">
         <PageLayout>
-          <Routes location={backgroundLocation || location}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/shop" element={<ShopPage />} />
-            <Route path="/product/:id" element={<ProductPage />} />
-            <Route path="/cart" element={<CartPage />} />
-          <Route path="/wishlist" element={<WishlistPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminOverview />} />
-            <Route path="products" element={<AdminProductsPage />} />
-            <Route path="taxonomy" element={<AdminTaxonomyPage />} />
-            <Route path="orders" element={<AdminPlaceholderPage type="orders" />} />
-            <Route path="customers" element={<AdminPlaceholderPage type="customers" />} />
-            <Route path="coupons" element={<AdminPlaceholderPage type="coupons" />} />
-            <Route path="shipping" element={<AdminPlaceholderPage type="shipping" />} />
-            <Route path="settings" element={<AdminPlaceholderPage type="settings" />} />
-          </Route>
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes location={backgroundLocation || location}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/shop" element={<ShopPage />} />
+              <Route path="/product/:id" element={<ProductPage />} />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/wishlist" element={<WishlistPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminOverview />} />
+                <Route path="products" element={<AdminProductsPage />} />
+                <Route path="taxonomy" element={<AdminTaxonomyPage />} />
+                <Route path="orders" element={<AdminPlaceholderPage type="orders" />} />
+                <Route path="customers" element={<AdminPlaceholderPage type="customers" />} />
+                <Route path="coupons" element={<AdminPlaceholderPage type="coupons" />} />
+                <Route path="shipping" element={<AdminPlaceholderPage type="shipping" />} />
+                <Route path="settings" element={<AdminPlaceholderPage type="settings" />} />
+              </Route>
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
         </PageLayout>
 
         <AnimatePresence initial={false}>
@@ -66,9 +74,11 @@ function AppRoutes() {
               className="product-route-overlay"
               data-lenis-prevent
             >
-              <Routes location={location}>
-                <Route path="/product/:id" element={<ProductPage isOverlay />} />
-              </Routes>
+              <Suspense fallback={null}>
+                <Routes location={location}>
+                  <Route path="/product/:id" element={<ProductPage isOverlay />} />
+                </Routes>
+              </Suspense>
             </MotionDiv>
           )}
         </AnimatePresence>
@@ -108,7 +118,9 @@ export default function App() {
         <CartProvider>
           <WishlistProvider>
             <ToastProvider>
-              <AppRoutes />
+              <PersistentThreeSceneProvider>
+                <AppRoutes />
+              </PersistentThreeSceneProvider>
             </ToastProvider>
           </WishlistProvider>
         </CartProvider>

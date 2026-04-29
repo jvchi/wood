@@ -80,11 +80,16 @@ create table if not exists public.product_models (
   id uuid primary key default gen_random_uuid(),
   product_id text not null references public.products(id) on delete cascade,
   url text not null,
+  lite_url text,
+  version text,
   fallback_image_url text,
   scale numeric(8, 3) not null default 1,
   rotation text not null default '0,0,0',
   created_at timestamptz not null default now()
 );
+
+alter table public.product_models add column if not exists lite_url text;
+alter table public.product_models add column if not exists version text;
 
 create table if not exists public.inventory_logs (
   id uuid primary key default gen_random_uuid(),

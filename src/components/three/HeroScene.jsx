@@ -4,6 +4,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Center, Environment, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import Room from '../../../components/Room'
+import { canUseWebGL, getDevicePerformanceProfile } from '../../lib/threeAssetStrategy'
 
 const POINTER_LEAVE_RESET_MS = 120
 const CAMERA_POSITION = [7, 0, -1]
@@ -44,12 +45,6 @@ function getCoverFov(aspect) {
   return aspect < 0.8 ? 28 : 30
 }
 
-function canUseWebGL() {
-  if (typeof document === 'undefined') return false
-  const canvas = document.createElement('canvas')
-  return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl'))
-}
-
 function CoverCamera() {
   const { camera, size } = useThree()
   const aspect = size.width / Math.max(1, size.height)
@@ -65,12 +60,13 @@ function CoverCamera() {
   return null
 }
 
-function ScrollDrivenCamera({ scrollDriven, scrollProgressRef }) {
+function ScrollDrivenCamera({ active, scrollDriven, scrollProgressRef }) {
   const { camera, size } = useThree()
   const aspect = size.width / Math.max(1, size.height)
   const easedProgress = useRef(0)
 
   useFrame((_, delta) => {
+    if (!active) return
     const progress = scrollDriven ? (scrollProgressRef?.current ?? 0) : 0
     easedProgress.current = THREE.MathUtils.damp(easedProgress.current, progress, SCROLL_DAMPING, delta)
     const smoothProgress = easedProgress.current
@@ -85,13 +81,14 @@ function ScrollDrivenCamera({ scrollDriven, scrollProgressRef }) {
   return null
 }
 
-function HoverFocusController({ pointerScreen, hoveredLabel, sceneGroupRef, setHoveredLabel }) {
+function HoverFocusController({ active, pointerScreen, hoveredLabel, sceneGroupRef, setHoveredLabel }) {
   const { camera, size } = useThree()
   const localPoint = useRef(new THREE.Vector3())
   const worldPoint = useRef(new THREE.Vector3())
   const projectedPoint = useRef(new THREE.Vector3())
 
   useFrame(() => {
+    if (!active) return
     if (!pointerScreen.current.inside || !sceneGroupRef.current) {
       if (hoveredLabel !== null) setHoveredLabel(null)
       return
@@ -131,7 +128,7 @@ function HoverFocusController({ pointerScreen, hoveredLabel, sceneGroupRef, setH
   return null
 }
 
-function FurnitureLabel({ name, price, anchor, label, hovered }) {
+function FurnitureLabel({ active, name, price, anchor, label, hovered }) {
   const lineGeometry = useMemo(() => {
     const geometry = new THREE.BufferGeometry()
     const anchorPoint = new THREE.Vector3(...anchor)
@@ -157,6 +154,7 @@ function FurnitureLabel({ name, price, anchor, label, hovered }) {
   const hoverScale = hovered ? LABEL_HOVER_SCALE : 1
 
   useFrame((_, delta) => {
+    if (!active) return
     if (!labelRef.current) return
     const nextScale = THREE.MathUtils.damp(labelRef.current.scale.x, hoverScale, LABEL_HOVER_DAMPING, delta)
     labelRef.current.scale.setScalar(nextScale)
@@ -202,11 +200,12 @@ function FurnitureLabel({ name, price, anchor, label, hovered }) {
   )
 }
 
-function ScrollDrivenScene({ scrollDriven, pointer, scrollProgressRef, sceneGroupRef, hoveredLabel }) {
+function ScrollDrivenScene({ active, scrollDriven, pointer, scrollProgressRef, sceneGroupRef, hoveredLabel }) {
   const easedProgress = useRef(0)
   const easedPointer = useRef({ x: 0, y: 0 })
 
   useFrame((_, delta) => {
+    if (!active) return
     if (!sceneGroupRef.current) return
     const progress = scrollDriven ? (scrollProgressRef?.current ?? 0) : 0
     easedProgress.current = THREE.MathUtils.damp(easedProgress.current, progress, SCROLL_DAMPING, delta)
@@ -227,6 +226,7 @@ function ScrollDrivenScene({ scrollDriven, pointer, scrollProgressRef, sceneGrou
         {FURNITURE_LABELS.map((label) => (
           <FurnitureLabel
             key={label.name}
+            active={active}
             name={label.name}
             price={label.price}
             anchor={label.anchor}
@@ -239,8 +239,9 @@ function ScrollDrivenScene({ scrollDriven, pointer, scrollProgressRef, sceneGrou
   )
 }
 
-export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch', scrollDriven = false, scrollProgressRef }) {
+export default function HeroScene({ active = true, fallbackImage, fallbackAlt = 'Featured couch', scrollDriven = false, scrollProgressRef }) {
   const [webglAvailable] = useState(canUseWebGL)
+  const [profile] = useState(getDevicePerformanceProfile)
   const pointer = useRef({ x: 0, y: 0 })
   const pointerScreen = useRef({ x: 0, y: 0, inside: false })
   const lastPointerMoveAt = useRef(0)
@@ -307,7 +308,7 @@ export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch
     setHoveredLabel(null)
   }
 
-  if (!webglAvailable) {
+  if (!webglAvailable || profile.preferStatic) {
     return (
       <div className="absolute inset-0">
         {fallbackImage && (
@@ -335,12 +336,15 @@ export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch
       <Canvas
         style={{ position: 'absolute', inset: 0 }}
         camera={{ position: [7, 0, -1], fov: 30 }}
-        dpr={[1, 1.5]}
+        dpr={[1, profile.dpr]}
+        frameloop={active ? 'always' : 'demand'}
         resize={{ scroll: false }}
+        gl={{ antialias: profile.tier === 'high', powerPreference: profile.tier === 'high' ? 'high-performance' : 'default' }}
       >
         {!scrollDriven && <CoverCamera />}
-        {scrollDriven && <ScrollDrivenCamera scrollDriven scrollProgressRef={scrollProgressRef} />}
+        {scrollDriven && <ScrollDrivenCamera active={active} scrollDriven scrollProgressRef={scrollProgressRef} />}
         <HoverFocusController
+          active={active}
           pointerScreen={pointerScreen}
           hoveredLabel={hoveredLabel}
           sceneGroupRef={sceneGroupRef}
@@ -351,6 +355,7 @@ export default function HeroScene({ fallbackImage, fallbackAlt = 'Featured couch
         <Environment preset="apartment" />
         {!scrollDriven && <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.45} />}
         <ScrollDrivenScene
+          active={active}
           scrollDriven={scrollDriven}
           pointer={pointer}
           scrollProgressRef={scrollProgressRef}

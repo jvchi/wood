@@ -30,6 +30,8 @@ const emptyProduct = {
   stock_status: 'out_of_stock',
   images: [],
   model_url: '',
+  model_lite_url: '',
+  model_version: '',
   fallback_image_url: '',
   model_scale: 1,
   model_rotation: '0,0,0',
@@ -230,8 +232,11 @@ export default function ProductFormPanel({ product, categories, collections, onC
             <div className="admin-form-grid admin-form-grid-compact">
               <Field label="Model scale"><input type="number" step="0.1" value={draft.model_scale || 1} onChange={event => update('model_scale', event.target.value)} /></Field>
               <Field label="Model rotation"><input value={draft.model_rotation || '0,0,0'} onChange={event => update('model_rotation', event.target.value)} placeholder="0,0,0" /></Field>
+              <Field label="Lite model URL"><input value={draft.model_lite_url || ''} onChange={event => update('model_lite_url', event.target.value)} placeholder="Optimized mobile .glb" /></Field>
+              <Field label="Model version"><input value={draft.model_version || ''} onChange={event => update('model_version', event.target.value)} placeholder="Changes when model bytes change" /></Field>
               <Field label="Fallback image"><input value={draft.fallback_image_url || ''} onChange={event => update('fallback_image_url', event.target.value)} /></Field>
             </div>
+            <p className="admin-helper">Production models should be published as full, lite, and poster assets. Use Draco or Meshopt compression before adding the final URLs here.</p>
             <ProductModelPreview modelUrl={draft.model_url} fallbackImage={draft.fallback_image_url || draft.images[0]} scale={draft.model_scale} rotation={draft.model_rotation} />
           </section>
 

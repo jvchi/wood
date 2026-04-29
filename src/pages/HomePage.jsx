@@ -1,9 +1,12 @@
-import { Suspense, useEffect, useRef } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef } from 'react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import Skeleton from '../components/ui/Skeleton'
-import HeroScene from '../components/three/HeroScene'
-import ChairShowcaseScene from '../components/three/ChairShowcaseScene'
+import LazyThreeScene from '../components/three/LazyThreeScene'
+import ThreeModelPlaceholder from '../components/three/ThreeModelPlaceholder'
+import { PersistentThreeSceneSlot } from '../components/three/PersistentThreeSceneProvider'
+
+const HeroScene = lazy(() => import('../components/three/HeroScene'))
+const ChairShowcaseScene = lazy(() => import('../components/three/ChairShowcaseScene'))
 
 export default function HomePage() {
   const stickyRef = useRef(null)
@@ -16,6 +19,15 @@ export default function HomePage() {
   const showcaseProgressRef = useRef(0)
   const showcaseTargetProgressRef = useRef(0)
   const showcaseDisplayProgressRef = useRef(0)
+  const heroScene = useMemo(() => ({ active }) => (
+    <LazyThreeScene
+      fallback={<ThreeModelPlaceholder variant="room" label="Loading room view" />}
+      variant="room"
+      label="Loading room view"
+    >
+      <HeroScene active={active} scrollDriven scrollProgressRef={progressRef} />
+    </LazyThreeScene>
+  ), [])
 
   useEffect(() => {
     function easeTitleDrop(progress) {
@@ -140,9 +152,9 @@ export default function HomePage() {
         <div ref={stickyRef} className="home-couch-sticky">
           <div className="home-couch-frame">
             <div className="home-couch-stage" aria-hidden="true">
-              <Suspense fallback={<Skeleton className="h-full w-full" />}>
-                <HeroScene scrollDriven scrollProgressRef={progressRef} />
-              </Suspense>
+              <PersistentThreeSceneSlot id="home-hero-room" interactive>
+                {heroScene}
+              </PersistentThreeSceneSlot>
             </div>
             <h1 ref={titleRef} className="home-couch-title" translate="no">
               <span>wood</span>
@@ -162,8 +174,14 @@ export default function HomePage() {
         </div>
 
         <div className="home-chair-stage">
-          <Suspense fallback={<Skeleton className="h-full w-full" />}>
-            <ChairShowcaseScene sectionProgressRef={showcaseProgressRef} />
+          <Suspense fallback={<ThreeModelPlaceholder variant="chair" label="Loading chair view" />}>
+            <LazyThreeScene
+              fallback={<ThreeModelPlaceholder variant="chair" label="Loading chair view" />}
+              variant="chair"
+              label="Loading chair view"
+            >
+              <ChairShowcaseScene sectionProgressRef={showcaseProgressRef} />
+            </LazyThreeScene>
           </Suspense>
         </div>
 

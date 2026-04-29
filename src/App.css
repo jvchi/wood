@@ -162,6 +162,11 @@ input {
   background: var(--color-background);
 }
 
+.route-fallback {
+  min-height: 100lvh;
+  background: var(--color-background);
+}
+
 .page-top {
   padding-top: calc(var(--nav-height) + 2rem);
 }
@@ -244,6 +249,78 @@ input {
   will-change: transform;
 }
 
+.persistent-three-slot,
+.three-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.persistent-three-slot {
+  position: absolute;
+  inset: 0;
+}
+
+.three-placeholder {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.22), transparent 42%),
+    linear-gradient(180deg, #d8d2c8 0%, #c5beb4 48%, #b7afa4 100%);
+}
+
+.three-placeholder img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  outline: 0;
+}
+
+.three-placeholder-silhouette {
+  position: absolute;
+  left: 50%;
+  bottom: 16%;
+  width: min(68%, 44rem);
+  aspect-ratio: 2.8 / 1;
+  border-radius: 999px 999px 18px 18px;
+  background: rgba(25, 22, 20, 0.16);
+  filter: blur(0.2px);
+  transform: translateX(-50%);
+}
+
+.three-placeholder-silhouette::before,
+.three-placeholder-silhouette::after {
+  position: absolute;
+  bottom: -18%;
+  width: 12%;
+  height: 44%;
+  background: rgba(25, 22, 20, 0.15);
+  content: '';
+}
+
+.three-placeholder-silhouette::before {
+  left: 13%;
+}
+
+.three-placeholder-silhouette::after {
+  right: 13%;
+}
+
+.three-placeholder-chair,
+.three-placeholder-product {
+  background:
+    radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.95), transparent 34%),
+    linear-gradient(180deg, #f7f7f5 0%, #eceae6 100%);
+}
+
+.three-placeholder-chair .three-placeholder-silhouette,
+.three-placeholder-product .three-placeholder-silhouette {
+  bottom: 18%;
+  width: min(42%, 18rem);
+  aspect-ratio: 0.9 / 1.1;
+  border-radius: 28% 28% 10% 10%;
+  background: rgba(17, 17, 17, 0.12);
+}
+
 .home-couch-stage canvas {
   width: 100% !important;
   max-width: none;
@@ -254,7 +331,7 @@ input {
   position: absolute;
   left: clamp(1rem, 3vw, 3rem);
   top: clamp(6.5rem, 15vh, 9rem);
-  z-index: 1;
+  z-index: 30;
   display: none;
   color: rgba(255, 255, 255, 0.92);
   font-size: clamp(4.75rem, 17vw, 14rem);
@@ -273,7 +350,7 @@ input {
   left: 1rem;
   right: 1rem;
   bottom: calc(1.25rem + env(safe-area-inset-bottom));
-  z-index: 1;
+  z-index: 30;
   display: grid;
   gap: 0.35rem;
   color: rgba(255, 255, 255, 0.94);
@@ -333,7 +410,7 @@ input {
 
 .home-chair-stage {
   position: relative;
-  z-index: 1;
+  z-index: 30;
   width: min(100%, 72rem);
   height: clamp(24rem, 44vw, 34rem);
   margin: 0 auto;

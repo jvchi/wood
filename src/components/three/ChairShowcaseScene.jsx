@@ -3,6 +3,13 @@ import { useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
+import {
+  MODEL_ASSETS,
+  canUseWebGL,
+  getDevicePerformanceProfile,
+  preloadModel,
+  resolveModelAsset,
+} from '../../lib/threeAssetStrategy'
 
 const CAMERA_DAMPING = 7
 const MODEL_DAMPING = 8
@@ -28,12 +35,6 @@ function easeInOutCubic(value) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 }
 
-function canUseWebGL() {
-  if (typeof document === 'undefined') return false
-  const canvas = document.createElement('canvas')
-  return Boolean(canvas.getContext('webgl2') || canvas.getContext('webgl'))
-}
-
 function getCameraValues(aspect) {
   if (aspect < 0.9) {
     return { position: new THREE.Vector3(0, 0.42, 4.7), fov: 24 }
@@ -42,12 +43,13 @@ function getCameraValues(aspect) {
   return { position: new THREE.Vector3(0.08, 0.3, 4.2), fov: 20 }
 }
 
-function ShowcaseCamera({ pointerRef, sectionProgressRef }) {
+function ShowcaseCamera({ active, pointerRef, sectionProgressRef }) {
   const { camera, size } = useThree()
   const easedProgress = useRef(0)
   const easedPointer = useRef({ x: 0, y: 0 })
 
   useFrame((_, delta) => {
+    if (!active) return
     const progress = sectionProgressRef?.current ?? 0
     easedProgress.current = THREE.MathUtils.damp(easedProgress.current, progress, CAMERA_DAMPING, delta)
     easedPointer.current.x = THREE.MathUtils.damp(easedPointer.current.x, pointerRef.current.x, POINTER_DAMPING, delta)
@@ -68,8 +70,8 @@ function ShowcaseCamera({ pointerRef, sectionProgressRef }) {
   return null
 }
 
-function ChairModel({ pointerRef, dragRef, hoverRef, sectionProgressRef }) {
-  const { scene } = useGLTF('/models/pipo_chair.glb')
+function ChairModel({ active, pointerRef, dragRef, hoverRef, sectionProgressRef, modelUrl }) {
+  const { scene } = useGLTF(modelUrl)
   const groupRef = useRef(null)
 
   const { model, scale } = useMemo(() => {
@@ -99,6 +101,7 @@ function ChairModel({ pointerRef, dragRef, hoverRef, sectionProgressRef }) {
   }, [scene])
 
   useFrame((_, delta) => {
+    if (!active) return
     if (!groupRef.current) return
 
     const progress = sectionProgressRef?.current ?? 0
@@ -152,8 +155,12 @@ function ChairModel({ pointerRef, dragRef, hoverRef, sectionProgressRef }) {
   )
 }
 
-export default function ChairShowcaseScene({ sectionProgressRef }) {
+export default function ChairShowcaseScene({ active = true, sectionProgressRef }) {
   const [webglAvailable] = useState(canUseWebGL)
+  const [profile] = useState(getDevicePerformanceProfile)
+  const modelAsset = resolveModelAsset(MODEL_ASSETS.pipoChair, {
+    quality: profile.preferLite ? 'lite' : 'full',
+  })
   const pointerRef = useRef({ x: 0, y: 0 })
   const hoverRef = useRef(false)
   const dragRef = useRef({
@@ -208,7 +215,7 @@ export default function ChairShowcaseScene({ sectionProgressRef }) {
     hoverRef.current = false
   }
 
-  if (!webglAvailable) {
+  if (!webglAvailable || profile.preferStatic) {
     return <div className="chair-scene-fallback" aria-hidden="true" />
   }
 
@@ -226,9 +233,10 @@ export default function ChairShowcaseScene({ sectionProgressRef }) {
     >
       <Canvas
         shadows
-        dpr={[1, 1.5]}
+        dpr={[1, profile.dpr]}
+        frameloop={active ? 'always' : 'demand'}
         resize={{ scroll: false }}
-        gl={{ antialias: true, alpha: true }}
+        gl={{ antialias: profile.tier === 'high', alpha: true, powerPreference: profile.tier === 'high' ? 'high-performance' : 'default' }}
         camera={{ position: [0.08, 0.3, 4.2], fov: 20 }}
       >
         <ambientLight intensity={1.2} />
@@ -241,11 +249,18 @@ export default function ChairShowcaseScene({ sectionProgressRef }) {
         />
         <directionalLight position={[-2.4, 1.8, 3.4]} intensity={0.7} />
         <Environment preset="studio" />
-        <ShowcaseCamera pointerRef={pointerRef} sectionProgressRef={sectionProgressRef} />
-        <ChairModel pointerRef={pointerRef} dragRef={dragRef} hoverRef={hoverRef} sectionProgressRef={sectionProgressRef} />
+        <ShowcaseCamera active={active} pointerRef={pointerRef} sectionProgressRef={sectionProgressRef} />
+        <ChairModel
+          active={active}
+          pointerRef={pointerRef}
+          dragRef={dragRef}
+          hoverRef={hoverRef}
+          sectionProgressRef={sectionProgressRef}
+          modelUrl={modelAsset.src}
+        />
       </Canvas>
     </div>
   )
 }
 
-useGLTF.preload('/models/pipo_chair.glb')
+preloadModel(MODEL_ASSETS.pipoChair)
