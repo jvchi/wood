@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, startTransition } from 'react'
 import { useProducts } from '../hooks/useProducts'
 import ProductCard from '../components/ui/ProductCard'
 import Skeleton from '../components/ui/Skeleton'
@@ -40,7 +40,7 @@ export default function ShopPage() {
             <button
               key={cat}
               type="button"
-              onClick={() => setActiveCategory(cat)}
+              onClick={() => startTransition(() => setActiveCategory(cat))}
               className={`pressable shop-filter ${
                 activeCategory === cat
                   ? 'is-active'

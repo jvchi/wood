@@ -74,6 +74,7 @@ const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
           to={`/product/${product.id}`}
           state={{ backgroundLocation: location }}
           className="block h-full"
+          viewTransition
         >
           {!imageLoaded && (
             <div className="absolute inset-0 bg-[var(--color-surface-muted)]" />
@@ -135,7 +136,7 @@ const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
       </MotionDiv>
 
       <div className="product-card-meta">
-        <Link to={`/product/${product.id}`}>
+        <Link to={`/product/${product.id}`} viewTransition>
           <h3 className="product-title break-words">
             {product.name}
           </h3>

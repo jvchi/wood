@@ -240,9 +240,9 @@ export default function ProductPage({ isOverlay = false }) {
       <div className="flex items-start justify-between">
         <nav className="product-breadcrumb" aria-label="Breadcrumb">
           <ol>
-            <li><Link to="/" className="pressable">Home</Link></li>
+            <li><Link to="/" className="pressable" viewTransition>Home</Link></li>
             <li>/</li>
-            <li><Link to="/shop" className="pressable">Shop</Link></li>
+            <li><Link to="/shop" className="pressable" viewTransition>Shop</Link></li>
             <li>/</li>
             <li>{product.name}</li>
           </ol>

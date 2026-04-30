@@ -201,8 +201,8 @@ input {
 .loading-spinner {
   position: relative;
   display: grid;
-  min-width: 3.25rem;
-  min-height: 3.25rem;
+  min-width: 0.75rem;
+  min-height: 0.75rem;
   place-items: center;
   color: var(--color-muted);
   pointer-events: none;
@@ -217,7 +217,7 @@ input {
 .loading-spinner::after {
   position: absolute;
   z-index: 0;
-  width: clamp(1.25rem, 38%, 2.35rem);
+  width: clamp(0.15rem, 38%, 0.25rem);
   aspect-ratio: 1;
   border: 1px solid rgba(119, 119, 119, 0.2);
   border-top-color: var(--color-muted);
@@ -397,9 +397,11 @@ input {
   0% {
     transform: scaleX(0.08);
   }
+
   48% {
     transform: scaleX(0.62);
   }
+
   100% {
     transform: scaleX(0.92);
   }
@@ -3361,5 +3363,43 @@ input {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* ── View Transitions API ─────────────────────────────── */
+/* Added to smooth cross-fade between route navigations
+   and prevent the "blink" / flash when the DOM swaps. */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* The old snapshot fades out */
+::view-transition-old(root) {
+  animation-name: vt-fade-out;
+}
+
+/* The new snapshot fades in */
+::view-transition-new(root) {
+  animation-name: vt-fade-in;
+}
+
+@keyframes vt-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes vt-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Respect reduced motion – instant swap, no animation */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0ms !important;
   }
 }
