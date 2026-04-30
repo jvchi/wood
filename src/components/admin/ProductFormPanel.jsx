@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Button from '../ui/Button'
 import ProductModelPreview from './ProductModelPreview'
-import { normalizeProduct, slugify, uploadAsset } from '../../lib/productStore'
+import { PRODUCT_PLACEHOLDER_IMAGE, normalizeProduct, slugify, uploadAsset } from '../../lib/productStore'
 
 const emptyProduct = {
   name: '',
@@ -101,7 +101,10 @@ export default function ProductFormPanel({ product, categories, collections, onC
     setError('')
     try {
       const urls = await Promise.all(files.map(file => uploadAsset(file, 'product-images', draft.id)))
-      setDraft(current => normalizeProduct({ ...current, images: [...current.images, ...urls] }))
+      setDraft(current => {
+        const currentImages = current.images.filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
+        return normalizeProduct({ ...current, images: [...currentImages, ...urls] })
+      })
     } catch (err) {
       setError(err.message || 'Image upload failed')
     } finally {
@@ -117,7 +120,11 @@ export default function ProductFormPanel({ product, categories, collections, onC
     setError('')
     try {
       const url = await uploadAsset(file, 'product-models', draft.id)
-      update('model_url', url)
+      setDraft(current => normalizeProduct({
+        ...current,
+        model_url: url,
+        model_version: String(Date.now()),
+      }))
     } catch (err) {
       setError(err.message || 'Model upload failed')
     } finally {

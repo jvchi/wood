@@ -4,17 +4,11 @@ import { motion as framerMotion } from 'framer-motion'
 import { useCart } from '../../context/CartContext'
 import { useWishlist } from '../../context/WishlistContext'
 import { preloadAppRoute } from '../../lib/routePreload'
+import { loaderMotion } from '../../lib/transitionConfig'
 import MobileNav from './MobileNav'
 
 const MotionSpan = framerMotion.span
-const brandLayoutTransition = {
-  layout: {
-    type: 'spring',
-    stiffness: 560,
-    damping: 42,
-    mass: 0.82,
-  },
-}
+const brandLayoutTransition = loaderMotion.brandLayout
 
 export default function Navbar({ brandIntroReady = true, visualLocation }) {
   const [mobileOpen, setMobileOpen] = useState(false)

@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { routeLoaders } from '../lib/routePreload'
+import { preloadRouteForPath, routeLoaders } from '../lib/routePreload'
+import { routeTransitionTiming } from '../lib/transitionConfig'
 import { MODEL_ASSETS, getDevicePerformanceProfile, resolveModelAsset } from '../lib/threeAssetStrategy'
 
-const MIN_HOLD_MS = 700
-const MAX_HOLD_MS = 3200
-const IMAGE_WAIT_MS = 1800
+const { minHoldMs, maxHoldMs, imageWaitMs, completeDelayMs } = routeTransitionTiming
 
 function withTimeout(promise, timeout) {
   return new Promise((resolve) => {
@@ -48,7 +47,7 @@ function waitForCriticalImages() {
   ].join(',')))
 
   if (!images.length) return Promise.resolve()
-  return withTimeout(Promise.all(images.map(waitForImage)), IMAGE_WAIT_MS)
+  return withTimeout(Promise.all(images.map(waitForImage)), imageWaitMs)
 }
 
 function preloadHomeHeroAsset() {
@@ -58,7 +57,7 @@ function preloadHomeHeroAsset() {
     const image = new Image()
     image.decoding = 'async'
     image.src = resolveModelAsset(MODEL_ASSETS.room).poster
-    return withTimeout(waitForImage(image), IMAGE_WAIT_MS)
+    return withTimeout(waitForImage(image), imageWaitMs)
   }
 
   const asset = resolveModelAsset(MODEL_ASSETS.room, {
@@ -67,7 +66,7 @@ function preloadHomeHeroAsset() {
 
   if (!asset.src) return Promise.resolve()
 
-  return withTimeout(fetch(asset.src, { cache: 'force-cache' }).catch(() => undefined), IMAGE_WAIT_MS)
+  return withTimeout(fetch(asset.src, { cache: 'force-cache' }).catch(() => undefined), imageWaitMs)
 }
 
 function waitForHomeScenes() {
@@ -94,13 +93,18 @@ function routeKeyFromPathname(pathname) {
   return routeLoaders[pathname] ? pathname : '*'
 }
 
-export default function useInitialLoadReady(pathname) {
+export default function useInitialLoadReady(pathname, { enabled = true } = {}) {
   const [readyPath, setReadyPath] = useState(null)
   const [completePath, setCompletePath] = useState(null)
-  const ready = readyPath === pathname
-  const complete = completePath === pathname
+  const ready = !enabled || readyPath === pathname
+  const complete = !enabled || completePath === pathname
 
   useEffect(() => {
+    if (!enabled) {
+      document.documentElement.classList.remove('intro-lock')
+      return undefined
+    }
+
     const startedAt = performance.now()
     let cancelled = false
     const routeKey = routeKeyFromPathname(pathname)
@@ -115,9 +119,9 @@ export default function useInitialLoadReady(pathname) {
     async function waitForInitialView() {
       await withTimeout(Promise.all([
         waitForFonts(),
-        routeLoader?.(),
+        preloadRouteForPath(pathname) || routeLoader?.(),
         routeKey === '/' ? preloadHomeHeroAsset() : undefined,
-      ]), MAX_HOLD_MS)
+      ]), maxHoldMs)
 
       if (routeKey === '/') {
         await waitForHomeScenes()
@@ -127,8 +131,8 @@ export default function useInitialLoadReady(pathname) {
       await waitForCriticalImages()
 
       const elapsed = performance.now() - startedAt
-      if (elapsed < MIN_HOLD_MS) {
-        await new Promise((resolve) => window.setTimeout(resolve, MIN_HOLD_MS - elapsed))
+      if (elapsed < minHoldMs) {
+        await new Promise((resolve) => window.setTimeout(resolve, minHoldMs - elapsed))
       }
 
       if (!cancelled) {
@@ -140,7 +144,7 @@ export default function useInitialLoadReady(pathname) {
       ? undefined
       : window.setTimeout(() => {
         if (!cancelled) setReadyPath(pathname)
-      }, MAX_HOLD_MS)
+      }, maxHoldMs)
 
     waitForInitialView()
 
@@ -149,22 +153,22 @@ export default function useInitialLoadReady(pathname) {
       if (hardTimeout) window.clearTimeout(hardTimeout)
       document.documentElement.classList.remove('intro-lock')
     }
-  }, [pathname])
+  }, [enabled, pathname])
 
   useEffect(() => {
-    if (!ready || complete) return undefined
+    if (!enabled || !ready || complete) return undefined
 
     const timer = window.setTimeout(() => {
       setCompletePath(pathname)
-    }, 1100)
+    }, completeDelayMs)
 
     return () => window.clearTimeout(timer)
-  }, [ready, complete, pathname])
+  }, [enabled, ready, complete, pathname])
 
   useEffect(() => {
-    if (!complete) return
+    if (!enabled || !complete) return
     document.documentElement.classList.remove('intro-lock')
-  }, [complete])
+  }, [enabled, complete])
 
   const setComplete = useMemo(() => (value) => {
     setCompletePath(value ? pathname : null)

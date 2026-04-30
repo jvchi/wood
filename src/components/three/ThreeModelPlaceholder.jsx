@@ -5,7 +5,7 @@ export default function ThreeModelPlaceholder({
   poster = '',
   label = 'Loading 3D view',
   variant = 'room',
-  size = 150,
+  size = 56,
   spinner = variant !== 'room',
 }) {
   return (

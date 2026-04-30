@@ -1,9 +1,11 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, Center, useGLTF } from '@react-three/drei'
+import { OrbitControls, Center } from '@react-three/drei'
 import Couch from '../../../components/Couch'
 import ThreeModelPlaceholder from './ThreeModelPlaceholder'
 import LoadingSpinner from '../ui/LoadingSpinner'
+import UploadedProductModel from './UploadedProductModel'
+import ErrorBoundary from '../ui/ErrorBoundary'
 import { canUseWebGL, getDevicePerformanceProfile, resolveModelAsset } from '../../lib/threeAssetStrategy'
 
 function AutoRotate({ enabled }) {
@@ -33,15 +35,12 @@ function AutoRotate({ enabled }) {
   )
 }
 
-function UploadedProductModel({ url, scale = 1, rotation = '0,0,0', onReady }) {
-  const { scene } = useGLTF(url)
-  const [x = 0, y = 0, z = 0] = String(rotation).split(',').map(Number)
-
+function ProductModelLoadFallback({ onError }) {
   useEffect(() => {
-    onReady?.()
-  }, [onReady, url])
+    onError?.()
+  }, [onError])
 
-  return <primitive object={scene} scale={Number(scale) || 1} rotation={[x, y, z]} />
+  return null
 }
 
 export default function ProductViewer({
@@ -55,6 +54,8 @@ export default function ProductViewer({
 }) {
   const [autoRotate, setAutoRotate] = useState(true)
   const [loadedModelUrl, setLoadedModelUrl] = useState(null)
+  const [failedModelUrl, setFailedModelUrl] = useState(null)
+  const [builtInFailedKey, setBuiltInFailedKey] = useState(null)
   const [webglAvailable] = useState(canUseWebGL)
   const [profile] = useState(getDevicePerformanceProfile)
   const resolvedModel = modelUrl
@@ -64,7 +65,10 @@ export default function ProductViewer({
     )
     : null
   const isUploadedModel = Boolean(resolvedModel?.src)
-  const modelReady = !isUploadedModel || loadedModelUrl === resolvedModel?.src
+  const builtInModelKey = 'built-in-couch'
+  const builtInModelFailed = !isUploadedModel && builtInFailedKey === builtInModelKey
+  const modelLoadFailed = isUploadedModel && failedModelUrl === resolvedModel?.src
+  const modelReady = !isUploadedModel || loadedModelUrl === resolvedModel?.src || modelLoadFailed
 
   if (!webglAvailable || profile.preferStatic) {
     return (
@@ -92,21 +96,41 @@ export default function ProductViewer({
         <AutoRotate enabled={autoRotate} />
         <Center>
           {isUploadedModel ? (
-            <Suspense fallback={null}>
-              <UploadedProductModel
-                url={resolvedModel.src}
-                scale={modelScale}
-                rotation={modelRotation}
-                onReady={() => setLoadedModelUrl(resolvedModel.src)}
-              />
-            </Suspense>
+            <ErrorBoundary
+              key={resolvedModel.src}
+              fallback={(
+                <ProductModelLoadFallback
+                  onError={() => setFailedModelUrl(resolvedModel.src)}
+                />
+              )}
+            >
+              <Suspense fallback={null}>
+                <UploadedProductModel
+                  url={resolvedModel.src}
+                  scale={modelScale}
+                  rotation={modelRotation}
+                  onReady={() => setLoadedModelUrl(resolvedModel.src)}
+                />
+              </Suspense>
+            </ErrorBoundary>
           ) : (
-            <Couch />
+            <ErrorBoundary
+              fallback={<ProductModelLoadFallback onError={() => setBuiltInFailedKey(builtInModelKey)} />}
+            >
+              <Suspense fallback={null}>
+                <Couch />
+              </Suspense>
+            </ErrorBoundary>
           )}
         </Center>
       </Canvas>
+      {(modelLoadFailed || builtInModelFailed) && (
+        <div className="absolute inset-0">
+          <ThreeModelPlaceholder poster={fallbackImage} variant="product" label="Product preview unavailable" spinner={false} />
+        </div>
+      )}
       {!modelReady && (
-        <LoadingSpinner className="model-loading-overlay" label="Loading product model" size={150} />
+        <LoadingSpinner className="model-loading-overlay" label="Loading product model" />
       )}
     </div>
   )

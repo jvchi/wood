@@ -277,7 +277,7 @@ export default function ProductPage({ isOverlay = false }) {
             <ImageGallery images={product.images} name={product.name} />
           ) : (
             <div className="product-gallery-frame">
-              <Suspense fallback={<LoadingSpinner className="product-media-loader" label="Loading product model" size={150} />}>
+              <Suspense fallback={<LoadingSpinner className="product-media-loader" label="Loading product model" />}>
                 <LazyThreeScene
                   fallback={<ThreeModelPlaceholder variant="product" label="Loading product model" />}
                   poster={product.fallback_image_url || product.images[0]}

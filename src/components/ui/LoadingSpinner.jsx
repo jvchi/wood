@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react'
 export default function LoadingSpinner({
   className = '',
   label = 'Loading',
-  size = 160,
+  size = 56,
   fullPage = false,
 }) {
+  const renderedSize = fullPage ? size : Math.min(size, 56)
   const [lordiconReady, setLordiconReady] = useState(() => {
     if (typeof window === 'undefined') return false
     return Boolean(window.customElements?.get('lord-icon'))
@@ -34,7 +35,8 @@ export default function LoadingSpinner({
         src="https://cdn.lordicon.com/flabvqvs.json"
         trigger="loop"
         state="loop-spiral"
-        style={{ width: `${size}px`, height: `${size}px` }}
+        colors="primary:#777777,secondary:#b5b5b5"
+        style={{ width: `${renderedSize}px`, height: `${renderedSize}px` }}
       />
       <span className="sr-only">{label}</span>
     </div>

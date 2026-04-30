@@ -5,6 +5,7 @@ import { OrbitControls, Center, Environment, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import Room from '../../../components/Room'
 import { canUseWebGL, getDevicePerformanceProfile } from '../../lib/threeAssetStrategy'
+import ErrorBoundary from '../ui/ErrorBoundary'
 
 const POINTER_LEAVE_RESET_MS = 120
 const CAMERA_POSITION = [7, 0, -1]
@@ -379,15 +380,17 @@ export default function HeroScene({ active = true, fallbackImage, fallbackAlt = 
         <directionalLight position={[2, 5, 5]} intensity={0.85} />
         <Environment preset="apartment" />
         {!scrollDriven && <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.45} />}
-        <ScrollDrivenScene
-          active={active}
-          scrollDriven={scrollDriven}
-          pointer={pointer}
-          scrollProgressRef={scrollProgressRef}
-          sceneGroupRef={sceneGroupRef}
-          hoveredLabel={hoveredLabel}
-          onReady={onReady}
-        />
+        <ErrorBoundary fallback={<SceneReadySignal onReady={onReady} />}>
+          <ScrollDrivenScene
+            active={active}
+            scrollDriven={scrollDriven}
+            pointer={pointer}
+            scrollProgressRef={scrollProgressRef}
+            sceneGroupRef={sceneGroupRef}
+            hoveredLabel={hoveredLabel}
+            onReady={onReady}
+          />
+        </ErrorBoundary>
       </Canvas>
     </div>
   )

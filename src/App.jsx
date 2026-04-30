@@ -31,6 +31,7 @@ const AdminPlaceholderPage = lazy(routeLoaders['/admin/placeholder'])
 gsap.registerPlugin(ScrollTrigger)
 
 const MotionDiv = framerMotion.div
+const LOADER_ROUTES = new Set(['/', '/shop', '/about'])
 
 function RouteFallback() {
   return <div className="route-fallback" role="status" aria-label="Loading page" />
@@ -41,12 +42,22 @@ function AppRoutes() {
   const [displayedLocation, setDisplayedLocation] = useState(location)
   const backgroundLocation = location.state?.backgroundLocation
   const activeProductId = location.state?.sharedProductId ? String(location.state.sharedProductId) : null
-  const initialLoad = useInitialLoadReady(location.pathname)
+  const shouldUseRouteLoader = !backgroundLocation && LOADER_ROUTES.has(location.pathname)
+  const initialLoad = useInitialLoadReady(location.pathname, { enabled: shouldUseRouteLoader })
   const [showInitialProgress, setShowInitialProgress] = useState(true)
-  const routeIsPending = !backgroundLocation && displayedLocation.key !== location.key
+  const routeIsPending = shouldUseRouteLoader && displayedLocation.key !== location.key
   const routeCanReveal = initialLoad.ready && !routeIsPending
   const routeIsComplete = initialLoad.complete && !routeIsPending
-  const visualLocation = backgroundLocation || displayedLocation
+  const visualLocation = backgroundLocation || (shouldUseRouteLoader ? displayedLocation : location)
+
+  useEffect(() => {
+    if (shouldUseRouteLoader || backgroundLocation) return
+    const frame = window.requestAnimationFrame(() => {
+      setDisplayedLocation(location)
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [backgroundLocation, location, shouldUseRouteLoader])
 
   return (
     <SharedProductTransitionContext.Provider value={{ activeProductId }}>
@@ -93,11 +104,11 @@ function AppRoutes() {
           )}
         </AnimatePresence>
 
-        {!routeIsComplete && (
+        {shouldUseRouteLoader && !routeIsComplete && (
           <InitialLoadTransition
             ready={routeCanReveal}
             showProgress={showInitialProgress}
-            variant={location.pathname === '/' ? 'home' : 'default'}
+            variant="default"
             onCoverEnterComplete={() => {
               setDisplayedLocation(location)
             }}

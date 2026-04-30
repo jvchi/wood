@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -10,6 +10,7 @@ import {
   preloadModel,
   resolveModelAsset,
 } from '../../lib/threeAssetStrategy'
+import ErrorBoundary from '../ui/ErrorBoundary'
 
 const CAMERA_DAMPING = 7
 const MODEL_DAMPING = 8
@@ -175,6 +176,14 @@ function StaticReadySignal({ onReady }) {
   return null
 }
 
+function ModelLoadFallback({ onReady }) {
+  useEffect(() => {
+    onReady?.()
+  }, [onReady])
+
+  return null
+}
+
 export default function ChairShowcaseScene({ active = true, sectionProgressRef, onReady }) {
   const [webglAvailable] = useState(canUseWebGL)
   const [profile] = useState(getDevicePerformanceProfile)
@@ -275,18 +284,31 @@ export default function ChairShowcaseScene({ active = true, sectionProgressRef, 
         <directionalLight position={[-2.4, 1.8, 3.4]} intensity={0.7} />
         <Environment preset="studio" />
         <ShowcaseCamera active={active} pointerRef={pointerRef} sectionProgressRef={sectionProgressRef} />
-        <ChairModel
-          active={active}
-          pointerRef={pointerRef}
-          dragRef={dragRef}
-          hoverRef={hoverRef}
-          sectionProgressRef={sectionProgressRef}
-          modelUrl={modelAsset.src}
-          onReady={() => {
-            setSceneReady(true)
-            onReady?.()
-          }}
-        />
+        <ErrorBoundary
+          fallback={(
+            <ModelLoadFallback
+              onReady={() => {
+                setSceneReady(true)
+                onReady?.()
+              }}
+            />
+          )}
+        >
+          <Suspense fallback={null}>
+            <ChairModel
+              active={active}
+              pointerRef={pointerRef}
+              dragRef={dragRef}
+              hoverRef={hoverRef}
+              sectionProgressRef={sectionProgressRef}
+              modelUrl={modelAsset.src}
+              onReady={() => {
+                setSceneReady(true)
+                onReady?.()
+              }}
+            />
+          </Suspense>
+        </ErrorBoundary>
       </Canvas>
     </div>
   )
