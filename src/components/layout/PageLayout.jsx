@@ -4,12 +4,13 @@ import Navbar from './Navbar'
 import Footer from './Footer'
 import ToastContainer from '../ui/ToastContainer'
 
-export default function PageLayout({ children, brandIntroReady = true }) {
+export default function PageLayout({ children, brandIntroReady = true, visualLocation }) {
   const location = useLocation()
+  const displayedLocation = visualLocation || location
   const { pathname } = location
   const action = useNavigationType()
-  const backgroundPathname = location.state?.backgroundLocation?.pathname
-  const displayedPathname = backgroundPathname || pathname
+  const backgroundPathname = displayedLocation.state?.backgroundLocation?.pathname
+  const displayedPathname = backgroundPathname || displayedLocation.pathname
   const isAdmin = displayedPathname.startsWith('/admin')
   const showFooter = displayedPathname === '/shop' || displayedPathname === '/about'
   const isHome = displayedPathname === '/'
@@ -27,7 +28,7 @@ export default function PageLayout({ children, brandIntroReady = true }) {
 
   return (
     <div className={`app-viewport-shell flex flex-col ${isHome ? 'app-shell-home' : 'bg-white'}`}>
-      {!isAdmin && <Navbar brandIntroReady={brandIntroReady} />}
+      {!isAdmin && <Navbar brandIntroReady={brandIntroReady} visualLocation={displayedLocation} />}
       <main id="main-content" className="flex-1">{children}</main>
       {showFooter && !isAdmin && <Footer />}
       <ToastContainer />

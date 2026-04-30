@@ -70,6 +70,21 @@ function preloadHomeHeroAsset() {
   return withTimeout(fetch(asset.src, { cache: 'force-cache' }).catch(() => undefined), IMAGE_WAIT_MS)
 }
 
+function waitForHomeScenes() {
+  const profile = getDevicePerformanceProfile()
+  if (profile.preferStatic) return Promise.resolve()
+  if (
+    document.documentElement.dataset.homeHeroReady === 'true' &&
+    document.documentElement.dataset.homeChairReady === 'true'
+  ) {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve) => {
+    window.addEventListener('wood:home-scenes-ready', resolve, { once: true })
+  })
+}
+
 function routeKeyFromPathname(pathname) {
   if (pathname === '/') return '/'
   if (pathname.startsWith('/product/')) return '/product'
@@ -80,8 +95,10 @@ function routeKeyFromPathname(pathname) {
 }
 
 export default function useInitialLoadReady(pathname) {
-  const [ready, setReady] = useState(false)
-  const [complete, setComplete] = useState(false)
+  const [readyPath, setReadyPath] = useState(null)
+  const [completePath, setCompletePath] = useState(null)
+  const ready = readyPath === pathname
+  const complete = completePath === pathname
 
   useEffect(() => {
     const startedAt = performance.now()
@@ -90,6 +107,10 @@ export default function useInitialLoadReady(pathname) {
     const routeLoader = routeLoaders[routeKey]
 
     document.documentElement.classList.add('intro-lock')
+    if (routeKey === '/') {
+      delete document.documentElement.dataset.homeHeroReady
+      delete document.documentElement.dataset.homeChairReady
+    }
 
     async function waitForInitialView() {
       await withTimeout(Promise.all([
@@ -97,6 +118,10 @@ export default function useInitialLoadReady(pathname) {
         routeLoader?.(),
         routeKey === '/' ? preloadHomeHeroAsset() : undefined,
       ]), MAX_HOLD_MS)
+
+      if (routeKey === '/') {
+        await waitForHomeScenes()
+      }
 
       await new Promise((resolve) => window.requestAnimationFrame(() => resolve()))
       await waitForCriticalImages()
@@ -107,19 +132,21 @@ export default function useInitialLoadReady(pathname) {
       }
 
       if (!cancelled) {
-        setReady(true)
+        setReadyPath(pathname)
       }
     }
 
-    const hardTimeout = window.setTimeout(() => {
-      if (!cancelled) setReady(true)
-    }, MAX_HOLD_MS)
+    const hardTimeout = routeKey === '/'
+      ? undefined
+      : window.setTimeout(() => {
+        if (!cancelled) setReadyPath(pathname)
+      }, MAX_HOLD_MS)
 
     waitForInitialView()
 
     return () => {
       cancelled = true
-      window.clearTimeout(hardTimeout)
+      if (hardTimeout) window.clearTimeout(hardTimeout)
       document.documentElement.classList.remove('intro-lock')
     }
   }, [pathname])
@@ -128,16 +155,20 @@ export default function useInitialLoadReady(pathname) {
     if (!ready || complete) return undefined
 
     const timer = window.setTimeout(() => {
-      setComplete(true)
+      setCompletePath(pathname)
     }, 1100)
 
     return () => window.clearTimeout(timer)
-  }, [ready, complete])
+  }, [ready, complete, pathname])
 
   useEffect(() => {
     if (!complete) return
     document.documentElement.classList.remove('intro-lock')
   }, [complete])
 
-  return useMemo(() => ({ ready, complete, setComplete }), [ready, complete])
+  const setComplete = useMemo(() => (value) => {
+    setCompletePath(value ? pathname : null)
+  }, [pathname])
+
+  return useMemo(() => ({ ready, complete, setComplete }), [ready, complete, setComplete])
 }

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability */
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -70,7 +70,7 @@ function ShowcaseCamera({ active, pointerRef, sectionProgressRef }) {
   return null
 }
 
-function ChairModel({ active, pointerRef, dragRef, hoverRef, sectionProgressRef, modelUrl }) {
+function ChairModel({ active, pointerRef, dragRef, hoverRef, sectionProgressRef, modelUrl, onReady }) {
   const { scene } = useGLTF(modelUrl)
   const groupRef = useRef(null)
 
@@ -99,6 +99,18 @@ function ChairModel({ active, pointerRef, dragRef, hoverRef, sectionProgressRef,
       scale: normalizedScale,
     }
   }, [scene])
+
+  useEffect(() => {
+    let cancelled = false
+    const frame = window.requestAnimationFrame(() => {
+      if (!cancelled) onReady?.()
+    })
+
+    return () => {
+      cancelled = true
+      window.cancelAnimationFrame(frame)
+    }
+  }, [model, onReady])
 
   useFrame((_, delta) => {
     if (!active) return
@@ -155,9 +167,18 @@ function ChairModel({ active, pointerRef, dragRef, hoverRef, sectionProgressRef,
   )
 }
 
-export default function ChairShowcaseScene({ active = true, sectionProgressRef }) {
+function StaticReadySignal({ onReady }) {
+  useEffect(() => {
+    onReady?.()
+  }, [onReady])
+
+  return null
+}
+
+export default function ChairShowcaseScene({ active = true, sectionProgressRef, onReady }) {
   const [webglAvailable] = useState(canUseWebGL)
   const [profile] = useState(getDevicePerformanceProfile)
+  const [sceneReady, setSceneReady] = useState(false)
   const modelAsset = resolveModelAsset(MODEL_ASSETS.pipoChair)
   const pointerRef = useRef({ x: 0, y: 0 })
   const hoverRef = useRef(false)
@@ -216,7 +237,11 @@ export default function ChairShowcaseScene({ active = true, sectionProgressRef }
   }
 
   if (!webglAvailable || profile.preferStatic) {
-    return <div className="chair-scene-fallback" aria-hidden="true" />
+    return (
+      <div className="chair-scene-fallback" aria-hidden="true">
+        <StaticReadySignal onReady={onReady} />
+      </div>
+    )
   }
 
   return (
@@ -234,7 +259,7 @@ export default function ChairShowcaseScene({ active = true, sectionProgressRef }
       <Canvas
         shadows={{ type: THREE.PCFShadowMap }}
         dpr={[1, profile.dpr]}
-        frameloop={active ? 'always' : 'demand'}
+        frameloop={active || !sceneReady ? 'always' : 'demand'}
         resize={{ scroll: false }}
         gl={{ antialias: true, alpha: true, powerPreference: profile.tier === 'high' ? 'high-performance' : 'default' }}
         camera={{ position: [0.08, 0.3, 4.2], fov: 20 }}
@@ -257,6 +282,10 @@ export default function ChairShowcaseScene({ active = true, sectionProgressRef }
           hoverRef={hoverRef}
           sectionProgressRef={sectionProgressRef}
           modelUrl={modelAsset.src}
+          onReady={() => {
+            setSceneReady(true)
+            onReady?.()
+          }}
         />
       </Canvas>
     </div>

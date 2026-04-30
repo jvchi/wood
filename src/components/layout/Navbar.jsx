@@ -7,8 +7,16 @@ import { preloadAppRoute } from '../../lib/routePreload'
 import MobileNav from './MobileNav'
 
 const MotionSpan = framerMotion.span
+const brandLayoutTransition = {
+  layout: {
+    type: 'spring',
+    stiffness: 560,
+    damping: 42,
+    mass: 0.82,
+  },
+}
 
-export default function Navbar({ brandIntroReady = true }) {
+export default function Navbar({ brandIntroReady = true, visualLocation }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [navHidden, setNavHidden] = useState(false)
   const lastScrollY = useRef(0)
@@ -16,8 +24,9 @@ export default function Navbar({ brandIntroReady = true }) {
   const { totalItems } = useCart()
   const { items: wishlistItems } = useWishlist()
   const location = useLocation()
+  const displayedLocation = visualLocation || location
   const hasWishlistItems = wishlistItems.length > 0
-  const isHome = location.pathname === '/'
+  const isHome = displayedLocation.pathname === '/'
 
   const navLinks = [
     { to: '/', label: 'New' },
@@ -90,7 +99,7 @@ export default function Navbar({ brandIntroReady = true }) {
               <MotionSpan
                 layoutId="brand-wordmark"
                 className="navbar-brand-wordmark"
-                transition={{ layout: { duration: 0.72, ease: [0.32, 0.72, 0, 1] } }}
+                transition={brandLayoutTransition}
               >
                 wood
               </MotionSpan>
@@ -106,8 +115,8 @@ export default function Navbar({ brandIntroReady = true }) {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`pressable nav-link label-text ${isHome ? 'mix-blend-difference' : ''} ${location.pathname === link.to ? 'is-current' : ''}`}
-                aria-current={location.pathname === link.to ? 'page' : undefined}
+                className={`pressable nav-link label-text ${isHome ? 'mix-blend-difference' : ''} ${displayedLocation.pathname === link.to ? 'is-current' : ''}`}
+                aria-current={displayedLocation.pathname === link.to ? 'page' : undefined}
                 {...getPreloadProps(link.to)}
               >
                 {link.label}
@@ -164,7 +173,7 @@ export default function Navbar({ brandIntroReady = true }) {
         </div>
       </nav>
 
-      <MobileNav isOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <MobileNav isOpen={mobileOpen} onClose={() => setMobileOpen(false)} visualLocation={displayedLocation} />
     </>
   )
 }

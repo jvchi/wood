@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AnimatePresence, LayoutGroup, motion as framerMotion } from 'framer-motion'
 import gsap from 'gsap'
@@ -38,16 +38,22 @@ function RouteFallback() {
 
 function AppRoutes() {
   const location = useLocation()
+  const [displayedLocation, setDisplayedLocation] = useState(location)
   const backgroundLocation = location.state?.backgroundLocation
   const activeProductId = location.state?.sharedProductId ? String(location.state.sharedProductId) : null
   const initialLoad = useInitialLoadReady(location.pathname)
+  const [showInitialProgress, setShowInitialProgress] = useState(true)
+  const routeIsPending = !backgroundLocation && displayedLocation.key !== location.key
+  const routeCanReveal = initialLoad.ready && !routeIsPending
+  const routeIsComplete = initialLoad.complete && !routeIsPending
+  const visualLocation = backgroundLocation || displayedLocation
 
   return (
     <SharedProductTransitionContext.Provider value={{ activeProductId }}>
       <LayoutGroup id="product-shared-layout">
-        <PageLayout brandIntroReady={initialLoad.ready}>
+        <PageLayout brandIntroReady={routeCanReveal} visualLocation={visualLocation}>
           <Suspense fallback={<RouteFallback />}>
-            <Routes location={backgroundLocation || location}>
+            <Routes location={visualLocation}>
               <Route path="/" element={<HomePage />} />
               <Route path="/shop" element={<ShopPage />} />
               <Route path="/product/:id" element={<ProductPage />} />
@@ -87,10 +93,18 @@ function AppRoutes() {
           )}
         </AnimatePresence>
 
-        {!initialLoad.complete && (
+        {!routeIsComplete && (
           <InitialLoadTransition
-            ready={initialLoad.ready}
-            onExitComplete={() => initialLoad.setComplete(true)}
+            ready={routeCanReveal}
+            showProgress={showInitialProgress}
+            variant={location.pathname === '/' ? 'home' : 'default'}
+            onCoverEnterComplete={() => {
+              setDisplayedLocation(location)
+            }}
+            onExitComplete={() => {
+              setShowInitialProgress(false)
+              initialLoad.setComplete(true)
+            }}
           />
         )}
       </LayoutGroup>

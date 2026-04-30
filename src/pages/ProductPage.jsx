@@ -7,9 +7,9 @@ import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
 import Button from '../components/ui/Button'
-import Skeleton from '../components/ui/Skeleton'
 import LazyThreeScene from '../components/three/LazyThreeScene'
 import ThreeModelPlaceholder from '../components/three/ThreeModelPlaceholder'
+import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 const ProductViewer = lazy(() => import('../components/three/ProductViewer'))
 
@@ -47,7 +47,6 @@ function HeartIcon({ filled = false }) {
 
 function ImageGallery({ images, name }) {
   const [activeIndex, setActiveIndex] = useState(0)
-  const [loaded, setLoaded] = useState({})
   const [imageRatios, setImageRatios] = useState({})
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
@@ -106,7 +105,6 @@ function ImageGallery({ images, name }) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {!loaded[activeIndex] && <div className="absolute inset-0 bg-[var(--color-surface-muted)] animate-pulse" />}
         <MotionImg
           /* layoutId={activeIndex === 0 ? `product-image-${productId}` : undefined} */
           /* layout */
@@ -119,7 +117,6 @@ function ImageGallery({ images, name }) {
           style={{ opacity: 1 }}
           onLoad={event => {
             const { naturalWidth, naturalHeight } = event.currentTarget
-            setLoaded(p => ({ ...p, [activeIndex]: true }))
             if (naturalWidth && naturalHeight) {
               setImageRatios(p => ({ ...p, [activeIndex]: `${naturalWidth} / ${naturalHeight}` }))
             }
@@ -214,12 +211,7 @@ export default function ProductPage({ isOverlay = false }) {
   }, [product])
 
   if (loading) return (
-    <div className="page-shell page-top pb-16 md:pb-20">
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:gap-16">
-        <Skeleton className="aspect-[3/4]" />
-        <div className="space-y-6"><Skeleton className="h-6 w-48" /><Skeleton className="h-8 w-32" /><Skeleton className="h-20 w-full" /><Skeleton className="h-12 w-full" /></div>
-      </div>
-    </div>
+    <div className="page-shell page-top product-page-loading pb-16 md:pb-20" aria-busy="true" />
   )
 
   if (!product) return (
@@ -285,12 +277,12 @@ export default function ProductPage({ isOverlay = false }) {
             <ImageGallery images={product.images} name={product.name} />
           ) : (
             <div className="product-gallery-frame">
-              <Suspense fallback={<Skeleton className="w-full h-full" />}>
+              <Suspense fallback={<LoadingSpinner className="product-media-loader" label="Loading product model" size={150} />}>
                 <LazyThreeScene
-                  fallback={<ThreeModelPlaceholder poster={product.fallback_image_url || product.images[0]} variant="product" label="Product preview" />}
+                  fallback={<ThreeModelPlaceholder variant="product" label="Loading product model" />}
                   poster={product.fallback_image_url || product.images[0]}
                   variant="product"
-                  label="Product preview"
+                  label="Loading product model"
                 >
                   <ProductViewer
                     modelUrl={product.model_url}

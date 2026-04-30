@@ -7,9 +7,11 @@ const navLinks = [
   { to: '/about', label: 'About' },
 ]
 
-export default function MobileNav({ isOpen, onClose }) {
+export default function MobileNav({ isOpen, onClose, visualLocation }) {
   const overlayRef = useRef(null)
   const location = useLocation()
+  const displayedLocation = visualLocation || location
+  const previousPathnameRef = useRef(location.pathname)
 
   useEffect(() => {
     if (isOpen) {
@@ -28,6 +30,19 @@ export default function MobileNav({ isOpen, onClose }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [isOpen, onClose])
 
+  useEffect(() => {
+    if (!isOpen) {
+      previousPathnameRef.current = location.pathname
+      return undefined
+    }
+
+    if (previousPathnameRef.current === location.pathname) return undefined
+    previousPathnameRef.current = location.pathname
+
+    const timer = window.setTimeout(onClose, 320)
+    return () => window.clearTimeout(timer)
+  }, [isOpen, location.pathname, onClose])
+
   return (
     <div
       ref={overlayRef}
@@ -41,7 +56,6 @@ export default function MobileNav({ isOpen, onClose }) {
       <div className="page-shell flex h-16 shrink-0 items-center justify-between border-b border-[var(--color-border)]">
         <Link
           to="/"
-          onClick={onClose}
           className="pressable text-base font-bold uppercase"
           translate="no"
         >
@@ -64,9 +78,8 @@ export default function MobileNav({ isOpen, onClose }) {
           <Link
             key={link.to}
             to={link.to}
-            onClick={onClose}
-            className={`pressable drawer-link inline-flex min-h-14 items-center text-[clamp(2rem,13vw,4.5rem)] font-bold uppercase leading-none ${location.pathname === link.to ? 'is-current' : ''}`}
-            aria-current={location.pathname === link.to ? 'page' : undefined}
+            className={`pressable drawer-link inline-flex min-h-14 items-center text-[clamp(2rem,13vw,4.5rem)] font-bold uppercase leading-none ${displayedLocation.pathname === link.to ? 'is-current' : ''}`}
+            aria-current={displayedLocation.pathname === link.to ? 'page' : undefined}
           >
             {link.label}
           </Link>

@@ -200,7 +200,30 @@ function FurnitureLabel({ active, name, price, anchor, label, hovered }) {
   )
 }
 
-function ScrollDrivenScene({ active, scrollDriven, pointer, scrollProgressRef, sceneGroupRef, hoveredLabel }) {
+function SceneReadySignal({ onReady }) {
+  const frameCountRef = useRef(0)
+  const calledRef = useRef(false)
+
+  useFrame(() => {
+    if (calledRef.current) return
+    frameCountRef.current += 1
+    if (frameCountRef.current < 2) return
+    calledRef.current = true
+    onReady?.()
+  })
+
+  return null
+}
+
+function StaticReadySignal({ onReady }) {
+  useEffect(() => {
+    onReady?.()
+  }, [onReady])
+
+  return null
+}
+
+function ScrollDrivenScene({ active, scrollDriven, pointer, scrollProgressRef, sceneGroupRef, hoveredLabel, onReady }) {
   const easedProgress = useRef(0)
   const easedPointer = useRef({ x: 0, y: 0 })
 
@@ -223,6 +246,7 @@ function ScrollDrivenScene({ active, scrollDriven, pointer, scrollProgressRef, s
     <Center>
       <group ref={sceneGroupRef}>
         <Room />
+        <SceneReadySignal onReady={onReady} />
         {FURNITURE_LABELS.map((label) => (
           <FurnitureLabel
             key={label.name}
@@ -239,7 +263,7 @@ function ScrollDrivenScene({ active, scrollDriven, pointer, scrollProgressRef, s
   )
 }
 
-export default function HeroScene({ active = true, fallbackImage, fallbackAlt = 'Featured couch', scrollDriven = false, scrollProgressRef }) {
+export default function HeroScene({ active = true, fallbackImage, fallbackAlt = 'Featured couch', scrollDriven = false, scrollProgressRef, onReady }) {
   const [webglAvailable] = useState(canUseWebGL)
   const [profile] = useState(getDevicePerformanceProfile)
   const pointer = useRef({ x: 0, y: 0 })
@@ -311,6 +335,7 @@ export default function HeroScene({ active = true, fallbackImage, fallbackAlt = 
   if (!webglAvailable || profile.preferStatic) {
     return (
       <div className="absolute inset-0">
+        <StaticReadySignal onReady={onReady} />
         {fallbackImage && (
           <img
             src={fallbackImage}
@@ -361,6 +386,7 @@ export default function HeroScene({ active = true, fallbackImage, fallbackAlt = 
           scrollProgressRef={scrollProgressRef}
           sceneGroupRef={sceneGroupRef}
           hoveredLabel={hoveredLabel}
+          onReady={onReady}
         />
       </Canvas>
     </div>

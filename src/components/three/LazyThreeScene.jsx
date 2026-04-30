@@ -14,10 +14,17 @@ export default function LazyThreeScene({
   disabled = false,
   idleTimeout = 1200,
 }) {
-  const [ready, setReady] = useState(() => readyScenes.has(cacheKey))
+  const [ready, setReady] = useState(() => idleTimeout <= 0 || readyScenes.has(cacheKey))
   const [profile] = useState(getDevicePerformanceProfile)
+  const resolvedFallback = fallback !== undefined
+    ? fallback
+    : <ThreeModelPlaceholder poster={poster} label={label} variant={variant} />
 
   useEffect(() => {
+    if (idleTimeout <= 0) {
+      readyScenes.add(cacheKey)
+      return undefined
+    }
     if (disabled || profile.preferStatic || readyScenes.has(cacheKey)) return undefined
     return runWhenIdle(() => {
       readyScenes.add(cacheKey)
@@ -26,11 +33,11 @@ export default function LazyThreeScene({
   }, [cacheKey, disabled, idleTimeout, profile.preferStatic])
 
   if (disabled || profile.preferStatic || !ready) {
-    return fallback || <ThreeModelPlaceholder poster={poster} label={label} variant={variant} />
+    return resolvedFallback
   }
 
   return (
-    <Suspense fallback={fallback || <ThreeModelPlaceholder poster={poster} label={label} variant={variant} />}>
+    <Suspense fallback={resolvedFallback}>
       {children}
     </Suspense>
   )

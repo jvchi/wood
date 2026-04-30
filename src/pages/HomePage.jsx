@@ -8,6 +8,16 @@ import { PersistentThreeSceneSlot } from '../components/three/PersistentThreeSce
 const HeroScene = lazy(() => import('../components/three/HeroScene'))
 const ChairShowcaseScene = lazy(() => import('../components/three/ChairShowcaseScene'))
 
+function markHomeSceneReady(sceneName) {
+  document.documentElement.dataset[sceneName] = 'true'
+  if (
+    document.documentElement.dataset.homeHeroReady === 'true' &&
+    document.documentElement.dataset.homeChairReady === 'true'
+  ) {
+    window.dispatchEvent(new Event('wood:home-scenes-ready'))
+  }
+}
+
 export default function HomePage() {
   const stickyRef = useRef(null)
   const scrollRef = useRef(null)
@@ -23,11 +33,19 @@ export default function HomePage() {
   const [chairSceneActive, setChairSceneActive] = useState(true)
   const heroScene = useMemo(() => ({ active }) => (
     <LazyThreeScene
-      fallback={<ThreeModelPlaceholder variant="room" label="Loading room view" />}
+      fallback={null}
       variant="room"
       label="Loading room view"
+      idleTimeout={0}
     >
-      <HeroScene active={active && heroSceneActive} scrollDriven scrollProgressRef={progressRef} />
+      <HeroScene
+        active={active && heroSceneActive}
+        scrollDriven
+        scrollProgressRef={progressRef}
+        onReady={() => {
+          markHomeSceneReady('homeHeroReady')
+        }}
+      />
     </LazyThreeScene>
   ), [heroSceneActive])
 
@@ -204,11 +222,18 @@ export default function HomePage() {
         <div className="home-chair-stage">
           <Suspense fallback={<ThreeModelPlaceholder variant="chair" label="Loading chair view" />}>
             <LazyThreeScene
-              fallback={<ThreeModelPlaceholder variant="chair" label="Loading chair view" />}
+              fallback={null}
               variant="chair"
               label="Loading chair view"
+              idleTimeout={0}
             >
-              <ChairShowcaseScene active={chairSceneActive} sectionProgressRef={showcaseProgressRef} />
+              <ChairShowcaseScene
+                active={chairSceneActive}
+                sectionProgressRef={showcaseProgressRef}
+                onReady={() => {
+                  markHomeSceneReady('homeChairReady')
+                }}
+              />
             </LazyThreeScene>
           </Suspense>
         </div>
