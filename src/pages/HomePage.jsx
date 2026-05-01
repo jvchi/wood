@@ -150,19 +150,14 @@ export default function HomePage() {
         start: 'top top',
         end: () => showcaseRef.current?.offsetTop ?? Math.max(1, scrollRef.current.offsetHeight - stickyRef.current.offsetHeight),
         onUpdate: (self) => {
-          const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
-          const liftDistance = Math.max(1, scrollRef.current.offsetHeight - stickyRef.current.offsetHeight)
-          const liftProgress = Math.min(1, Math.max(0, (currentScroll - self.start) / liftDistance))
-          heroTargetProgressRef.current = liftProgress
+          heroTargetProgressRef.current = self.progress
           measureChairProgress()
         },
         onRefresh: (self) => {
-          const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
-          const liftDistance = Math.max(1, scrollRef.current.offsetHeight - stickyRef.current.offsetHeight)
-          const liftProgress = Math.min(1, Math.max(0, (currentScroll - self.start) / liftDistance))
-          heroTargetProgressRef.current = liftProgress
-          heroDisplayProgressRef.current = liftProgress
-          applyHeroProgress(liftProgress)
+          const progress = self.progress
+          heroTargetProgressRef.current = progress
+          heroDisplayProgressRef.current = progress
+          applyHeroProgress(progress)
           measureChairProgress()
           showcaseDisplayProgressRef.current = showcaseTargetProgressRef.current
           applyChairProgress(showcaseTargetProgressRef.current)
@@ -226,9 +221,14 @@ export default function HomePage() {
 
       function getSnapStops() {
         const maxScroll = ScrollTrigger.maxScroll(window)
+        const isMobile = window.innerWidth < 768
+        const chairTop = showcaseRef.current?.offsetTop ?? 0
+        const chairSnap = isMobile && showcaseRef.current
+          ? Math.max(chairTop, chairTop + showcaseRef.current.offsetHeight - window.innerHeight)
+          : chairTop
         return [
           0,
-          showcaseRef.current?.offsetTop ?? 0,
+          chairSnap,
           bestSellerRef.current?.offsetTop ?? maxScroll,
         ]
           .map(stop => Math.min(maxScroll, Math.max(0, stop)))
@@ -368,9 +368,6 @@ export default function HomePage() {
       window.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true })
       window.addEventListener('scroll', queueSnap, { passive: true })
 
-      applyHeroProgress(heroTrigger.progress)
-      measureChairProgress()
-      applyChairProgress(showcaseTargetProgressRef.current)
 
       const smoothing = window.matchMedia('(max-width: 767px)').matches ? 0.14 : 0.2
       const tick = () => {
@@ -461,11 +458,7 @@ export default function HomePage() {
       <section ref={bestSellerRef} className="home-bestseller-section" aria-labelledby="home-bestseller-title">
         <div className="home-bestseller-shell">
           <div className="home-bestseller-header">
-            <p className="home-bestseller-kicker">Curated edit</p>
             <h2 id="home-bestseller-title">Best sellers</h2>
-            <p className="home-bestseller-copy">
-              The pieces customers keep coming back to, arranged for fast comparison across scale, material, and room presence.
-            </p>
             <Link to="/shop" className="pressable home-bestseller-view">
               View all
             </Link>

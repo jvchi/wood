@@ -73,6 +73,7 @@ function ShowcaseCamera({ active, pointerRef, sectionProgressRef }) {
 
 function ChairModel({ active, pointerRef, dragRef, hoverRef, sectionProgressRef, modelUrl, onReady }) {
   const { scene } = useGLTF(modelUrl)
+  const { size } = useThree()
   const groupRef = useRef(null)
 
   const { model, scale } = useMemo(() => {
@@ -137,7 +138,9 @@ function ChairModel({ active, pointerRef, dragRef, hoverRef, sectionProgressRef,
     const dragRotationX = dragRef.current.rotationX
     const dragRotationY = dragRef.current.rotationY
 
-    const targetPositionX = 0.34 * (1 - settleProgress) + pointerX * 0.045
+    const aspect = size.width / Math.max(1, size.height)
+    const baseOffsetX = aspect < 0.9 ? 0 : 0.34
+    const targetPositionX = baseOffsetX * (1 - settleProgress) + pointerX * 0.045
     const targetPositionY = 0.18 + progress * 0.08 + idleOffsetY
     const targetRotationX = BASE_ROTATION_X + (1 - settleProgress) * 0.12 + pointerY * 0.03 + idleRotationX + dragRotationX
     const targetRotationY =

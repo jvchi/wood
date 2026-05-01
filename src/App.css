@@ -640,6 +640,8 @@ input {
   --chair-progress: 0;
 }
 
+
+
 .home-chair-backdrop {
   position: absolute;
   inset: 0;
@@ -661,6 +663,8 @@ input {
   opacity: calc(0.2 + var(--chair-progress) * 0.8);
   will-change: opacity, transform;
 }
+
+
 
 .home-chair-title-line {
   will-change: transform;
@@ -777,7 +781,7 @@ input {
 .home-bestseller-kicker {
   grid-column: 1 / span 2;
   color: var(--home-bestseller-faint);
-  font-family: 'IBM Plex Sans', 'Archivo', system-ui, sans-serif;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.2;
@@ -788,7 +792,7 @@ input {
 .home-bestseller-header h2 {
   grid-column: 3 / span 5;
   color: var(--home-bestseller-ink);
-  font-family: 'IBM Plex Sans', 'Archivo', system-ui, sans-serif;
+  font-family: 'Archivo', system-ui, sans-serif;
   font-size: clamp(3rem, 8vw, 7rem);
   font-weight: 300;
   line-height: 0.9;
@@ -3358,25 +3362,28 @@ input {
 
   .home-chair-section {
     min-height: 100svh;
-    min-height: 100dvh;
     height: 100svh;
-    height: 100dvh;
-    padding-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-top: 0;
   }
 
   .home-chair-backdrop span {
-    top: 0.75rem;
-    left: 1rem;
-    right: 1rem;
-    transform: translate3d(0, calc((1 - var(--chair-progress)) * 2.5rem), 0);
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    right: auto;
+    transform: translate3d(-50%, calc(-15rem + (1 - var(--chair-progress)) * 3.5rem), 0);
     font-size: clamp(3.5rem, 19vw, 5.4rem);
     line-height: 0.88;
+    text-align: center;
   }
 
   .home-chair-stage {
-    width: calc(100% + 2rem);
-    height: min(68vw, 21rem);
-    margin: 3rem -1rem 0;
+    width: 100%;
+    height: clamp(24rem, 44vw, 34rem);
+    margin: 0;
   }
 
   .home-chair-copy {
