@@ -17,7 +17,7 @@ const sharedImageTransition = {
   },
 }
 
-const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
+const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false }, ref) => {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [isTall, setIsTall] = useState(false)
   const { isInWishlist, toggleItem } = useWishlist()
@@ -135,16 +135,18 @@ const ProductCard = forwardRef(({ product, index = 0, variant }, ref) => {
         </button>
       </MotionDiv>
 
-      <div className="product-card-meta">
-        <Link to={`/product/${product.id}`} viewTransition>
-          <h3 className="product-title break-words">
-            {product.name}
-          </h3>
-        </Link>
-        <p className="product-price">
-          {product.stock_quantity <= 0 || product.stock <= 0 ? 'Out of stock' : formatPrice(product.price, product.currency)}
-        </p>
-      </div>
+      {!hideInfo && (
+        <div className="product-card-meta">
+          <Link to={`/product/${product.id}`} viewTransition>
+            <h3 className="product-title break-words">
+              {product.name}
+            </h3>
+          </Link>
+          <p className="product-price">
+            {product.stock_quantity <= 0 || product.stock <= 0 ? 'Out of stock' : formatPrice(product.price, product.currency)}
+          </p>
+        </div>
+      )}
     </article>
   )
 })

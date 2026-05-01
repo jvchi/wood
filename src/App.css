@@ -3382,7 +3382,7 @@ input {
 
   .home-chair-stage {
     width: 100%;
-    height: clamp(24rem, 44vw, 34rem);
+    height: clamp(20rem, 44vw, 34rem);
     margin: 0;
   }
 

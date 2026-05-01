@@ -214,160 +214,6 @@ export default function HomePage() {
         }
       }
 
-      let snapTimeoutId = null
-      let snapInProgress = false
-      let lastSnapTarget = null
-      let lastInputVelocity = 0
-
-      function getSnapStops() {
-        const maxScroll = ScrollTrigger.maxScroll(window)
-        const isMobile = window.innerWidth < 768
-        const chairTop = showcaseRef.current?.offsetTop ?? 0
-        const chairSnap = isMobile && showcaseRef.current
-          ? Math.max(chairTop, chairTop + showcaseRef.current.offsetHeight - window.innerHeight)
-          : chairTop
-        return [
-          0,
-          chairSnap,
-          bestSellerRef.current?.offsetTop ?? maxScroll,
-        ]
-          .map(stop => Math.min(maxScroll, Math.max(0, stop)))
-          .filter((stop, index, allStops) => index === 0 || Math.abs(stop - allStops[index - 1]) > window.innerHeight * 0.25)
-      }
-
-      function findClosestSnap(scrollY) {
-        const stops = getSnapStops()
-        return stops.reduce((closest, stop) => {
-          const threshold = stop === 0 ? 24 : Math.min(window.innerHeight * 0.34, 360)
-          const distance = Math.abs(stop - scrollY)
-          if (distance > threshold) return closest
-          if (!closest || distance < closest.distance) {
-            return { stop, distance }
-          }
-          return closest
-        }, null)
-      }
-
-      function getDirectionalSnap(scrollY, deltaY) {
-        const direction = Math.sign(deltaY)
-        if (direction === 0) return null
-
-        const resistanceDistance = Math.min(window.innerHeight * 0.42, 420)
-        const projectedScroll = scrollY + Math.abs(deltaY) * 0.85 * direction
-        const stops = getSnapStops()
-
-        if (direction < 0) {
-          return [...stops]
-            .reverse()
-            .filter(stop => stop < scrollY - 8)
-            .find(stop => {
-              const distance = scrollY - stop
-              return distance <= resistanceDistance || projectedScroll <= stop
-            }) ?? null
-        }
-
-        return stops
-          .filter(stop => stop > scrollY + 8)
-          .find(stop => {
-            const distance = stop - scrollY
-            return distance <= resistanceDistance || projectedScroll >= stop
-          }) ?? null
-      }
-
-      function getSnapDuration(stop, inputVelocity = lastInputVelocity) {
-        const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
-        const distance = Math.abs(stop - currentScroll)
-        const velocity = Math.min(1, Math.abs(inputVelocity) / 1100)
-        const distanceWeight = Math.min(1, distance / window.innerHeight)
-        return Math.max(0.38, Math.min(0.95, 0.82 - velocity * 0.34 + distanceWeight * 0.18))
-      }
-
-      function scrollToSnap(stop, inputVelocity = lastInputVelocity) {
-        if (Math.abs((window.__lenis?.animatedScroll ?? window.scrollY) - stop) < 3) return
-        snapInProgress = true
-        lastSnapTarget = stop
-        const duration = getSnapDuration(stop, inputVelocity)
-
-        if (window.__lenis) {
-          window.__lenis.scrollTo(stop, {
-            duration,
-            easing: t => 1 - Math.pow(1 - t, 2.6),
-            lock: true,
-            onComplete: () => {
-              snapInProgress = false
-            },
-          })
-          return
-        }
-
-        window.scrollTo({
-          top: stop,
-          behavior: reducedMotion ? 'auto' : 'smooth',
-        })
-        window.setTimeout(() => {
-          snapInProgress = false
-        }, reducedMotion ? 0 : duration * 1000)
-      }
-
-      function resistSectionPass(event, deltaY) {
-        if (reducedMotion || snapInProgress || Math.abs(deltaY) < 1) return
-        lastInputVelocity = deltaY
-
-        const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
-        const directionalSnap = getDirectionalSnap(currentScroll, deltaY)
-        if (!directionalSnap) return
-
-        if (event.cancelable) {
-          event.preventDefault()
-        }
-        window.clearTimeout(snapTimeoutId)
-        scrollToSnap(directionalSnap, deltaY)
-      }
-
-      function handleWheel(event) {
-        resistSectionPass(event, event.deltaY)
-      }
-
-      let lastTouchY = null
-
-      function handleTouchStart(event) {
-        lastTouchY = event.touches[0]?.clientY ?? null
-      }
-
-      function handleTouchMove(event) {
-        if (lastTouchY === null) return
-        const nextTouchY = event.touches[0]?.clientY ?? lastTouchY
-        const deltaY = lastTouchY - nextTouchY
-        lastTouchY = nextTouchY
-        resistSectionPass(event, deltaY)
-      }
-
-      function queueSnap() {
-        if (reducedMotion) return
-        window.clearTimeout(snapTimeoutId)
-        snapTimeoutId = window.setTimeout(() => {
-          const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
-
-          if (snapInProgress && lastSnapTarget !== null && Math.abs(currentScroll - lastSnapTarget) > 12) {
-            snapInProgress = false
-          }
-
-          if (snapInProgress) return
-
-          const closest = findClosestSnap(currentScroll)
-          if (closest) {
-            scrollToSnap(closest.stop)
-          }
-        }, 130)
-      }
-
-      const lenis = window.__lenis
-      lenis?.on('scroll', queueSnap)
-      window.addEventListener('wheel', handleWheel, { passive: false, capture: true })
-      window.addEventListener('touchstart', handleTouchStart, { passive: true })
-      window.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true })
-      window.addEventListener('scroll', queueSnap, { passive: true })
-
 
       const smoothing = window.matchMedia('(max-width: 767px)').matches ? 0.14 : 0.2
       const tick = () => {
@@ -389,12 +235,6 @@ export default function HomePage() {
 
       return () => {
         gsap.ticker.remove(tick)
-        window.clearTimeout(snapTimeoutId)
-        lenis?.off('scroll', queueSnap)
-        window.removeEventListener('wheel', handleWheel, { capture: true })
-        window.removeEventListener('touchstart', handleTouchStart)
-        window.removeEventListener('touchmove', handleTouchMove, { capture: true })
-        window.removeEventListener('scroll', queueSnap)
         chairTitleSplit?.revert()
         chairTrigger.kill()
         heroTrigger.kill()
@@ -478,7 +318,7 @@ export default function HomePage() {
             ) : bestSellerProducts.length > 0 ? (
               <div className="home-bestseller-grid">
                 {bestSellerProducts.slice(0, 5).map((product, index) => (
-                  <ProductCard key={product.id} product={product} index={index} />
+                  <ProductCard key={product.id} product={product} index={index} hideInfo={true} />
                 ))}
               </div>
             ) : (
