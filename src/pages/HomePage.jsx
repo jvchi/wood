@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { SplitText } from 'gsap/SplitText'
 import LazyThreeScene from '../components/three/LazyThreeScene'
 import ThreeModelPlaceholder from '../components/three/ThreeModelPlaceholder'
 import { PersistentThreeSceneSlot } from '../components/three/PersistentThreeSceneProvider'
@@ -11,6 +12,8 @@ import { useProducts } from '../hooks/useProducts'
 
 const HeroScene = lazy(() => import('../components/three/HeroScene'))
 const ChairShowcaseScene = lazy(() => import('../components/three/ChairShowcaseScene'))
+
+gsap.registerPlugin(SplitText)
 
 function markHomeSceneReady(sceneName) {
   document.documentElement.dataset[sceneName] = 'true'
@@ -31,6 +34,7 @@ export default function HomePage() {
   const heroTargetProgressRef = useRef(0)
   const heroDisplayProgressRef = useRef(0)
   const showcaseRef = useRef(null)
+  const chairTitleRef = useRef(null)
   const showcaseProgressRef = useRef(0)
   const showcaseTargetProgressRef = useRef(0)
   const showcaseDisplayProgressRef = useRef(0)
@@ -173,6 +177,47 @@ export default function HomePage() {
         onUpdate: measureChairProgress,
         onRefresh: measureChairProgress,
       })
+
+      let chairTitleSplit = null
+
+      if (chairTitleRef.current) {
+        if (reducedMotion) {
+          gsap.set(chairTitleRef.current, { clearProps: 'all' })
+        } else {
+          chairTitleSplit = SplitText.create(chairTitleRef.current, {
+            type: 'lines',
+            mask: 'lines',
+            linesClass: 'home-chair-title-line',
+            autoSplit: true,
+            onSplit(self) {
+              const tl = gsap.timeline({
+                scrollTrigger: {
+                  id: 'home-chair-title-mask',
+                  trigger: showcaseRef.current,
+                  start: 'top 88%',
+                  end: 'top 32%',
+                  scrub: 0.8,
+                  invalidateOnRefresh: true,
+                },
+              })
+
+              tl.fromTo(
+                self.lines,
+                { yPercent: 112, rotate: 2.5 },
+                {
+                  yPercent: 0,
+                  rotate: 0,
+                  duration: 1,
+                  ease: 'power3.out',
+                  stagger: 0.08,
+                },
+              )
+
+              return tl
+            },
+          })
+        }
+      }
 
       let snapTimeoutId = null
       let snapInProgress = false
@@ -353,6 +398,7 @@ export default function HomePage() {
         window.removeEventListener('touchstart', handleTouchStart)
         window.removeEventListener('touchmove', handleTouchMove, { capture: true })
         window.removeEventListener('scroll', queueSnap)
+        chairTitleSplit?.revert()
         chairTrigger.kill()
         heroTrigger.kill()
       }
@@ -385,7 +431,7 @@ export default function HomePage() {
 
       <section ref={showcaseRef} className="home-chair-section" aria-label="Pipo chair showcase">
         <div className="home-chair-backdrop" aria-hidden="true">
-          <span>Pipo Chair</span>
+          <span ref={chairTitleRef}>Pipo Chair</span>
         </div>
 
         <div className="home-chair-stage">
