@@ -1,9 +1,13 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import LazyThreeScene from '../components/three/LazyThreeScene'
 import ThreeModelPlaceholder from '../components/three/ThreeModelPlaceholder'
 import { PersistentThreeSceneSlot } from '../components/three/PersistentThreeSceneProvider'
+import ProductCard from '../components/ui/ProductCard'
+import Skeleton from '../components/ui/Skeleton'
+import { useProducts } from '../hooks/useProducts'
 
 const HeroScene = lazy(() => import('../components/three/HeroScene'))
 const ChairShowcaseScene = lazy(() => import('../components/three/ChairShowcaseScene'))
@@ -21,6 +25,7 @@ function markHomeSceneReady(sceneName) {
 export default function HomePage() {
   const stickyRef = useRef(null)
   const scrollRef = useRef(null)
+  const bestSellerRef = useRef(null)
   const titleRef = useRef(null)
   const progressRef = useRef(0)
   const heroTargetProgressRef = useRef(0)
@@ -31,6 +36,13 @@ export default function HomePage() {
   const showcaseDisplayProgressRef = useRef(0)
   const [heroSceneActive, setHeroSceneActive] = useState(true)
   const [chairSceneActive, setChairSceneActive] = useState(true)
+  const { products, loading: productsLoading } = useProducts()
+  const bestSellerProducts = useMemo(() => {
+    const bestSellers = products.filter(product => product.best_seller)
+    const bestSellerIds = new Set(bestSellers.map(product => product.id))
+    const supportingProducts = products.filter(product => !bestSellerIds.has(product.id))
+    return [...bestSellers, ...supportingProducts].slice(0, 8)
+  }, [products])
   const heroScene = useMemo(() => ({ active }) => (
     <LazyThreeScene
       fallback={null}
@@ -75,6 +87,8 @@ export default function HomePage() {
   }, [])
 
   useEffect(() => {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
     function easeTitleDrop(progress) {
       const delayed = Math.min(1, Math.max(0, (progress - 0.08) / 0.92))
       const slowPull = Math.pow(delayed, 1.55) * 0.38
@@ -160,6 +174,155 @@ export default function HomePage() {
         onRefresh: measureChairProgress,
       })
 
+      let snapTimeoutId = null
+      let snapInProgress = false
+      let lastSnapTarget = null
+      let lastInputVelocity = 0
+
+      function getSnapStops() {
+        const maxScroll = ScrollTrigger.maxScroll(window)
+        return [
+          0,
+          showcaseRef.current?.offsetTop ?? 0,
+          bestSellerRef.current?.offsetTop ?? maxScroll,
+        ]
+          .map(stop => Math.min(maxScroll, Math.max(0, stop)))
+          .filter((stop, index, allStops) => index === 0 || Math.abs(stop - allStops[index - 1]) > window.innerHeight * 0.25)
+      }
+
+      function findClosestSnap(scrollY) {
+        const stops = getSnapStops()
+        return stops.reduce((closest, stop) => {
+          const threshold = stop === 0 ? 24 : Math.min(window.innerHeight * 0.34, 360)
+          const distance = Math.abs(stop - scrollY)
+          if (distance > threshold) return closest
+          if (!closest || distance < closest.distance) {
+            return { stop, distance }
+          }
+          return closest
+        }, null)
+      }
+
+      function getDirectionalSnap(scrollY, deltaY) {
+        const direction = Math.sign(deltaY)
+        if (direction === 0) return null
+
+        const resistanceDistance = Math.min(window.innerHeight * 0.42, 420)
+        const projectedScroll = scrollY + Math.abs(deltaY) * 0.85 * direction
+        const stops = getSnapStops()
+
+        if (direction < 0) {
+          return [...stops]
+            .reverse()
+            .filter(stop => stop < scrollY - 8)
+            .find(stop => {
+              const distance = scrollY - stop
+              return distance <= resistanceDistance || projectedScroll <= stop
+            }) ?? null
+        }
+
+        return stops
+          .filter(stop => stop > scrollY + 8)
+          .find(stop => {
+            const distance = stop - scrollY
+            return distance <= resistanceDistance || projectedScroll >= stop
+          }) ?? null
+      }
+
+      function getSnapDuration(stop, inputVelocity = lastInputVelocity) {
+        const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
+        const distance = Math.abs(stop - currentScroll)
+        const velocity = Math.min(1, Math.abs(inputVelocity) / 1100)
+        const distanceWeight = Math.min(1, distance / window.innerHeight)
+        return Math.max(0.38, Math.min(0.95, 0.82 - velocity * 0.34 + distanceWeight * 0.18))
+      }
+
+      function scrollToSnap(stop, inputVelocity = lastInputVelocity) {
+        if (Math.abs((window.__lenis?.animatedScroll ?? window.scrollY) - stop) < 3) return
+        snapInProgress = true
+        lastSnapTarget = stop
+        const duration = getSnapDuration(stop, inputVelocity)
+
+        if (window.__lenis) {
+          window.__lenis.scrollTo(stop, {
+            duration,
+            easing: t => 1 - Math.pow(1 - t, 2.6),
+            lock: true,
+            onComplete: () => {
+              snapInProgress = false
+            },
+          })
+          return
+        }
+
+        window.scrollTo({
+          top: stop,
+          behavior: reducedMotion ? 'auto' : 'smooth',
+        })
+        window.setTimeout(() => {
+          snapInProgress = false
+        }, reducedMotion ? 0 : duration * 1000)
+      }
+
+      function resistSectionPass(event, deltaY) {
+        if (reducedMotion || snapInProgress || Math.abs(deltaY) < 1) return
+        lastInputVelocity = deltaY
+
+        const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
+        const directionalSnap = getDirectionalSnap(currentScroll, deltaY)
+        if (!directionalSnap) return
+
+        if (event.cancelable) {
+          event.preventDefault()
+        }
+        window.clearTimeout(snapTimeoutId)
+        scrollToSnap(directionalSnap, deltaY)
+      }
+
+      function handleWheel(event) {
+        resistSectionPass(event, event.deltaY)
+      }
+
+      let lastTouchY = null
+
+      function handleTouchStart(event) {
+        lastTouchY = event.touches[0]?.clientY ?? null
+      }
+
+      function handleTouchMove(event) {
+        if (lastTouchY === null) return
+        const nextTouchY = event.touches[0]?.clientY ?? lastTouchY
+        const deltaY = lastTouchY - nextTouchY
+        lastTouchY = nextTouchY
+        resistSectionPass(event, deltaY)
+      }
+
+      function queueSnap() {
+        if (reducedMotion) return
+        window.clearTimeout(snapTimeoutId)
+        snapTimeoutId = window.setTimeout(() => {
+          const currentScroll = window.__lenis?.animatedScroll ?? window.scrollY
+
+          if (snapInProgress && lastSnapTarget !== null && Math.abs(currentScroll - lastSnapTarget) > 12) {
+            snapInProgress = false
+          }
+
+          if (snapInProgress) return
+
+          const closest = findClosestSnap(currentScroll)
+          if (closest) {
+            scrollToSnap(closest.stop)
+          }
+        }, 130)
+      }
+
+      const lenis = window.__lenis
+      lenis?.on('scroll', queueSnap)
+      window.addEventListener('wheel', handleWheel, { passive: false, capture: true })
+      window.addEventListener('touchstart', handleTouchStart, { passive: true })
+      window.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true })
+      window.addEventListener('scroll', queueSnap, { passive: true })
+
       applyHeroProgress(heroTrigger.progress)
       measureChairProgress()
       applyChairProgress(showcaseTargetProgressRef.current)
@@ -184,6 +347,12 @@ export default function HomePage() {
 
       return () => {
         gsap.ticker.remove(tick)
+        window.clearTimeout(snapTimeoutId)
+        lenis?.off('scroll', queueSnap)
+        window.removeEventListener('wheel', handleWheel, { capture: true })
+        window.removeEventListener('touchstart', handleTouchStart)
+        window.removeEventListener('touchmove', handleTouchMove, { capture: true })
+        window.removeEventListener('scroll', queueSnap)
         chairTrigger.kill()
         heroTrigger.kill()
       }
@@ -240,6 +409,48 @@ export default function HomePage() {
 
         <div className="home-chair-copy">
           <p className="home-chair-caption">Walnut frame, soft seat, quieter presence.</p>
+        </div>
+      </section>
+
+      <section ref={bestSellerRef} className="home-bestseller-section" aria-labelledby="home-bestseller-title">
+        <div className="home-bestseller-shell">
+          <div className="home-bestseller-header">
+            <p className="home-bestseller-kicker">Curated edit</p>
+            <h2 id="home-bestseller-title">Best sellers</h2>
+            <p className="home-bestseller-copy">
+              The pieces customers keep coming back to, arranged for fast comparison across scale, material, and room presence.
+            </p>
+            <Link to="/shop" className="pressable home-bestseller-view">
+              View all
+            </Link>
+          </div>
+
+          <div className="home-bestseller-board">
+            {productsLoading ? (
+              <div className="home-bestseller-grid home-bestseller-grid-loading" aria-hidden="true">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <div className="home-bestseller-card-skeleton" key={index}>
+                    <Skeleton className="home-bestseller-skeleton-media" />
+                    <Skeleton className="mt-3 h-3 w-28" />
+                    <Skeleton className="mt-2 h-3 w-16" />
+                  </div>
+                ))}
+              </div>
+            ) : bestSellerProducts.length > 0 ? (
+              <div className="home-bestseller-grid">
+                {bestSellerProducts.slice(0, 5).map((product, index) => (
+                  <ProductCard key={product.id} product={product} index={index} />
+                ))}
+              </div>
+            ) : (
+              <div className="home-bestseller-empty">
+                <p>No best sellers are available right now.</p>
+                <Link to="/shop" className="pressable home-bestseller-empty-link">
+                  Browse the shop
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </div>
