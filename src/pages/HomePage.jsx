@@ -213,34 +213,6 @@ export default function HomePage() {
           })
         }
       }
-      ScrollTrigger.create({
-        id: 'home-page-snap',
-        snap: {
-          snapTo: (value) => {
-            const max = ScrollTrigger.maxScroll(window)
-            if (max <= 0) return value
-
-            const chairTop = showcaseRef.current?.offsetTop ?? 0
-            const shopTop = bestSellerRef.current?.offsetTop ?? max
-
-            const isMobile = window.innerWidth < 768
-            const chairSnap = isMobile && showcaseRef.current
-              ? Math.max(chairTop, chairTop + showcaseRef.current.offsetHeight - window.innerHeight)
-              : chairTop
-
-            const progressStops = [0, chairSnap, shopTop].map(s => s / max)
-            const closest = progressStops.reduce((prev, curr) =>
-              Math.abs(curr - value) < Math.abs(prev - value) ? curr : prev
-            )
-
-            // Proximity check: only snap if within 12% of a section stop
-            return Math.abs(closest - value) < 0.12 ? closest : value
-          },
-          duration: { min: 0.3, max: 0.8 },
-          delay: 0.12,
-          ease: 'power2.inOut',
-        },
-      })
 
 
       const smoothing = window.matchMedia('(max-width: 767px)').matches ? 0.14 : 0.2

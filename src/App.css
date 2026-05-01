@@ -720,6 +720,7 @@ input {
   letter-spacing: 0.01em;
   text-align: center;
   text-wrap: pretty;
+  margin-bottom: 5rem;
 }
 
 .home-bestseller-section {
