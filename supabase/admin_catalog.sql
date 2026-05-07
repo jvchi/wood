@@ -81,15 +81,38 @@ create table if not exists public.product_models (
   product_id text not null references public.products(id) on delete cascade,
   url text not null,
   lite_url text,
+  poster_url text,
   version text,
   fallback_image_url text,
   scale numeric(8, 3) not null default 1,
   rotation text not null default '0,0,0',
+  format text not null default 'glb' check (format in ('glb', 'gltf', 'usdz')),
+  file_size bigint check (file_size is null or file_size >= 0),
+  metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
 alter table public.product_models add column if not exists lite_url text;
+alter table public.product_models add column if not exists poster_url text;
 alter table public.product_models add column if not exists version text;
+alter table public.product_models add column if not exists format text not null default 'glb';
+alter table public.product_models add column if not exists file_size bigint;
+alter table public.product_models add column if not exists metadata jsonb not null default '{}'::jsonb;
+
+create table if not exists public.product_uploads (
+  id uuid primary key default gen_random_uuid(),
+  product_id text references public.products(id) on delete set null,
+  bucket_id text not null check (bucket_id in ('product-images', 'product-models')),
+  storage_path text not null,
+  public_url text not null,
+  asset_kind text not null check (asset_kind in ('image', 'model', 'poster', 'lite_model')),
+  file_name text not null,
+  content_type text,
+  file_size bigint check (file_size is null or file_size >= 0),
+  status text not null default 'ready' check (status in ('uploading', 'ready', 'failed', 'deleted')),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
 
 create table if not exists public.inventory_logs (
   id uuid primary key default gen_random_uuid(),
@@ -133,17 +156,34 @@ create index if not exists idx_products_stock_status on public.products (stock_s
 create index if not exists idx_products_featured on public.products (featured) where featured = true;
 create index if not exists idx_product_images_product_sort on public.product_images (product_id, sort_order);
 create index if not exists idx_product_models_product on public.product_models (product_id);
+create index if not exists idx_product_uploads_product_created on public.product_uploads (product_id, created_at desc);
+create index if not exists idx_product_uploads_bucket_status on public.product_uploads (bucket_id, status);
 create index if not exists idx_inventory_logs_product_created on public.inventory_logs (product_id, created_at desc);
 
 insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true), ('product-models', 'product-models', true)
 on conflict (id) do update set public = excluded.public;
 
+update storage.buckets
+set
+  public = true,
+  file_size_limit = 10485760,
+  allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'image/avif']
+where id = 'product-images';
+
+update storage.buckets
+set
+  public = true,
+  file_size_limit = 104857600,
+  allowed_mime_types = array['model/gltf-binary', 'model/gltf+json', 'application/octet-stream']
+where id = 'product-models';
+
 alter table public.categories enable row level security;
 alter table public.collections enable row level security;
 alter table public.products enable row level security;
 alter table public.product_images enable row level security;
 alter table public.product_models enable row level security;
+alter table public.product_uploads enable row level security;
 alter table public.inventory_logs enable row level security;
 
 drop policy if exists "Public can read published products" on public.products;
@@ -156,6 +196,7 @@ drop policy if exists "Dashboard can manage collections" on public.collections;
 drop policy if exists "Dashboard can manage products" on public.products;
 drop policy if exists "Dashboard can manage product images" on public.product_images;
 drop policy if exists "Dashboard can manage product models" on public.product_models;
+drop policy if exists "Dashboard can manage product uploads" on public.product_uploads;
 drop policy if exists "Dashboard can read inventory logs" on public.inventory_logs;
 drop policy if exists "Dashboard can write inventory logs" on public.inventory_logs;
 
@@ -181,6 +222,7 @@ create policy "Dashboard can manage collections" on public.collections for all u
 create policy "Dashboard can manage products" on public.products for all using (true) with check (true);
 create policy "Dashboard can manage product images" on public.product_images for all using (true) with check (true);
 create policy "Dashboard can manage product models" on public.product_models for all using (true) with check (true);
+create policy "Dashboard can manage product uploads" on public.product_uploads for all using (true) with check (true);
 create policy "Dashboard can read inventory logs" on public.inventory_logs for select using (true);
 create policy "Dashboard can write inventory logs" on public.inventory_logs for insert with check (true);
 

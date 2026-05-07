@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useProducts } from '../../hooks/useProducts'
+import { hasSupabaseConfig } from '../../lib/supabase'
 import { formatPrice } from '../../utils/formatPrice'
 
 function StatCard({ label, value, note }) {
@@ -19,6 +20,9 @@ export default function AdminOverview() {
   const outOfStock = activeProducts.filter(product => product.stock_quantity <= 0)
   const featured = activeProducts.filter(product => product.featured)
   const lowStock = activeProducts.filter(product => product.stock_status === 'low_stock')
+  const drafts = activeProducts.filter(product => !product.published)
+  const missingModels = activeProducts.filter(product => !product.model_url)
+  const modelReady = activeProducts.filter(product => product.model_url && product.model_lite_url && (product.model_poster_url || product.fallback_image_url))
   const recent = [...products].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 5)
 
   return (
@@ -37,6 +41,31 @@ export default function AdminOverview() {
         <StatCard label="Out of stock" value={outOfStock.length} note="Needs attention" />
         <StatCard label="Featured" value={featured.length} note="Homepage ready" />
       </div>
+
+      <section className="admin-control-panel">
+        <div>
+          <p className="admin-kicker">Publishing controls</p>
+          <h2>Catalog readiness</h2>
+        </div>
+        <div className="admin-control-grid">
+          <Link to="/admin/products" className="admin-control-tile pressable">
+            <strong className="tabular-nums">{drafts.length}</strong>
+            <span>Draft products</span>
+          </Link>
+          <Link to="/admin/products" className="admin-control-tile pressable">
+            <strong className="tabular-nums">{missingModels.length}</strong>
+            <span>Missing 3D models</span>
+          </Link>
+          <Link to="/admin/products" className="admin-control-tile pressable">
+            <strong className="tabular-nums">{modelReady.length}</strong>
+            <span>Model-ready products</span>
+          </Link>
+          <Link to="/admin/taxonomy" className="admin-control-tile pressable">
+            <strong>{hasSupabaseConfig ? 'Supabase' : 'Local'}</strong>
+            <span>{hasSupabaseConfig ? 'Database connected' : 'Browser fallback'}</span>
+          </Link>
+        </div>
+      </section>
 
       <div className="admin-overview-grid">
         <section className="admin-panel">

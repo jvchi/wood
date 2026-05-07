@@ -1,17 +1,33 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
+import {
+  motion as framerMotion,
+  useMotionTemplate,
+  useScroll,
+  useTransform,
+} from 'framer-motion'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { SplitText } from 'gsap/SplitText'
 import LazyThreeScene from '../components/three/LazyThreeScene'
 import ThreeModelPlaceholder from '../components/three/ThreeModelPlaceholder'
 import { PersistentThreeSceneSlot } from '../components/three/PersistentThreeSceneProvider'
-import ProductCard from '../components/ui/ProductCard'
+import Footer from '../components/layout/Footer'
 import Skeleton from '../components/ui/Skeleton'
 import { useProducts } from '../hooks/useProducts'
 
 const HeroScene = lazy(() => import('../components/three/HeroScene'))
 const ChairShowcaseScene = lazy(() => import('../components/three/ChairShowcaseScene'))
+const MotionDiv = framerMotion.div
+const BESTSELLER_SCROLL_DISTANCE = 1500
+
+const bestSellerFloatLayouts = [
+  { className: 'home-bestseller-float-lead', start: 80, end: -120 },
+  { className: 'home-bestseller-float-one', start: -40, end: 90 },
+  { className: 'home-bestseller-float-two', start: 60, end: -80 },
+  { className: 'home-bestseller-float-three', start: -100, end: 140 },
+  { className: 'home-bestseller-float-four', start: 60, end: -180 },
+]
 
 gsap.registerPlugin(SplitText)
 
@@ -25,7 +41,37 @@ function markHomeSceneReady(sceneName) {
   }
 }
 
+function BestSellerParallaxProduct({ product, layout, location }) {
+  const ref = useRef(null)
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: [`${layout.start}px end`, `end ${layout.end * -1}px`],
+  })
+  const opacity = useTransform(scrollYProgress, [0, 0.72, 1], [1, 1, 0])
+  const y = useTransform(scrollYProgress, [0, 1], [layout.start, layout.end])
+  const transform = useMotionTemplate`translateY(${y}px)`
+
+  return (
+    <MotionDiv
+      ref={ref}
+      className={`home-bestseller-float ${layout.className}`}
+      style={{ opacity, transform }}
+    >
+      <Link
+        to={`/product/${product.id}`}
+        state={{ backgroundLocation: location }}
+        className="home-bestseller-product-link"
+        aria-label={`View ${product.name}`}
+        viewTransition
+      >
+        <img src={product.images[0]} alt={product.name} loading="lazy" />
+      </Link>
+    </MotionDiv>
+  )
+}
+
 export default function HomePage() {
+  const location = useLocation()
   const stickyRef = useRef(null)
   const scrollRef = useRef(null)
   const bestSellerRef = useRef(null)
@@ -47,6 +93,15 @@ export default function HomePage() {
     const supportingProducts = products.filter(product => !bestSellerIds.has(product.id))
     return [...bestSellers, ...supportingProducts].slice(0, 8)
   }, [products])
+  const bestSellerDisplayProducts = bestSellerProducts.slice(0, 5)
+  const floatingBestSellerProducts = bestSellerDisplayProducts
+  const { scrollYProgress: bestSellerScrollProgress } = useScroll({
+    target: bestSellerRef,
+    offset: ['start start', 'end end'],
+  })
+  const bestSellerClipStart = useTransform(bestSellerScrollProgress, [0, 0.62], [28, 0])
+  const bestSellerClipEnd = useTransform(bestSellerScrollProgress, [0, 0.62], [72, 100])
+  const bestSellerClipPath = useMotionTemplate`polygon(${bestSellerClipStart}% ${bestSellerClipStart}%, ${bestSellerClipEnd}% ${bestSellerClipStart}%, ${bestSellerClipEnd}% ${bestSellerClipEnd}%, ${bestSellerClipStart}% ${bestSellerClipEnd}%)`
   const heroScene = useMemo(() => ({ active }) => (
     <LazyThreeScene
       fallback={null}
@@ -295,31 +350,53 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section ref={bestSellerRef} className="home-bestseller-section" aria-labelledby="home-bestseller-title">
+      <section
+        ref={bestSellerRef}
+        className="home-bestseller-section"
+        aria-labelledby="home-bestseller-title"
+        style={{ '--home-bestseller-scroll-distance': `${BESTSELLER_SCROLL_DISTANCE}px` }}
+      >
         <div className="home-bestseller-shell">
           <div className="home-bestseller-header">
-            <h2 id="home-bestseller-title">Best sellers</h2>
-            <Link to="/shop" className="pressable home-bestseller-view">
+            <h2 id="home-bestseller-title" className="text-white mix-blend-difference">Best sellers</h2>
+            <Link to="/shop" className="pressable home-bestseller-view text-white mix-blend-difference">
               View all
             </Link>
           </div>
 
           <div className="home-bestseller-board">
             {productsLoading ? (
-              <div className="home-bestseller-grid home-bestseller-grid-loading" aria-hidden="true">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <div className="home-bestseller-card-skeleton" key={index}>
-                    <Skeleton className="home-bestseller-skeleton-media" />
-                    <Skeleton className="mt-3 h-3 w-28" />
-                    <Skeleton className="mt-2 h-3 w-16" />
-                  </div>
-                ))}
+              <div className="home-bestseller-loading" aria-hidden="true">
+                <Skeleton className="home-bestseller-center-skeleton" />
+                <div className="home-bestseller-loading-floats">
+                  {bestSellerFloatLayouts.map((layout) => (
+                    <Skeleton
+                      className={`home-bestseller-float-skeleton ${layout.className}`}
+                      key={layout.className}
+                    />
+                  ))}
+                </div>
               </div>
             ) : bestSellerProducts.length > 0 ? (
-              <div className="home-bestseller-grid">
-                {bestSellerProducts.slice(0, 5).map((product, index) => (
-                  <ProductCard key={product.id} product={product} index={index} hideInfo={true} />
-                ))}
+              <div className="home-bestseller-scroll-stage">
+                <MotionDiv
+                  className="home-bestseller-center-image"
+                  aria-hidden="true"
+                  style={{
+                    clipPath: bestSellerClipPath,
+                  }}
+                />
+
+                <div className="home-bestseller-parallax-products">
+                  {floatingBestSellerProducts.map((product, index) => (
+                    <BestSellerParallaxProduct
+                      key={product.id}
+                      product={product}
+                      layout={bestSellerFloatLayouts[index]}
+                      location={location}
+                    />
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="home-bestseller-empty">
@@ -332,6 +409,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      <Footer />
     </div>
   )
 }

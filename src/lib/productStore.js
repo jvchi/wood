@@ -323,9 +323,12 @@ function mapSupabaseProduct(row) {
     images: images.length ? images : [row.main_image_url].filter(Boolean),
     model_url: model?.url || row.model_url || '',
     model_lite_url: model?.lite_url || row.model_lite_url || '',
+    model_poster_url: model?.poster_url || row.model_poster_url || '',
     model_version: model?.version || row.updated_at || '',
     model_scale: model?.scale || row.model_scale || 1,
     model_rotation: model?.rotation || row.model_rotation || '0,0,0',
+    model_format: model?.format || '',
+    model_file_size: model?.file_size || '',
   })
 }
 
@@ -492,10 +495,13 @@ async function replaceProductModel(product) {
     product_id: product.id,
     url: product.model_url,
     lite_url: product.model_lite_url || null,
+    poster_url: product.model_poster_url || product.fallback_image_url || product.images[0] || null,
     version: product.model_version || product.updated_at || null,
     fallback_image_url: product.fallback_image_url || product.images[0] || null,
     scale: Number(product.model_scale || 1),
     rotation: product.model_rotation || '0,0,0',
+    format: product.model_format || 'glb',
+    file_size: product.model_file_size ? Number(product.model_file_size) : null,
   })
   if (error) throw error
 }
@@ -510,7 +516,7 @@ async function logInventory(product, previousQuantity) {
   })
 }
 
-export async function uploadAsset(file, bucket, productId) {
+export async function uploadAsset(file, bucket, productId, assetKind) {
   if (!file) return ''
   if (hasSupabaseConfig) {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
@@ -521,6 +527,7 @@ export async function uploadAsset(file, bucket, productId) {
     })
     if (error) throw error
     const { data } = supabase.storage.from(bucket).getPublicUrl(path)
+    await trackUpload({ file, bucket, productId, path, publicUrl: data.publicUrl, assetKind })
     return data.publicUrl
   }
   return new Promise((resolve, reject) => {
@@ -529,4 +536,23 @@ export async function uploadAsset(file, bucket, productId) {
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
+}
+
+async function trackUpload({ file, bucket, productId, path, publicUrl, assetKind }) {
+  const kind = assetKind || (bucket === 'product-models' ? 'model' : 'image')
+  const { error } = await supabase.from('product_uploads').insert({
+    product_id: productId || null,
+    bucket_id: bucket,
+    storage_path: path,
+    public_url: publicUrl,
+    asset_kind: kind,
+    file_name: file.name,
+    content_type: file.type || null,
+    file_size: file.size || null,
+    status: 'ready',
+  })
+
+  if (error && !String(error.message || '').includes('product_uploads')) {
+    console.warn('Upload tracked in storage but metadata tracking failed.', error)
+  }
 }

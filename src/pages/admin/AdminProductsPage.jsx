@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AdminIcon } from '../../components/admin/AdminIcons'
 import ProductFormPanel from '../../components/admin/ProductFormPanel'
 import { useProducts } from '../../hooks/useProducts'
-import { deleteProduct, listCategories, listCollections, saveProduct } from '../../lib/productStore'
+import { PRODUCT_PLACEHOLDER_IMAGE, deleteProduct, listCategories, listCollections, saveProduct } from '../../lib/productStore'
 import { useToast } from '../../context/ToastContext'
 import { formatPrice } from '../../utils/formatPrice'
 
@@ -22,6 +22,7 @@ export default function AdminProductsPage() {
   const [category, setCategory] = useState('all')
   const [stock, setStock] = useState('all')
   const [flag, setFlag] = useState('all')
+  const [assetStatus, setAssetStatus] = useState('all')
   const [sort, setSort] = useState('newest')
   const [editingProduct, setEditingProduct] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -42,10 +43,14 @@ export default function AdminProductsPage() {
         if (flag === 'new_arrival' && !product.new_arrival) return false
         if (flag === 'archived' && !product.archived) return false
         if (flag !== 'archived' && product.archived) return false
+        const hasProductImage = product.images?.some(image => image && image !== PRODUCT_PLACEHOLDER_IMAGE)
+        if (assetStatus === 'missing_images' && hasProductImage) return false
+        if (assetStatus === 'missing_model' && product.model_url) return false
+        if (assetStatus === 'model_ready' && !(product.model_url && product.model_lite_url && (product.model_poster_url || product.fallback_image_url))) return false
         return true
       })
       .sort(sorters[sort] || sorters.newest)
-  }, [products, query, category, stock, flag, sort])
+  }, [products, query, category, stock, flag, assetStatus, sort])
 
   async function persistProduct(product, message = 'Product saved') {
     await saveProduct(product)
@@ -110,6 +115,12 @@ export default function AdminProductsPage() {
           <option value="new_arrival">New arrivals</option>
           <option value="archived">Archived</option>
         </select>
+        <select value={assetStatus} onChange={event => setAssetStatus(event.target.value)} aria-label="Filter by assets">
+          <option value="all">All assets</option>
+          <option value="missing_images">Missing images</option>
+          <option value="missing_model">Missing 3D model</option>
+          <option value="model_ready">Model ready</option>
+        </select>
         <select value={sort} onChange={event => setSort(event.target.value)} aria-label="Sort products">
           <option value="newest">Newest</option>
           <option value="price">Price</option>
@@ -123,10 +134,20 @@ export default function AdminProductsPage() {
           <div className="admin-product-table">
             {filteredProducts.map(product => (
               <article key={product.id} className="admin-product-row">
-                <img src={product.images[0] || product.fallback_image_url} alt="" width="72" height="72" />
+                {(() => {
+                  const hasProductImage = product.images?.some(image => image && image !== PRODUCT_PLACEHOLDER_IMAGE)
+                  return (
+                    <>
+                      <img src={product.images[0] || product.fallback_image_url} alt="" width="72" height="72" />
                 <div className="admin-product-primary">
                   <strong>{product.name}</strong>
                   <span>{product.category} · {product.sku || 'No SKU'}</span>
+                  <div className="admin-product-flags" aria-label="Product readiness">
+                    <span className={product.published ? 'is-ready' : ''}>{product.published ? 'Live' : 'Draft'}</span>
+                    <span className={hasProductImage ? 'is-ready' : ''}>Images</span>
+                    <span className={product.model_url ? 'is-ready' : ''}>3D</span>
+                    <span className={product.model_lite_url ? 'is-ready' : ''}>Lite</span>
+                  </div>
                 </div>
                 <p className="admin-product-meta tabular-nums" data-label="Price">{formatPrice(product.price, product.currency)}</p>
                 <p className={`admin-pill admin-pill-${product.stock_status}`} data-label="Status" data-qty={product.stock_quantity}>{product.stock_status.replaceAll('_', ' ')}</p>
@@ -137,6 +158,9 @@ export default function AdminProductsPage() {
                   <button className="pressable" onClick={() => toggleArchive(product)} aria-label={`Archive ${product.name}`}><AdminIcon name="archive" /></button>
                   <button className="pressable" onClick={() => setConfirmDelete(product)} aria-label={`Delete ${product.name}`}><AdminIcon name="trash" /></button>
                 </div>
+                    </>
+                  )
+                })()}
               </article>
             ))}
           </div>

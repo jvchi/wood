@@ -31,10 +31,13 @@ const emptyProduct = {
   images: [],
   model_url: '',
   model_lite_url: '',
+  model_poster_url: '',
   model_version: '',
   fallback_image_url: '',
   model_scale: 1,
   model_rotation: '0,0,0',
+  model_format: 'glb',
+  model_file_size: '',
   published: true,
   featured: false,
   new_arrival: false,
@@ -100,7 +103,7 @@ export default function ProductFormPanel({ product, categories, collections, onC
     setUploading(true)
     setError('')
     try {
-      const urls = await Promise.all(files.map(file => uploadAsset(file, 'product-images', draft.id)))
+      const urls = await Promise.all(files.map(file => uploadAsset(file, 'product-images', draft.id, 'image')))
       setDraft(current => {
         const currentImages = current.images.filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
         return normalizeProduct({ ...current, images: [...currentImages, ...urls] })
@@ -113,20 +116,50 @@ export default function ProductFormPanel({ product, categories, collections, onC
     }
   }
 
-  async function handleModelUpload(event) {
+  async function handleModelUpload(event, variant = 'full') {
     const file = event.target.files?.[0]
     if (!file) return
     setUploading(true)
     setError('')
     try {
-      const url = await uploadAsset(file, 'product-models', draft.id)
-      setDraft(current => normalizeProduct({
-        ...current,
-        model_url: url,
-        model_version: String(Date.now()),
-      }))
+      const url = await uploadAsset(file, 'product-models', draft.id, variant === 'lite' ? 'lite_model' : 'model')
+      setDraft(current => {
+        const next = {
+          ...current,
+          model_version: String(Date.now()),
+        }
+        if (variant === 'lite') {
+          next.model_lite_url = url
+        } else {
+          next.model_url = url
+          next.model_format = file.name.toLowerCase().endsWith('.gltf') ? 'gltf' : 'glb'
+          next.model_file_size = file.size
+        }
+        return normalizeProduct(next)
+      })
     } catch (err) {
       setError(err.message || 'Model upload failed')
+    } finally {
+      setUploading(false)
+      event.target.value = ''
+    }
+  }
+
+  async function handlePosterUpload(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setError('')
+    try {
+      const url = await uploadAsset(file, 'product-images', draft.id, 'poster')
+      setDraft(current => normalizeProduct({
+        ...current,
+        model_poster_url: url,
+        fallback_image_url: url,
+        og_image_url: current.og_image_url || url,
+      }))
+    } catch (err) {
+      setError(err.message || 'Poster upload failed')
     } finally {
       setUploading(false)
       event.target.value = ''
@@ -221,7 +254,9 @@ export default function ProductFormPanel({ product, categories, collections, onC
             <h3>Media</h3>
             <div className="admin-upload-row">
               <label className="admin-upload pressable">Upload images<input type="file" accept="image/*" multiple onChange={handleImageUpload} /></label>
-              <label className="admin-upload pressable">Upload 3D model<input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={handleModelUpload} /></label>
+              <label className="admin-upload pressable">Upload full model<input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={event => handleModelUpload(event, 'full')} /></label>
+              <label className="admin-upload admin-upload-secondary pressable">Upload lite model<input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={event => handleModelUpload(event, 'lite')} /></label>
+              <label className="admin-upload admin-upload-secondary pressable">Upload model poster<input type="file" accept="image/*" onChange={handlePosterUpload} /></label>
               {uploading && <span className="admin-helper">Uploading...</span>}
             </div>
             <div className="admin-image-strip">
@@ -237,14 +272,24 @@ export default function ProductFormPanel({ product, categories, collections, onC
               ))}
             </div>
             <div className="admin-form-grid admin-form-grid-compact">
+              <Field label="Full model URL"><input value={draft.model_url || ''} onChange={event => update('model_url', event.target.value)} placeholder="Desktop .glb or .gltf" /></Field>
               <Field label="Model scale"><input type="number" step="0.1" value={draft.model_scale || 1} onChange={event => update('model_scale', event.target.value)} /></Field>
               <Field label="Model rotation"><input value={draft.model_rotation || '0,0,0'} onChange={event => update('model_rotation', event.target.value)} placeholder="0,0,0" /></Field>
               <Field label="Lite model URL"><input value={draft.model_lite_url || ''} onChange={event => update('model_lite_url', event.target.value)} placeholder="Optimized mobile .glb" /></Field>
+              <Field label="Poster URL"><input value={draft.model_poster_url || ''} onChange={event => update('model_poster_url', event.target.value)} placeholder="Model loading poster" /></Field>
               <Field label="Model version"><input value={draft.model_version || ''} onChange={event => update('model_version', event.target.value)} placeholder="Changes when model bytes change" /></Field>
+              <Field label="Model format"><select value={draft.model_format || 'glb'} onChange={event => update('model_format', event.target.value)}><option value="glb">GLB</option><option value="gltf">glTF</option><option value="usdz">USDZ</option></select></Field>
+              <Field label="Model file size"><input type="number" min="0" value={draft.model_file_size || ''} onChange={event => update('model_file_size', event.target.value)} placeholder="Bytes" /></Field>
               <Field label="Fallback image"><input value={draft.fallback_image_url || ''} onChange={event => update('fallback_image_url', event.target.value)} /></Field>
             </div>
+            <div className="admin-asset-checklist">
+              <span className={draft.model_url ? 'is-ready' : ''}>Full model</span>
+              <span className={draft.model_lite_url ? 'is-ready' : ''}>Lite model</span>
+              <span className={(draft.model_poster_url || draft.fallback_image_url) ? 'is-ready' : ''}>Poster</span>
+              <span className={draft.model_version ? 'is-ready' : ''}>Versioned</span>
+            </div>
             <p className="admin-helper">Production models should be published as full, lite, and poster assets. Use Draco or Meshopt compression before adding the final URLs here.</p>
-            <ProductModelPreview modelUrl={draft.model_url} fallbackImage={draft.fallback_image_url || draft.images[0]} scale={draft.model_scale} rotation={draft.model_rotation} />
+            <ProductModelPreview modelUrl={draft.model_url} fallbackImage={draft.model_poster_url || draft.fallback_image_url || draft.images[0]} scale={draft.model_scale} rotation={draft.model_rotation} />
           </section>
 
           <section className="admin-form-section">

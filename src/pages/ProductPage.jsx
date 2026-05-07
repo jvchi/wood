@@ -280,7 +280,7 @@ export default function ProductPage({ isOverlay = false }) {
               <Suspense fallback={<LoadingSpinner className="product-media-loader" label="Loading product model" />}>
                 <LazyThreeScene
                   fallback={<ThreeModelPlaceholder variant="product" label="Loading product model" />}
-                  poster={product.fallback_image_url || product.images[0]}
+                  poster={product.model_poster_url || product.fallback_image_url || product.images[0]}
                   variant="product"
                   label="Loading product model"
                 >
@@ -290,7 +290,7 @@ export default function ProductPage({ isOverlay = false }) {
                     modelVersion={product.model_version || product.updated_at}
                     modelScale={product.model_scale}
                     modelRotation={product.model_rotation}
-                    fallbackImage={product.fallback_image_url || product.images[0]}
+                    fallbackImage={product.model_poster_url || product.fallback_image_url || product.images[0]}
                   />
                 </LazyThreeScene>
               </Suspense>

@@ -109,7 +109,7 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
               <Link
                 key={link.to}
                 to={link.to}
-                className={`pressable nav-link label-text ${isHome ? 'mix-blend-difference' : ''} ${displayedLocation.pathname === link.to ? 'is-current' : ''}`}
+                className={`pressable nav-link label-text ${isHome ? 'mix-blend-difference text-white' : ''} ${displayedLocation.pathname === link.to ? 'is-current' : ''}`}
                 aria-current={displayedLocation.pathname === link.to ? 'page' : undefined}
                 {...getPreloadProps(link.to)}
               >
@@ -126,10 +126,10 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
               {...getPreloadProps('/wishlist')}
             >
               <svg className="heart-icon heart-outline" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
               <svg className="heart-icon heart-filled" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
             </Link>
 
@@ -140,9 +140,9 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
               {...getPreloadProps('/cart')}
             >
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <path d="M16 10a4 4 0 0 1-8 0"/>
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
               {totalItems > 0 && (
                 <span className={`absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-primary)] px-1 text-[10px] font-bold text-white tabular-nums ${isHome ? 'mix-blend-difference' : ''}`}>
@@ -158,9 +158,9 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
               aria-expanded={mobileOpen}
             >
               <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <line x1="3" y1="6" x2="21" y2="6"/>
-                <line x1="3" y1="12" x2="21" y2="12"/>
-                <line x1="3" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
             </button>
           </div>
