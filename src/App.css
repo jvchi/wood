@@ -727,7 +727,7 @@ input {
 
 .home-bestseller-section {
   position: relative;
-  --home-bestseller-bg: var(--color-primary);
+  isolation: isolate;
   --home-bestseller-ink: var(--color-white);
   --home-bestseller-muted: rgba(255, 255, 255, 0.62);
   --home-bestseller-faint: rgba(255, 255, 255, 0.48);
@@ -735,11 +735,40 @@ input {
   min-height: 100dvh;
   padding: calc(var(--nav-height) + clamp(1.25rem, 3vw, 2.5rem)) var(--page-x) clamp(5rem, 12vw, 9rem);
   overflow: clip;
-  background: var(--home-bestseller-bg);
+  background: transparent;
   color: var(--home-bestseller-ink);
 }
 
+.home-bestseller-bg-motion {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+  transform: rotateX(90deg);
+  transform-origin: 50% 0;
+  will-change: transform;
+}
+
+.home-bestseller-bg-motion picture,
+.home-bestseller-bg-motion img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.home-bestseller-bg-motion img {
+  object-fit: cover;
+  object-position: center top;
+  opacity: 1;
+  transform: translate3d(0, -18vh, 0) scale(1.14);
+  transform-origin: center top;
+}
+
 .home-bestseller-shell {
+  position: relative;
+  z-index: 1;
   width: min(100%, 1600px);
   margin: 0 auto;
 }
@@ -825,7 +854,7 @@ input {
 .home-bestseller-action {
   position: sticky;
   top: calc(100dvh - max(5rem, calc(env(safe-area-inset-bottom) + 5rem)));
-  z-index: 5;
+  z-index: 2;
   display: flex;
   width: min(100%, 1600px);
   height: 0;
@@ -3610,6 +3639,8 @@ input {
   .home-chair-section {
     min-height: 100svh;
     height: 100svh;
+    min-height: 100lvh;
+    height: 100lvh;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -3639,6 +3670,7 @@ input {
   }
 
   .home-bestseller-section {
+    min-height: 100lvh;
     padding: calc(var(--nav-height) + max(1rem, env(safe-area-inset-top))) max(1.25rem, var(--page-x)) clamp(4rem, 18vw, 6rem);
   }
 
@@ -3739,6 +3771,12 @@ input {
   .home-couch-frame {
     min-height: 100svh;
     min-height: 100dvh;
+    min-height: 100lvh;
+  }
+
+  .home-couch-sticky {
+    min-height: 100lvh;
+    height: 100lvh;
   }
 
   .home-mobile-panel {

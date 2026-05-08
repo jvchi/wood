@@ -35,11 +35,13 @@ const bestSellerStackTransition = {
   damping: 13,
   stiffness: 150,
 }
-const BEST_SELLER_HOVER_DELAY = 140
+const BEST_SELLER_HOVER_DELAY = 50
 const bestSellerLayerHoverDelays = [0, 0.035, 0.07]
 const bestSellerLayerExitDelays = [0.12, 0.08, 0.04]
+const bestSellerTransitionImage =
+  'https://i.postimg.cc/1ztkf4hX/moveimage.png'
 
-gsap.registerPlugin(SplitText)
+gsap.registerPlugin(ScrollTrigger, SplitText)
 
 function markHomeSceneReady(sceneName) {
   document.documentElement.dataset[sceneName] = 'true'
@@ -315,6 +317,7 @@ export default function HomePage() {
   const stickyRef = useRef(null)
   const scrollRef = useRef(null)
   const bestSellerRef = useRef(null)
+  const bestSellerBgRef = useRef(null)
   const titleRef = useRef(null)
   const progressRef = useRef(0)
   const heroTargetProgressRef = useRef(0)
@@ -459,6 +462,46 @@ export default function HomePage() {
         onRefresh: measureChairProgress,
       })
 
+      let bestSellerBgTween = null
+
+      if (bestSellerBgRef.current) {
+        if (reducedMotion) {
+          gsap.set(bestSellerBgRef.current, { rotateX: 0 })
+        } else {
+          bestSellerBgTween = gsap.fromTo(
+            bestSellerBgRef.current,
+            { rotateX: 90 },
+            {
+              rotateX: 0,
+              ease: 'none',
+              scrollTrigger: {
+                id: 'home-bestseller-bg-reveal',
+                trigger: bestSellerRef.current,
+                start: 'top bottom',
+                end: 'bottom bottom',
+                scrub: true,
+                invalidateOnRefresh: true,
+              },
+            },
+          )
+        }
+      }
+
+      const refreshBestSellerTrigger = () => ScrollTrigger.refresh()
+      const bestSellerBgImage = bestSellerBgRef.current?.querySelector('img')
+      const refreshFrame = window.requestAnimationFrame(refreshBestSellerTrigger)
+
+      if (bestSellerBgImage) {
+        if (bestSellerBgImage.complete) {
+          window.requestAnimationFrame(refreshBestSellerTrigger)
+        } else {
+          bestSellerBgImage.addEventListener('load', refreshBestSellerTrigger, { once: true })
+          bestSellerBgImage.addEventListener('error', refreshBestSellerTrigger, { once: true })
+        }
+      }
+
+      window.addEventListener('orientationchange', refreshBestSellerTrigger)
+
       let chairTitleSplit = null
 
       if (chairTitleRef.current) {
@@ -520,8 +563,14 @@ export default function HomePage() {
       gsap.ticker.add(tick)
 
       return () => {
+        window.cancelAnimationFrame(refreshFrame)
+        window.removeEventListener('orientationchange', refreshBestSellerTrigger)
+        bestSellerBgImage?.removeEventListener('load', refreshBestSellerTrigger)
+        bestSellerBgImage?.removeEventListener('error', refreshBestSellerTrigger)
         gsap.ticker.remove(tick)
         chairTitleSplit?.revert()
+        bestSellerBgTween?.scrollTrigger?.kill()
+        bestSellerBgTween?.kill()
         chairTrigger.kill()
         heroTrigger.kill()
       }
@@ -586,6 +635,12 @@ export default function HomePage() {
         className="home-bestseller-section"
         aria-labelledby="home-bestseller-title"
       >
+        <div ref={bestSellerBgRef} className="home-bestseller-bg-motion" aria-hidden="true">
+          <picture>
+            <img src={bestSellerTransitionImage} alt="" loading="lazy" />
+          </picture>
+        </div>
+
         <div className="home-bestseller-header">
           <h2 id="home-bestseller-title">Best sellers</h2>
         </div>
