@@ -1,18 +1,57 @@
 import { MODEL_ASSETS, preloadModel } from './threeAssetStrategy'
 
+const CHUNK_RELOAD_STORAGE_KEY = 'wood:chunk-reload-attempted'
+
+function isChunkLoadError(error) {
+  const message = String(error?.message || error || '')
+  return (
+    message.includes('Failed to fetch dynamically imported module') ||
+    message.includes('Importing a module script failed') ||
+    message.includes('Loading chunk') ||
+    message.includes('ChunkLoadError')
+  )
+}
+
+function recoverFromChunkLoadError(error) {
+  if (typeof window === 'undefined' || !isChunkLoadError(error)) {
+    throw error
+  }
+
+  const storageKey = `${CHUNK_RELOAD_STORAGE_KEY}:${window.location.pathname}`
+  if (window.sessionStorage.getItem(storageKey) === '1') {
+    throw error
+  }
+
+  window.sessionStorage.setItem(storageKey, '1')
+  window.location.reload()
+  return new Promise(() => {})
+}
+
+function lazyRoute(loader) {
+  return () => loader()
+    .then(module => {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.removeItem(`${CHUNK_RELOAD_STORAGE_KEY}:${window.location.pathname}`)
+      }
+
+      return module
+    })
+    .catch(recoverFromChunkLoadError)
+}
+
 export const routeLoaders = {
-  '/': () => import('../pages/HomePage'),
-  '/shop': () => import('../pages/ShopPage'),
-  '/about': () => import('../pages/AboutPage'),
-  '/cart': () => import('../pages/CartPage'),
-  '/wishlist': () => import('../pages/WishlistPage'),
-  '/product': () => import('../pages/ProductPage'),
-  '/admin': () => import('../pages/admin/AdminLayout'),
-  '/admin/index': () => import('../pages/admin/AdminOverview'),
-  '/admin/products': () => import('../pages/admin/AdminProductsPage'),
-  '/admin/taxonomy': () => import('../pages/admin/AdminTaxonomyPage'),
-  '/admin/placeholder': () => import('../pages/admin/AdminPlaceholderPage'),
-  '*': () => import('../pages/NotFoundPage'),
+  '/': lazyRoute(() => import('../pages/HomePage')),
+  '/shop': lazyRoute(() => import('../pages/ShopPage')),
+  '/about': lazyRoute(() => import('../pages/AboutPage')),
+  '/cart': lazyRoute(() => import('../pages/CartPage')),
+  '/wishlist': lazyRoute(() => import('../pages/WishlistPage')),
+  '/product': lazyRoute(() => import('../pages/ProductPage')),
+  '/admin': lazyRoute(() => import('../pages/admin/AdminLayout')),
+  '/admin/index': lazyRoute(() => import('../pages/admin/AdminOverview')),
+  '/admin/products': lazyRoute(() => import('../pages/admin/AdminProductsPage')),
+  '/admin/taxonomy': lazyRoute(() => import('../pages/admin/AdminTaxonomyPage')),
+  '/admin/placeholder': lazyRoute(() => import('../pages/admin/AdminPlaceholderPage')),
+  '*': lazyRoute(() => import('../pages/NotFoundPage')),
 }
 
 const preloadedRoutes = new Set()

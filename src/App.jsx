@@ -37,6 +37,24 @@ function RouteFallback() {
   return <div className="route-fallback" role="status" aria-label="Loading page" />
 }
 
+function AppErrorFallback() {
+  return (
+    <div style={{ padding: 40, fontFamily: 'sans-serif' }}>
+      Something went wrong. Check the browser console for details.
+    </div>
+  )
+}
+
+function RouteErrorBoundary({ children }) {
+  const location = useLocation()
+
+  return (
+    <ErrorBoundary fallback={<AppErrorFallback />} resetKeys={[location.pathname]}>
+      {children}
+    </ErrorBoundary>
+  )
+}
+
 function AppRoutes() {
   const location = useLocation()
   const [displayedLocation, setDisplayedLocation] = useState(location)
@@ -150,13 +168,15 @@ export default function App() {
   }, [])
 
   return (
-    <ErrorBoundary fallback={<div style={{ padding: 40, fontFamily: 'sans-serif' }}>Something went wrong. Check the browser console for details.</div>}>
+    <ErrorBoundary fallback={<AppErrorFallback />}>
       <BrowserRouter>
         <CartProvider>
           <WishlistProvider>
             <ToastProvider>
               <PersistentThreeSceneProvider>
-                <AppRoutes />
+                <RouteErrorBoundary>
+                  <AppRoutes />
+                </RouteErrorBoundary>
               </PersistentThreeSceneProvider>
             </ToastProvider>
           </WishlistProvider>

@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useToast } from '../../context/ToastContext'
 
 const MotionDiv = motion.div
+const isDesktopToastStack = typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches
 
 const toastLayoutTransition = {
   type: 'spring',
@@ -12,6 +13,7 @@ const toastLayoutTransition = {
 
 export default function ToastContainer() {
   const { toasts } = useToast()
+  const renderedToasts = isDesktopToastStack ? [...toasts].reverse() : toasts
 
   return (
     <div
@@ -19,7 +21,7 @@ export default function ToastContainer() {
       role="status"
       aria-live="polite"
     >
-      {toasts.map(toast => (
+      {renderedToasts.map(toast => (
         <MotionDiv
           key={toast.id}
           layout
@@ -27,7 +29,7 @@ export default function ToastContainer() {
             filter: 'blur(6px)',
             opacity: 0,
             scale: 0.96,
-            y: -12,
+            y: isDesktopToastStack ? 12 : -12,
           }}
           animate={toast.exiting ? {
             filter: 'blur(6px)',
@@ -36,7 +38,7 @@ export default function ToastContainer() {
             paddingBottom: 0,
             paddingTop: 0,
             scale: 0.98,
-            y: -14,
+            y: isDesktopToastStack ? 14 : -14,
           } : {
             filter: 'blur(0px)',
             maxHeight: 96,
