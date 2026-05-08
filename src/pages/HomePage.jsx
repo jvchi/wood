@@ -317,6 +317,7 @@ export default function HomePage() {
   const scrollRef = useRef(null)
   const bestSellerRef = useRef(null)
   const bestSellerBgRef = useRef(null)
+  const bestSellerActionRef = useRef(null)
   const titleRef = useRef(null)
   const progressRef = useRef(0)
   const heroTargetProgressRef = useRef(0)
@@ -326,8 +327,10 @@ export default function HomePage() {
   const showcaseProgressRef = useRef(0)
   const showcaseTargetProgressRef = useRef(0)
   const showcaseDisplayProgressRef = useRef(0)
+  const bestSellerActionModeRef = useRef('rest')
   const [heroSceneActive, setHeroSceneActive] = useState(true)
   const [chairSceneActive, setChairSceneActive] = useState(true)
+  const [bestSellerActionMode, setBestSellerActionMode] = useState('rest')
   const { products, loading: productsLoading } = useProducts()
   const bestSellerProducts = useMemo(() => {
     const bestSellers = products.filter(product => product.best_seller)
@@ -376,6 +379,64 @@ export default function HomePage() {
     if (showcaseRef.current) observer.observe(showcaseRef.current)
 
     return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const action = bestSellerActionRef.current
+    const section = bestSellerRef.current
+
+    if (!action || !section) {
+      return undefined
+    }
+
+    let frame = 0
+
+    const updateActionPosition = () => {
+      frame = 0
+
+      if (!window.matchMedia('(max-width: 880px)').matches) {
+        if (bestSellerActionModeRef.current !== 'rest') {
+          bestSellerActionModeRef.current = 'rest'
+          setBestSellerActionMode('rest')
+        }
+        return
+      }
+
+      const rect = section.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const bottomOffset = Math.max(20, window.visualViewport?.height ? viewportHeight - window.visualViewport.height + 20 : 20)
+      const actionHeight = action.offsetHeight
+      const fixedLine = viewportHeight - bottomOffset - actionHeight
+      const nextMode = rect.bottom <= bottomOffset + actionHeight
+        ? 'anchored'
+        : rect.top <= fixedLine
+          ? 'fixed'
+          : 'rest'
+
+      if (bestSellerActionModeRef.current !== nextMode) {
+        bestSellerActionModeRef.current = nextMode
+        setBestSellerActionMode(nextMode)
+      }
+    }
+
+    const requestUpdate = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(updateActionPosition)
+    }
+
+    updateActionPosition()
+    gsap.ticker.add(updateActionPosition)
+    window.addEventListener('scroll', requestUpdate, { passive: true })
+    window.addEventListener('resize', requestUpdate)
+    window.visualViewport?.addEventListener('resize', requestUpdate)
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+      gsap.ticker.remove(updateActionPosition)
+      window.removeEventListener('scroll', requestUpdate)
+      window.removeEventListener('resize', requestUpdate)
+      window.visualViewport?.removeEventListener('resize', requestUpdate)
+    }
   }, [])
 
   useEffect(() => {
@@ -645,11 +706,16 @@ export default function HomePage() {
             <h2 id="home-bestseller-title">Best sellers</h2>
           </div>
 
-          <div className="home-bestseller-action">
+          <MotionDiv
+            ref={bestSellerActionRef}
+            className={`home-bestseller-action is-${bestSellerActionMode}`}
+            layout
+            transition={{ type: 'spring', stiffness: 520, damping: 38, mass: 0.8 }}
+          >
             <Link to="/shop" className="pressable home-bestseller-view">
               View all
             </Link>
-          </div>
+          </MotionDiv>
 
           <div className="home-bestseller-shell">
             <div className="home-bestseller-board">
