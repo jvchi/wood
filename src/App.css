@@ -4012,9 +4012,10 @@ input {
     flex-direction: column;
     align-items: stretch;
     min-height: 100svh;
-    height: auto;
-    padding: calc(env(safe-area-inset-top) + var(--nav-height, 0px)) 0 1.5rem;
-    overflow: visible;
+    height: 100svh;
+    box-sizing: border-box;
+    padding: calc(env(safe-area-inset-top) + var(--nav-height, 0px)) 0 0;
+    overflow: hidden;
   }
 
   .home-couch-stage {
@@ -4024,28 +4025,30 @@ input {
     width: 100vw;
     min-width: 0;
     max-width: none;
-    height: auto;
-    aspect-ratio: 1 / 1;
+    height: 65svh;
+    min-height: 65svh;
     margin: 0;
+    overflow: hidden;
     transform: translate3d(-50%, var(--home-stage-y), 0);
   }
 
   .home-couch-stage::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 22%;
+    inset: 0 0 auto;
+    z-index: 2;
+    height: clamp(5rem, 17%, 8rem);
     background: linear-gradient(
-      to bottom,
+      180deg,
       var(--color-background) 0%,
-      color-mix(in srgb, var(--color-background) 85%, transparent) 35%,
-      color-mix(in srgb, var(--color-background) 45%, transparent) 65%,
+      color-mix(in srgb, var(--color-background) 98%, transparent) 16%,
+      color-mix(in srgb, var(--color-background) 92%, transparent) 31%,
+      color-mix(in srgb, var(--color-background) 74%, transparent) 48%,
+      color-mix(in srgb, var(--color-background) 42%, transparent) 68%,
+      color-mix(in srgb, var(--color-background) 16%, transparent) 84%,
       transparent 100%
     );
     pointer-events: none;
-    z-index: 2;
   }
 
   .home-couch-stage canvas {
@@ -4061,7 +4064,11 @@ input {
     left: auto;
     right: auto;
     bottom: auto;
-    margin: clamp(1.25rem, 5vw, 2rem) max(1.25rem, var(--page-x)) 0;
+    display: grid;
+    flex: 1 1 auto;
+    align-content: center;
+    margin: 0 max(1.25rem, var(--page-x));
+    padding: clamp(1rem, 4svh, 1.75rem) 0 clamp(3.25rem, 8svh, 4.25rem);
     max-width: none;
     color: var(--color-text);
   }
@@ -4076,7 +4083,7 @@ input {
   }
 
   .home-scroll-hint {
-    bottom: max(0.9rem, calc(0.65rem + env(safe-area-inset-bottom)));
+    bottom: max(1rem, calc(0.75rem + env(safe-area-inset-bottom)));
     color: var(--color-text);
   }
 }
