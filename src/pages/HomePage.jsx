@@ -302,7 +302,6 @@ function BestSellerStackedProduct({ product, index, location }) {
             variants={detailVariants}
             aria-hidden={!isHovered}
           >
-            <span>{product.category}</span>
             <strong>{product.name}</strong>
             <em>{formatPrice(product.price)}</em>
           </MotionDiv>
