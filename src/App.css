@@ -3193,6 +3193,10 @@ input {
 }
 
 @media (max-width: 767px) {
+  :root {
+    --mobile-browser-ui-reserve: max(0px, calc(100lvh - 100svh));
+  }
+
   .admin-overview-grid {
     grid-template-columns: 1fr;
   }
@@ -3723,6 +3727,15 @@ input {
     height: clamp(18rem, 72vw, 23rem);
   }
 
+  .site-footer-reveal {
+    height: calc(clamp(18rem, 72vw, 23rem) + var(--mobile-browser-ui-reserve));
+    background: var(--color-background);
+  }
+
+  .site-footer {
+    bottom: var(--mobile-browser-ui-reserve);
+  }
+
   .site-footer-inner {
     gap: 1.25rem;
     padding-top: 2rem;
@@ -3780,7 +3793,7 @@ input {
 
   .home-bestseller-content {
     min-height: 100lvh;
-    padding: calc(var(--nav-height) + max(1rem, env(safe-area-inset-top))) max(1.25rem, var(--page-x)) clamp(4rem, 18vw, 6rem);
+    padding: calc(var(--nav-height) + max(1rem, env(safe-area-inset-top))) max(1.25rem, var(--page-x)) max(7.25rem, calc(env(safe-area-inset-bottom) + 6.5rem));
   }
 
   .home-bestseller-header {
@@ -3827,10 +3840,16 @@ input {
     pointer-events: auto;
   }
 
+  .home-bestseller-action.is-rest {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   .home-bestseller-action.is-fixed {
     position: fixed;
     top: auto;
     bottom: max(1.25rem, calc(0.85rem + env(safe-area-inset-bottom)));
+    opacity: 1;
   }
 
   .home-bestseller-action.is-anchored {
@@ -3838,10 +3857,17 @@ input {
     left: 50%;
     right: auto;
     top: auto;
-    bottom: clamp(4rem, 18vw, 6rem);
+    bottom: max(1.25rem, calc(0.85rem + env(safe-area-inset-bottom)));
+    z-index: 12;
     width: max-content;
     justify-content: center;
+    opacity: 1;
     translate: -50% 0;
+  }
+
+  .home-bestseller-action.is-anchored .home-bestseller-view {
+    min-height: 3.75rem;
+    font-size: 0.875rem;
   }
 
   .home-bestseller-grid,
@@ -3903,6 +3929,9 @@ input {
     min-height: 100svh;
     min-height: 100dvh;
     min-height: 100lvh;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    transform: none;
   }
 
   .home-couch-sticky {
@@ -3939,10 +3968,16 @@ input {
     pointer-events: auto;
   }
 
+  .home-bestseller-action.is-rest {
+    opacity: 0;
+    pointer-events: none;
+  }
+
   .home-bestseller-action.is-fixed {
     position: fixed;
     top: auto;
     bottom: max(1.25rem, calc(0.85rem + env(safe-area-inset-bottom)));
+    opacity: 1;
   }
 
   .home-bestseller-action.is-anchored {
@@ -3950,10 +3985,17 @@ input {
     left: 50%;
     right: auto;
     top: auto;
-    bottom: clamp(4rem, 18vw, 6rem);
+    bottom: max(1.25rem, calc(0.85rem + env(safe-area-inset-bottom)));
+    z-index: 12;
     width: max-content;
     justify-content: center;
+    opacity: 1;
     translate: -50% 0;
+  }
+
+  .home-bestseller-action.is-anchored .home-bestseller-view {
+    min-height: 3.75rem;
+    font-size: 0.875rem;
   }
 }
 

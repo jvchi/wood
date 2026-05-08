@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   motion as framerMotion,
+  useAnimationControls,
   useReducedMotion,
   useScroll,
   useTransform,
@@ -318,6 +319,8 @@ export default function HomePage() {
   const bestSellerRef = useRef(null)
   const bestSellerBgRef = useRef(null)
   const bestSellerActionRef = useRef(null)
+  const bestSellerActionFlipRectRef = useRef(null)
+  const bestSellerHeaderRef = useRef(null)
   const titleRef = useRef(null)
   const progressRef = useRef(0)
   const heroTargetProgressRef = useRef(0)
@@ -328,6 +331,8 @@ export default function HomePage() {
   const showcaseTargetProgressRef = useRef(0)
   const showcaseDisplayProgressRef = useRef(0)
   const bestSellerActionModeRef = useRef('rest')
+  const reduceMotion = useReducedMotion()
+  const bestSellerActionControls = useAnimationControls()
   const [heroSceneActive, setHeroSceneActive] = useState(true)
   const [chairSceneActive, setChairSceneActive] = useState(true)
   const [bestSellerActionMode, setBestSellerActionMode] = useState('rest')
@@ -403,17 +408,22 @@ export default function HomePage() {
       }
 
       const rect = section.getBoundingClientRect()
-      const viewportHeight = window.innerHeight
-      const bottomOffset = Math.max(20, window.visualViewport?.height ? viewportHeight - window.visualViewport.height + 20 : 20)
+      const visualViewport = window.visualViewport
+      const viewportHeight = visualViewport?.height ?? window.innerHeight
+      const bottomOffset = Math.max(20, visualViewport ? window.innerHeight - visualViewport.height + 20 : 20)
       const actionHeight = action.offsetHeight
+      const headerHeight = bestSellerHeaderRef.current?.offsetHeight ?? 0
       const fixedLine = viewportHeight - bottomOffset - actionHeight
-      const nextMode = rect.bottom <= bottomOffset + actionHeight
+      const entryLine = fixedLine - headerHeight - 16
+      const sectionBottomLine = viewportHeight - bottomOffset
+      const nextMode = rect.bottom <= sectionBottomLine
         ? 'anchored'
-        : rect.top <= fixedLine
+        : rect.top <= entryLine
           ? 'fixed'
           : 'rest'
 
       if (bestSellerActionModeRef.current !== nextMode) {
+        bestSellerActionFlipRectRef.current = action.getBoundingClientRect()
         bestSellerActionModeRef.current = nextMode
         setBestSellerActionMode(nextMode)
       }
@@ -438,6 +448,35 @@ export default function HomePage() {
       window.visualViewport?.removeEventListener('resize', requestUpdate)
     }
   }, [])
+
+  useLayoutEffect(() => {
+    const action = bestSellerActionRef.current
+    const previousRect = bestSellerActionFlipRectRef.current
+    bestSellerActionFlipRectRef.current = null
+
+    if (!action || !previousRect || !window.matchMedia('(max-width: 880px)').matches) {
+      bestSellerActionControls.set({ x: 0, y: 0, scale: 1 })
+      return
+    }
+
+    const nextRect = action.getBoundingClientRect()
+    const deltaX = previousRect.left - nextRect.left
+    const deltaY = previousRect.top - nextRect.top
+
+    if (reduceMotion || (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5)) {
+      bestSellerActionControls.set({ x: 0, y: 0, scale: 1 })
+      return
+    }
+
+    bestSellerActionControls.stop()
+    bestSellerActionControls.set({ x: deltaX, y: deltaY, scale: 1 })
+    bestSellerActionControls.start({
+      x: 0,
+      y: 0,
+      scale: 1,
+      transition: { type: 'spring', stiffness: 520, damping: 38, mass: 0.8 },
+    })
+  }, [bestSellerActionControls, bestSellerActionMode, reduceMotion])
 
   useEffect(() => {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -702,15 +741,15 @@ export default function HomePage() {
         </div>
 
         <div className="home-bestseller-content">
-          <div className="home-bestseller-header">
+          <div ref={bestSellerHeaderRef} className="home-bestseller-header">
             <h2 id="home-bestseller-title">Best sellers</h2>
           </div>
 
           <MotionDiv
             ref={bestSellerActionRef}
             className={`home-bestseller-action is-${bestSellerActionMode}`}
-            layout
-            transition={{ type: 'spring', stiffness: 520, damping: 38, mass: 0.8 }}
+            animate={bestSellerActionControls}
+            initial={false}
           >
             <Link to="/shop" className="pressable home-bestseller-view">
               View all
