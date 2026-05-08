@@ -478,7 +478,7 @@ export default function HomePage() {
                 id: 'home-bestseller-bg-reveal',
                 trigger: bestSellerRef.current,
                 start: 'top bottom',
-                end: 'bottom bottom',
+                end: 'bottom top',
                 scrub: true,
                 invalidateOnRefresh: true,
               },
@@ -637,47 +637,49 @@ export default function HomePage() {
       >
         <div ref={bestSellerBgRef} className="home-bestseller-bg-motion" aria-hidden="true">
           <picture>
-            <img src={bestSellerTransitionImage} alt="" loading="lazy" />
+            <img src={bestSellerTransitionImage} alt="" loading="eager" decoding="async" />
           </picture>
         </div>
 
-        <div className="home-bestseller-header">
-          <h2 id="home-bestseller-title">Best sellers</h2>
-        </div>
+        <div className="home-bestseller-content">
+          <div className="home-bestseller-header">
+            <h2 id="home-bestseller-title">Best sellers</h2>
+          </div>
 
-        <div className="home-bestseller-action">
-          <Link to="/shop" className="pressable home-bestseller-view">
-            View all
-          </Link>
-        </div>
+          <div className="home-bestseller-action">
+            <Link to="/shop" className="pressable home-bestseller-view">
+              View all
+            </Link>
+          </div>
 
-        <div className="home-bestseller-shell">
-          <div className="home-bestseller-board">
-            {productsLoading ? (
-              <div className="home-bestseller-loading" aria-hidden="true">
-                {bestSellerSkeletonItems.map(item => (
-                  <Skeleton className="home-bestseller-stack-skeleton" key={item} />
-                ))}
-              </div>
-            ) : bestSellerProducts.length > 0 ? (
-              <div className="home-bestseller-grid">
-                {bestSellerProducts.map((product, index) => (
-                  <BestSellerStackedProduct
-                    key={product.id}
-                    product={product}
-                    index={index}
-                    location={location}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="home-bestseller-empty">
-                <p>No best sellers are available right now.</p>
-                <Link to="/shop" className="pressable home-bestseller-empty-link">
-                  Browse the shop
-                </Link>
-              </div>
-            )}
+          <div className="home-bestseller-shell">
+            <div className="home-bestseller-board">
+              {productsLoading ? (
+                <div className="home-bestseller-loading" aria-hidden="true">
+                  {bestSellerSkeletonItems.map(item => (
+                    <Skeleton className="home-bestseller-stack-skeleton" key={item} />
+                  ))}
+                </div>
+              ) : bestSellerProducts.length > 0 ? (
+                <div className="home-bestseller-grid">
+                  {bestSellerProducts.map((product, index) => (
+                    <BestSellerStackedProduct
+                      key={product.id}
+                      product={product}
+                      index={index}
+                      location={location}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="home-bestseller-empty">
+                  <p>No best sellers are available right now.</p>
+                  <Link to="/shop" className="pressable home-bestseller-empty-link">
+                    Browse the shop
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </section>
