@@ -3193,10 +3193,6 @@ input {
 }
 
 @media (max-width: 767px) {
-  :root {
-    --mobile-browser-ui-reserve: max(0px, calc(100lvh - 100svh));
-  }
-
   .admin-overview-grid {
     grid-template-columns: 1fr;
   }
@@ -3727,15 +3723,6 @@ input {
     height: clamp(18rem, 72vw, 23rem);
   }
 
-  .site-footer-reveal {
-    height: calc(clamp(18rem, 72vw, 23rem) + var(--mobile-browser-ui-reserve));
-    background: var(--color-background);
-  }
-
-  .site-footer {
-    bottom: var(--mobile-browser-ui-reserve);
-  }
-
   .site-footer-inner {
     gap: 1.25rem;
     padding-top: 2rem;
@@ -3950,64 +3937,6 @@ input {
     line-height: 1;
   }
 
-}
-
-@media (max-width: 767px) {
-  .home-couch-scroll {
-    min-height: 0;
-  }
-
-  .home-couch-sticky {
-    position: relative;
-    top: auto;
-    height: auto;
-    min-height: 0;
-  }
-
-  .home-couch-frame {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    min-height: 0;
-    height: auto;
-    padding: calc(env(safe-area-inset-top) + var(--nav-height, 0px)) 0 1.5rem;
-    overflow: visible;
-  }
-
-  .home-couch-stage {
-    position: relative;
-    inset: auto;
-    left: 0;
-    width: 100%;
-    min-width: 0;
-    height: auto;
-    aspect-ratio: 4 / 5;
-    transform: translate3d(0, var(--home-stage-y), 0);
-  }
-
-  .home-couch-stage canvas {
-    position: absolute;
-    inset: 0;
-  }
-
-  .home-mobile-panel {
-    position: relative;
-    left: auto;
-    right: auto;
-    bottom: auto;
-    margin: clamp(1.25rem, 5vw, 2rem) max(1.25rem, var(--page-x)) 0;
-    max-width: none;
-    color: var(--color-text);
-  }
-
-  .home-mobile-panel p:last-of-type {
-    max-width: 18rem;
-    color: var(--color-text);
-  }
-
-  .home-mobile-panel span {
-    color: var(--color-muted);
-  }
 }
 
 @media (max-width: 880px) {
