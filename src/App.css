@@ -1835,12 +1835,10 @@ input {
   height: 5rem;
   flex: 0 0 auto;
   overflow: hidden;
-  border: 1px solid transparent;
   opacity: 0.5;
 }
 
 .product-thumbnail.is-active {
-  border-color: var(--color-primary);
   opacity: 1;
 }
 
@@ -1855,33 +1853,46 @@ input {
   display: flex;
   overflow: hidden;
   width: 100%;
-  aspect-ratio: var(--active-image-ratio, auto);
-  max-height: min(65vh, 40rem);
+  height: clamp(17rem, 46vh, 34rem);
+  max-height: 34rem;
   align-items: center;
   justify-content: center;
   background: transparent;
   touch-action: pan-y;
-  transition: aspect-ratio 360ms var(--ease-out);
 }
 
 .product-gallery-frame img {
   width: auto;
   max-width: 100%;
-  height: auto;
-  max-height: min(65vh, 40rem);
+  height: 100%;
+  max-height: 100%;
+  outline: 0;
+  box-shadow: none;
   object-fit: contain;
   transition: opacity 180ms var(--ease-out);
+}
+
+.product-gallery-frame canvas,
+.product-gallery-frame .three-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.product-gallery-frame .loading-spinner lord-icon {
+  width: 32px !important;
+  height: 32px !important;
 }
 
 .product-gallery-count {
   position: absolute;
   right: 0.75rem;
-  bottom: 0.75rem;
-  color: rgba(0, 0, 0, 0.62);
+  bottom: 1.15rem;
+  color: #fff;
   font-size: 0.6875rem;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  mix-blend-mode: difference;
 }
 
 .product-actions {
@@ -3655,11 +3666,12 @@ input {
     width: calc(100% + 2rem);
     margin-right: -1rem;
     margin-left: -1rem;
-    max-height: min(55vh, 32rem);
+    height: clamp(13rem, 34vh, 18rem);
+    max-height: 18rem;
   }
 
   .product-gallery-frame img {
-    max-height: min(55vh, 32rem);
+    max-height: 100%;
   }
 
   .product-thumbnails {
@@ -4271,7 +4283,8 @@ input {
   }
 
   .product-gallery-frame {
-    max-height: min(65vh, 40rem);
+    height: clamp(21rem, 54vh, 34rem);
+    max-height: 34rem;
   }
 
   .home-couch-title {
