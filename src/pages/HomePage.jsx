@@ -631,9 +631,10 @@ export default function HomePage() {
         } else {
           bestSellerBgTween = gsap.fromTo(
             bestSellerBgRef.current,
-            { rotateX: 90 },
+            { rotateX: 89.6, force3D: true },
             {
               rotateX: 0,
+              force3D: true,
               ease: 'none',
               scrollTrigger: {
                 id: 'home-bestseller-bg-reveal',

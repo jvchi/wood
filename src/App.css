@@ -815,8 +815,10 @@ input {
   outline: 0;
   box-shadow: none;
   pointer-events: none;
-  transform: rotateX(90deg);
+  transform: translateZ(0) rotateX(89.6deg);
   transform-origin: 50% 0;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
   will-change: transform;
 }
 
@@ -2322,7 +2324,7 @@ input {
   z-index: 0;
   height: var(--site-footer-height);
   overflow: clip;
-  background: var(--color-primary);
+  background: var(--color-background);
   clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
 }
 
@@ -2334,9 +2336,9 @@ input {
   z-index: 0;
   height: var(--site-footer-height);
   overflow: hidden;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
-  background: var(--color-primary);
-  color: var(--color-white);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-primary);
 }
 
 .site-footer-inner {
@@ -2352,7 +2354,7 @@ input {
 }
 
 .site-footer-brand {
-  color: #f4f4f2;
+  color: var(--color-primary);
   font-family: var(--font-body);
   font-size: clamp(6.5rem, 23vw, 21rem);
   font-weight: 700;
@@ -2368,7 +2370,7 @@ input {
   justify-content: space-between;
   gap: 1.25rem;
   padding-top: 1.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  border-top: 1px solid var(--color-border);
 }
 
 .site-footer-nav {
@@ -2383,7 +2385,7 @@ input {
   min-height: 2rem;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.68);
+  color: var(--color-secondary);
   font-size: 0.6875rem;
   font-weight: 500;
   line-height: 1.2;
@@ -2391,7 +2393,7 @@ input {
 }
 
 .site-footer-copy {
-  color: rgba(255, 255, 255, 0.58);
+  color: var(--color-muted);
   font-size: 0.6875rem;
   font-weight: 500;
   line-height: 1.2;
