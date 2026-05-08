@@ -7,6 +7,7 @@ import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
 import Button from '../components/ui/Button'
+import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumber'
 import LazyThreeScene from '../components/three/LazyThreeScene'
 import ThreeModelPlaceholder from '../components/three/ThreeModelPlaceholder'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
@@ -124,7 +125,7 @@ function ImageGallery({ images, name }) {
         />
         {images.length > 1 && (
           <p className="product-gallery-count" aria-live="polite">
-            {activeIndex + 1} / {images.length}
+            <AnimatedNumber value={activeIndex + 1} aria-label={`Image ${activeIndex + 1}`} /> / <AnimatedNumber value={images.length} aria-label={`${images.length} images`} />
           </p>
         )}
       </MotionDiv>
@@ -237,7 +238,7 @@ export default function ProductPage({ isOverlay = false }) {
 
   return (
     <div className={`product-page page-shell page-top pb-16 md:pb-20 ${isOverlay ? 'product-page-overlay' : ''}`}>
-      <div className="flex items-start justify-between">
+      <div className="product-page-topbar">
         <nav className="product-breadcrumb" aria-label="Breadcrumb">
           <ol>
             <li><Link to="/" className="pressable" viewTransition>Home</Link></li>
@@ -247,12 +248,12 @@ export default function ProductPage({ isOverlay = false }) {
             <li>{product.name}</li>
           </ol>
         </nav>
-        <button 
-          onClick={handleClose} 
-          className="pressable p-2 -mt-2 -mr-2 text-[var(--color-primary)] hover:opacity-70 transition-opacity"
+        <button
+          onClick={handleClose}
+          className="pressable icon-button product-close-button"
           aria-label="Close"
         >
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="square">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="square">
             <path d="M18 6L6 18M6 6l12 12" />
           </svg>
         </button>
@@ -301,7 +302,9 @@ export default function ProductPage({ isOverlay = false }) {
         <div className="product-info-panel">
           <p className="product-detail-category">{product.category}</p>
           <h1 className="product-detail-title">{product.name}</h1>
-          <p className="product-detail-price">{formatPrice(product.price, product.currency)}</p>
+          <p className="product-detail-price">
+            <AnimatedCurrency value={product.price} currency={product.currency} aria-label={formatPrice(product.price, product.currency)} />
+          </p>
 
           <div ref={actionContainerRef} className="product-actions-container">
             <ProductActionControls
@@ -349,7 +352,9 @@ export default function ProductPage({ isOverlay = false }) {
             )}
             <div>
               <p className="product-detail-label">Availability</p>
-              <p className="product-spec-value tabular-nums">{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
+              <p className="product-spec-value tabular-nums">
+                {product.stock > 0 ? <AnimatedNumber value={product.stock} suffix=" in stock" /> : 'Out of stock'}
+              </p>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { formatPrice } from '../utils/formatPrice'
 import Button from '../components/ui/Button'
+import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumber'
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, totalPrice, totalItems } = useCart()
@@ -19,7 +20,7 @@ export default function CartPage() {
   return (
     <div className="page-shell page-top cart-page pb-16 md:pb-20">
       <h1 className="page-title mb-10 md:mb-12">
-        Cart <span className="align-baseline text-[var(--font-size-sm)] text-[var(--color-secondary)] tabular-nums">({totalItems})</span>
+        Cart <span className="align-baseline text-[var(--font-size-sm)] text-[var(--color-secondary)] tabular-nums">(<AnimatedNumber value={totalItems} aria-label={`${totalItems} cart items`} />)</span>
       </h1>
 
       <div className="space-y-3">
@@ -45,7 +46,9 @@ export default function CartPage() {
                       onClick={() => updateQuantity(item.key, item.quantity - 1)}
                       className="pressable icon-button text-[var(--color-primary)]"
                       aria-label="Decrease quantity">−</button>
-                    <span className="product-price w-9 text-center">{item.quantity}</span>
+                    <span className="product-price w-9 text-center">
+                      <AnimatedNumber value={item.quantity} aria-label={`${item.quantity} quantity`} />
+                    </span>
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.key, item.quantity + 1)}
@@ -67,7 +70,9 @@ export default function CartPage() {
             <div className="cart-summary-lines">
               <div className="summary-row flex justify-between gap-4">
                 <span>Subtotal</span>
-                <span className="text-[var(--color-primary)] tabular-nums">{formatPrice(totalPrice)}</span>
+                <span className="text-[var(--color-primary)] tabular-nums">
+                  <AnimatedCurrency value={totalPrice} aria-label={formatPrice(totalPrice)} />
+                </span>
               </div>
               <div className="summary-row flex justify-between gap-4">
                 <span>Shipping</span>
@@ -77,7 +82,9 @@ export default function CartPage() {
             <div className="cart-summary-total">
               <div className="flex justify-between">
                 <span className="summary-total">Total</span>
-                <span className="summary-total">{formatPrice(totalPrice)}</span>
+                <span className="summary-total">
+                  <AnimatedCurrency value={totalPrice} aria-label={formatPrice(totalPrice)} />
+                </span>
               </div>
             </div>
             <Button className="w-full">Checkout</Button>

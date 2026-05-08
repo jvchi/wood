@@ -5,6 +5,7 @@ import { useProducts } from '../../hooks/useProducts'
 import { PRODUCT_PLACEHOLDER_IMAGE, deleteProduct, listCategories, listCollections, saveProduct } from '../../lib/productStore'
 import { useToast } from '../../context/ToastContext'
 import { formatPrice } from '../../utils/formatPrice'
+import AnimatedNumber from '../../components/ui/AnimatedNumber'
 
 const sorters = {
   newest: (a, b) => new Date(b.updated_at) - new Date(a.updated_at),
@@ -151,7 +152,7 @@ export default function AdminProductsPage() {
                 </div>
                 <p className="admin-product-meta tabular-nums" data-label="Price">{formatPrice(product.price, product.currency)}</p>
                 <p className={`admin-pill admin-pill-${product.stock_status}`} data-label="Status" data-qty={product.stock_quantity}>{product.stock_status.replaceAll('_', ' ')}</p>
-                <p className="admin-product-meta tabular-nums" data-label="Qty">{product.stock_quantity}</p>
+                <p className="admin-product-meta tabular-nums" data-label="Qty"><AnimatedNumber value={product.stock_quantity} /></p>
                 <div className="admin-row-actions">
                   <button className="pressable" onClick={() => setEditingProduct(product)} aria-label={`Edit ${product.name}`}><AdminIcon name="edit" /></button>
                   <button className="pressable" onClick={() => duplicateProduct(product)} aria-label={`Duplicate ${product.name}`}><AdminIcon name="copy" /></button>

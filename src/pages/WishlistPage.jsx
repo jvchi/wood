@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext'
 import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
 import Button from '../components/ui/Button'
+import AnimatedNumber from '../components/ui/AnimatedNumber'
 
 export default function WishlistPage() {
   const { items, removeItem } = useWishlist()
@@ -23,7 +24,7 @@ export default function WishlistPage() {
   return (
     <div className="page-shell page-top pb-16 md:pb-20">
       <h1 className="mb-10 text-[var(--font-size-xl)] font-bold uppercase md:mb-12">
-        Wishlist <span className="text-[var(--font-size-base)] text-[var(--color-secondary)] tabular-nums">({items.length})</span>
+        Wishlist <span className="text-[var(--font-size-base)] text-[var(--color-secondary)] tabular-nums">(<AnimatedNumber value={items.length} aria-label={`${items.length} wishlist items`} />)</span>
       </h1>
 
       <div className="wishlist-grid">

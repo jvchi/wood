@@ -1,23 +1,53 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { motion as framerMotion } from 'framer-motion'
+import { motion as framerMotion, useReducedMotion } from 'framer-motion'
 import { useCart } from '../../context/CartContext'
 import { useWishlist } from '../../context/WishlistContext'
 import { preloadAppRoute } from '../../lib/routePreload'
 import { loaderMotion } from '../../lib/transitionConfig'
+import AnimatedNumber from '../ui/AnimatedNumber'
 import MobileNav from './MobileNav'
 
 const MotionSpan = framerMotion.span
+const MotionLink = framerMotion.create(Link)
+const MotionButton = framerMotion.button
 const brandLayoutTransition = loaderMotion.brandLayout
+const productMenuEntryTransition = {
+  type: 'spring',
+  bounce: 0.4,
+  ease: 'linear',
+  damping: 13,
+  stiffness: 150,
+}
+const mobileNavActionShift = 48
 
 export default function Navbar({ brandIntroReady = true, visualLocation }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [isMobileNav, setIsMobileNav] = useState(() => (
+    typeof window === 'undefined' ? false : window.matchMedia('(max-width: 767px)').matches
+  ))
+  const reduceMotion = useReducedMotion()
   const { totalItems } = useCart()
   const { items: wishlistItems } = useWishlist()
   const location = useLocation()
   const displayedLocation = visualLocation || location
   const hasWishlistItems = wishlistItems.length > 0
   const isHome = displayedLocation.pathname === '/'
+  const isProductRoute = location.pathname.startsWith('/product/')
+  const shouldAnimateProductActions = isProductRoute && isMobileNav && !reduceMotion
+  const productActionTransition = delay => ({
+    ...productMenuEntryTransition,
+    delay: shouldAnimateProductActions ? delay : 0,
+  })
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)')
+    const handleChange = () => setIsMobileNav(media.matches)
+
+    handleChange()
+    media.addEventListener('change', handleChange)
+    return () => media.removeEventListener('change', handleChange)
+  }, [])
 
   const navLinks = [
     { to: '/', label: 'New' },
@@ -81,10 +111,15 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
           </div>
 
           <div className="navbar-actions flex items-center gap-1 md:gap-3">
-            <Link
+            <MotionLink
               to="/wishlist"
               className={`pressable icon-button wishlist-toggle relative ${isHome ? 'mix-blend-difference' : ''} ${hasWishlistItems ? 'is-active' : ''}`}
               aria-label="Wishlist"
+              animate={{
+                x: shouldAnimateProductActions ? mobileNavActionShift : 0,
+                filter: shouldAnimateProductActions ? 'blur(0px)' : 'blur(0px)',
+              }}
+              transition={productActionTransition(shouldAnimateProductActions ? 0.08 : 0.12)}
               {...getPreloadProps('/wishlist')}
             >
               <svg className="heart-icon heart-outline" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -93,12 +128,17 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
               <svg className="heart-icon heart-filled" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
               </svg>
-            </Link>
+            </MotionLink>
 
-            <Link
+            <MotionLink
               to="/cart"
               className={`pressable icon-button relative ${isHome ? 'mix-blend-difference' : ''}`}
               aria-label={`Cart with ${totalItems} items`}
+              animate={{
+                x: shouldAnimateProductActions ? mobileNavActionShift : 0,
+                filter: shouldAnimateProductActions ? 'blur(0px)' : 'blur(0px)',
+              }}
+              transition={productActionTransition(shouldAnimateProductActions ? 0.03 : 0.06)}
               {...getPreloadProps('/cart')}
             >
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -107,24 +147,31 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
                 <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
               {totalItems > 0 && (
-                <span className={`absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--color-primary)] px-1 text-[10px] font-bold text-white tabular-nums ${isHome ? 'mix-blend-difference' : ''}`}>
-                  {totalItems}
+                <span className={`cart-count-badge ${isHome ? 'mix-blend-difference' : ''}`}>
+                  <AnimatedNumber value={totalItems} aria-label={`${totalItems} cart items`} />
                 </span>
               )}
-            </Link>
+            </MotionLink>
 
-            <button
+            <MotionButton
               className={`pressable icon-button mobile-menu-button ${isHome ? 'mix-blend-difference' : ''}`}
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
               aria-expanded={mobileOpen}
+              animate={{
+                opacity: shouldAnimateProductActions ? 0 : 1,
+                x: shouldAnimateProductActions ? mobileNavActionShift : 0,
+                filter: shouldAnimateProductActions ? 'blur(6px)' : 'blur(0px)',
+              }}
+              transition={productActionTransition(shouldAnimateProductActions ? 0 : 0)}
+              style={{ pointerEvents: shouldAnimateProductActions ? 'none' : 'auto' }}
             >
               <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <line x1="3" y1="12" x2="21" y2="12" />
                 <line x1="3" y1="18" x2="21" y2="18" />
               </svg>
-            </button>
+            </MotionButton>
           </div>
         </div>
       </nav>

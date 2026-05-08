@@ -2,12 +2,13 @@ import { Link } from 'react-router-dom'
 import { useProducts } from '../../hooks/useProducts'
 import { hasSupabaseConfig } from '../../lib/supabase'
 import { formatPrice } from '../../utils/formatPrice'
+import AnimatedNumber from '../../components/ui/AnimatedNumber'
 
 function StatCard({ label, value, note }) {
   return (
     <article className="admin-stat-card">
       <p>{label}</p>
-      <strong className="tabular-nums">{value}</strong>
+      <strong className="tabular-nums"><AnimatedNumber value={value} /></strong>
       {note && <span>{note}</span>}
     </article>
   )
@@ -49,15 +50,15 @@ export default function AdminOverview() {
         </div>
         <div className="admin-control-grid">
           <Link to="/admin/products" className="admin-control-tile pressable">
-            <strong className="tabular-nums">{drafts.length}</strong>
+            <strong className="tabular-nums"><AnimatedNumber value={drafts.length} /></strong>
             <span>Draft products</span>
           </Link>
           <Link to="/admin/products" className="admin-control-tile pressable">
-            <strong className="tabular-nums">{missingModels.length}</strong>
+            <strong className="tabular-nums"><AnimatedNumber value={missingModels.length} /></strong>
             <span>Missing 3D models</span>
           </Link>
           <Link to="/admin/products" className="admin-control-tile pressable">
-            <strong className="tabular-nums">{modelReady.length}</strong>
+            <strong className="tabular-nums"><AnimatedNumber value={modelReady.length} /></strong>
             <span>Model-ready products</span>
           </Link>
           <Link to="/admin/taxonomy" className="admin-control-tile pressable">
@@ -71,7 +72,7 @@ export default function AdminOverview() {
         <section className="admin-panel">
           <div className="admin-panel-header">
             <h2>Recent updates</h2>
-            <span>{recent.length}</span>
+            <span><AnimatedNumber value={recent.length} /></span>
           </div>
           <div className="admin-list">
             {recent.map(product => (
@@ -90,7 +91,7 @@ export default function AdminOverview() {
         <section className="admin-panel">
           <div className="admin-panel-header">
             <h2>Low stock alerts</h2>
-            <span>{lowStock.length}</span>
+            <span><AnimatedNumber value={lowStock.length} /></span>
           </div>
           {lowStock.length ? (
             <div className="admin-list">
@@ -101,7 +102,7 @@ export default function AdminOverview() {
                     <strong>{product.name}</strong>
                     <small>{product.sku || 'No SKU'}</small>
                   </span>
-                  <em className="tabular-nums">{product.stock_quantity} left</em>
+                  <em className="tabular-nums"><AnimatedNumber value={product.stock_quantity} suffix=" left" /></em>
                 </Link>
               ))}
             </div>
