@@ -1,4 +1,14 @@
+import { motion } from 'framer-motion'
 import { useToast } from '../../context/ToastContext'
+
+const MotionDiv = motion.div
+
+const toastLayoutTransition = {
+  type: 'spring',
+  stiffness: 520,
+  damping: 40,
+  mass: 0.75,
+}
 
 export default function ToastContainer() {
   const { toasts } = useToast()
@@ -10,12 +20,40 @@ export default function ToastContainer() {
       aria-live="polite"
     >
       {toasts.map(toast => (
-        <div
+        <MotionDiv
           key={toast.id}
-          className={`pointer-events-auto bg-[var(--color-primary)] px-5 py-3 text-sm text-white ${toast.exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
+          layout
+          initial={{
+            filter: 'blur(6px)',
+            opacity: 0,
+            scale: 0.96,
+            y: -12,
+          }}
+          animate={toast.exiting ? {
+            filter: 'blur(6px)',
+            maxHeight: 0,
+            opacity: 0,
+            paddingBottom: 0,
+            paddingTop: 0,
+            scale: 0.98,
+            y: -14,
+          } : {
+            filter: 'blur(0px)',
+            maxHeight: 96,
+            opacity: 1,
+            scale: 1,
+            y: 0,
+          }}
+          transition={{
+            default: toast.exiting
+              ? { duration: 0.18, ease: [0.32, 0, 0.67, 0] }
+              : { duration: 0.26, ease: [0.16, 1, 0.3, 1] },
+            layout: toastLayoutTransition,
+          }}
+          className="pointer-events-auto overflow-hidden bg-[var(--color-primary)] px-5 py-3 text-sm text-white"
         >
           {toast.message}
-        </div>
+        </MotionDiv>
       ))}
     </div>
   )

@@ -27,7 +27,7 @@ export function ToastProvider({ children }) {
     }, TOAST_EXIT_MS)
   }, [])
 
-  const addToast = useCallback((message, duration = 700) => {
+  const addToast = useCallback((message, duration = 1000) => {
     const id = ++toastId
 
     setToasts(prev => {

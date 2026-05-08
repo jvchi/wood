@@ -2411,36 +2411,6 @@ input {
   font-variant-numeric: tabular-nums;
 }
 
-@keyframes toast-in {
-  from {
-    filter: blur(6px);
-    opacity: 0;
-    transform: translateY(-12px) scale(0.96);
-  }
-
-  to {
-    filter: blur(0);
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes toast-out {
-  from {
-    filter: blur(0);
-    max-height: 4rem;
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-
-  to {
-    filter: blur(6px);
-    max-height: 0;
-    opacity: 0;
-    transform: translateY(-14px) scale(0.98);
-  }
-}
-
 @keyframes pulse {
 
   0%,
@@ -2451,15 +2421,6 @@ input {
   50% {
     opacity: 1;
   }
-}
-
-.animate-toast-in {
-  animation: toast-in 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.animate-toast-out {
-  overflow: hidden;
-  animation: toast-out 180ms cubic-bezier(0.32, 0, 0.67, 0) forwards;
 }
 
 .admin-shell {
