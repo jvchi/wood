@@ -12,7 +12,7 @@ export default function ToastContainer() {
       {toasts.map(toast => (
         <div
           key={toast.id}
-          className="animate-toast-in pointer-events-auto bg-[var(--color-primary)] px-5 py-3 text-sm text-white"
+          className={`pointer-events-auto bg-[var(--color-primary)] px-5 py-3 text-sm text-white ${toast.exiting ? 'animate-toast-out' : 'animate-toast-in'}`}
         >
           {toast.message}
         </div>
