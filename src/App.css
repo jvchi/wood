@@ -3193,10 +3193,6 @@ input {
 }
 
 @media (max-width: 767px) {
-  :root {
-    --mobile-browser-ui-reserve: max(0px, calc(100lvh - 100svh));
-  }
-
   .admin-overview-grid {
     grid-template-columns: 1fr;
   }
@@ -3725,15 +3721,6 @@ input {
   .site-footer-reveal,
   .site-footer {
     height: clamp(18rem, 72vw, 23rem);
-  }
-
-  .site-footer-reveal {
-    height: calc(clamp(18rem, 72vw, 23rem) + var(--mobile-browser-ui-reserve));
-    background: var(--color-background);
-  }
-
-  .site-footer {
-    bottom: var(--mobile-browser-ui-reserve);
   }
 
   .site-footer-inner {
