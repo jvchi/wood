@@ -3249,6 +3249,10 @@ input {
 }
 
 @media (max-width: 767px) {
+  :root {
+    --mobile-browser-ui-reserve: max(0px, calc(100lvh - 100svh));
+  }
+
   .admin-overview-grid {
     grid-template-columns: 1fr;
   }
@@ -3779,6 +3783,15 @@ input {
     height: clamp(18rem, 72vw, 23rem);
   }
 
+  .site-footer-reveal {
+    height: calc(clamp(18rem, 72vw, 23rem) + var(--mobile-browser-ui-reserve));
+    background: var(--color-background);
+  }
+
+  .site-footer {
+    bottom: var(--mobile-browser-ui-reserve);
+  }
+
   .site-footer-inner {
     gap: 1.25rem;
     padding-top: 2rem;
@@ -3972,8 +3985,6 @@ input {
     min-height: 100svh;
     min-height: 100dvh;
     min-height: 100lvh;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
     transform: none;
   }
 
