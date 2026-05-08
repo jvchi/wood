@@ -54,6 +54,9 @@ function markHomeSceneReady(sceneName) {
 function BestSellerStackedProduct({ product, index, location }) {
   const ref = useRef(null)
   const hoverDelayRef = useRef(null)
+  const touchRevertTimerRef = useRef(null)
+  const isTouchExpandedRef = useRef(false)
+  const lastPointerTypeRef = useRef(null)
   const reduceMotion = useReducedMotion()
   const [isHovered, setIsHovered] = useState(false)
   const { scrollYProgress } = useScroll({
@@ -75,6 +78,35 @@ function BestSellerStackedProduct({ product, index, location }) {
       hoverDelayRef.current = null
     }
   }
+  const clearTouchRevertTimer = () => {
+    if (touchRevertTimerRef.current) {
+      window.clearTimeout(touchRevertTimerRef.current)
+      touchRevertTimerRef.current = null
+    }
+  }
+  const startTouchRevertTimer = () => {
+    clearTouchRevertTimer()
+    touchRevertTimerRef.current = window.setTimeout(() => {
+      touchRevertTimerRef.current = null
+      isTouchExpandedRef.current = false
+      setIsHovered(false)
+    }, 5000)
+  }
+  const handleLinkClick = event => {
+    // Only intercept touch interactions
+    if (lastPointerTypeRef.current !== 'touch') return
+    if (isTouchExpandedRef.current) {
+      // Second tap within 5 s — clear timer and let Link navigate naturally
+      clearTouchRevertTimer()
+      isTouchExpandedRef.current = false
+    } else {
+      // First tap — block navigation, trigger hover animation, start revert timer
+      event.preventDefault()
+      isTouchExpandedRef.current = true
+      setIsHovered(true)
+      startTouchRevertTimer()
+    }
+  }
   const queueHover = event => {
     if (event?.pointerType === 'touch') return
     if (hoverDelayRef.current || isHovered) return
@@ -86,7 +118,10 @@ function BestSellerStackedProduct({ product, index, location }) {
   }
   const resetHover = () => {
     clearHoverDelay()
-    setIsHovered(false)
+    // Only reset hover for non-touch (touch state is managed by tap handler)
+    if (!isTouchExpandedRef.current) {
+      setIsHovered(false)
+    }
   }
   const getLayerStackOrderVariants = layerIndex => {
     if (layerIndex === 0) {
@@ -186,12 +221,22 @@ function BestSellerStackedProduct({ product, index, location }) {
     },
   }
 
-  useEffect(() => () => clearHoverDelay(), [])
+  useEffect(() => () => {
+    clearHoverDelay()
+    clearTouchRevertTimer()
+  }, [])
   useEffect(() => {
-    window.addEventListener('scroll', resetHover, { passive: true })
+    const handleScroll = () => {
+      // Only revert hover on scroll for non-touch expanded state
+      if (!isTouchExpandedRef.current) {
+        clearHoverDelay()
+        setIsHovered(false)
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
 
     return () => {
-      window.removeEventListener('scroll', resetHover)
+      window.removeEventListener('scroll', handleScroll)
     }
   })
 
@@ -219,6 +264,8 @@ function BestSellerStackedProduct({ product, index, location }) {
         className="home-bestseller-stack-link"
         aria-label={`View ${product.name}`}
         viewTransition
+        onPointerDown={e => { lastPointerTypeRef.current = e.pointerType }}
+        onClick={handleLinkClick}
       >
         <MotionDiv
           className="home-bestseller-stack-media"
