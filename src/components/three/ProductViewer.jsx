@@ -8,6 +8,8 @@ import UploadedProductModel from './UploadedProductModel'
 import ErrorBoundary from '../ui/ErrorBoundary'
 import { canUseWebGL, getDevicePerformanceProfile, resolveModelAsset } from '../../lib/threeAssetStrategy'
 
+const MODEL_LOAD_TIMEOUT_MS = 10000
+
 function AutoRotate({ enabled }) {
   const controls = useRef()
 
@@ -65,10 +67,21 @@ export default function ProductViewer({
     )
     : null
   const isUploadedModel = Boolean(resolvedModel?.src)
+  const resolvedModelSrc = resolvedModel?.src
   const builtInModelKey = 'built-in-couch'
   const builtInModelFailed = !isUploadedModel && builtInFailedKey === builtInModelKey
-  const modelLoadFailed = isUploadedModel && failedModelUrl === resolvedModel?.src
-  const modelReady = !isUploadedModel || loadedModelUrl === resolvedModel?.src || modelLoadFailed
+  const modelLoadFailed = isUploadedModel && failedModelUrl === resolvedModelSrc
+  const modelReady = !isUploadedModel || loadedModelUrl === resolvedModelSrc || modelLoadFailed
+
+  useEffect(() => {
+    if (!isUploadedModel || !resolvedModelSrc || modelReady) return undefined
+
+    const timer = window.setTimeout(() => {
+      setFailedModelUrl(resolvedModelSrc)
+    }, MODEL_LOAD_TIMEOUT_MS)
+
+    return () => window.clearTimeout(timer)
+  }, [isUploadedModel, modelReady, resolvedModelSrc])
 
   if (!webglAvailable || profile.preferStatic) {
     return (
@@ -97,19 +110,19 @@ export default function ProductViewer({
         <Center>
           {isUploadedModel ? (
             <ErrorBoundary
-              key={resolvedModel.src}
+              key={resolvedModelSrc}
               fallback={(
                 <ProductModelLoadFallback
-                  onError={() => setFailedModelUrl(resolvedModel.src)}
+                  onError={() => setFailedModelUrl(resolvedModelSrc)}
                 />
               )}
             >
               <Suspense fallback={null}>
                 <UploadedProductModel
-                  url={resolvedModel.src}
+                  url={resolvedModelSrc}
                   scale={modelScale}
                   rotation={modelRotation}
-                  onReady={() => setLoadedModelUrl(resolvedModel.src)}
+                  onReady={() => setLoadedModelUrl(resolvedModelSrc)}
                 />
               </Suspense>
             </ErrorBoundary>

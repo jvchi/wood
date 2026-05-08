@@ -17,8 +17,11 @@ const LABEL_HOVER_SCALE = 1.055
 const LABEL_HOVER_WIDTH = 120
 const LABEL_HOVER_HEIGHT = 46
 const LABEL_HOVER_ACTIVE_MULTIPLIER = 1.55
-const TOUCH_PAN_STRENGTH = 1.15
-const TOUCH_PAN_LIMIT = 0.42
+const TOUCH_PAN_STRENGTH = 0.48
+const TOUCH_PAN_VERTICAL_STRENGTH = 0.14
+const TOUCH_PAN_LIMIT = 0.18
+const TOUCH_PAN_VERTICAL_LIMIT = 0.06
+const TOUCH_PAN_AXIS_THRESHOLD = 8
 const FURNITURE_LABELS = [
   {
     name: 'Luna Sectional',
@@ -283,9 +286,11 @@ export default function HeroScene({ active = true, fallbackImage, fallbackAlt = 
 
   function handleTouchPanStart(event) {
     if (event.pointerType !== 'touch' || !event.isPrimary) return
+    event.currentTarget.setPointerCapture?.(event.pointerId)
     touchPan.current = {
       startX: event.clientX,
       startY: event.clientY,
+      isPanning: false,
       width: Math.max(1, event.currentTarget.getBoundingClientRect().width),
     }
   }
@@ -294,20 +299,38 @@ export default function HeroScene({ active = true, fallbackImage, fallbackAlt = 
     if (event.pointerType !== 'touch' || !event.isPrimary || !touchPan.current) return false
     const deltaX = event.clientX - touchPan.current.startX
     const deltaY = event.clientY - touchPan.current.startY
+    const absX = Math.abs(deltaX)
+    const absY = Math.abs(deltaY)
 
-    if (Math.abs(deltaY) > Math.abs(deltaX) * 1.25) return true
+    if (!touchPan.current.isPanning) {
+      if (absX < TOUCH_PAN_AXIS_THRESHOLD && absY < TOUCH_PAN_AXIS_THRESHOLD) return true
+      if (absY > absX * 1.25) {
+        pointer.current = { x: 0, y: 0 }
+        return true
+      }
+      touchPan.current.isPanning = true
+    }
+
+    event.preventDefault()
 
     pointer.current.x = THREE.MathUtils.clamp(
       (deltaX / touchPan.current.width) * TOUCH_PAN_STRENGTH,
       -TOUCH_PAN_LIMIT,
       TOUCH_PAN_LIMIT,
     )
-    pointer.current.y = 0
+    pointer.current.y = THREE.MathUtils.clamp(
+      (-deltaY / touchPan.current.width) * TOUCH_PAN_VERTICAL_STRENGTH,
+      -TOUCH_PAN_VERTICAL_LIMIT,
+      TOUCH_PAN_VERTICAL_LIMIT,
+    )
     return true
   }
 
   function handleTouchPanEnd(event) {
     if (event.pointerType !== 'touch' || !event.isPrimary) return
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
     touchPan.current = null
     pointer.current = { x: 0, y: 0 }
     pointerScreen.current.inside = false

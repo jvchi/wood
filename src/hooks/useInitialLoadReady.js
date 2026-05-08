@@ -80,7 +80,14 @@ function waitForHomeScenes() {
   }
 
   return new Promise((resolve) => {
-    window.addEventListener('wood:home-scenes-ready', resolve, { once: true })
+    const done = () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('wood:home-scenes-ready', done)
+      resolve()
+    }
+    const timer = window.setTimeout(done, maxHoldMs)
+
+    window.addEventListener('wood:home-scenes-ready', done)
   })
 }
 

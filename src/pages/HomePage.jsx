@@ -336,6 +336,7 @@ export default function HomePage() {
   const [heroSceneActive, setHeroSceneActive] = useState(true)
   const [chairSceneActive, setChairSceneActive] = useState(true)
   const [bestSellerActionMode, setBestSellerActionMode] = useState('rest')
+  const [showHeroScrollHint, setShowHeroScrollHint] = useState(true)
   const { products, loading: productsLoading } = useProducts()
   const bestSellerProducts = useMemo(() => {
     const bestSellers = products.filter(product => product.best_seller)
@@ -384,6 +385,51 @@ export default function HomePage() {
     if (showcaseRef.current) observer.observe(showcaseRef.current)
 
     return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    let idleTimer = 0
+
+    const clearIdleTimer = () => {
+      if (!idleTimer) return
+      window.clearTimeout(idleTimer)
+      idleTimer = 0
+    }
+
+    const isHeroInView = () => {
+      const rect = scrollRef.current?.getBoundingClientRect()
+      if (!rect) return false
+      return rect.top <= 1 && rect.bottom > window.innerHeight * 0.5
+    }
+
+    const queueHintReturn = () => {
+      clearIdleTimer()
+      idleTimer = window.setTimeout(() => {
+        idleTimer = 0
+        if (isHeroInView()) {
+          setShowHeroScrollHint(true)
+        }
+      }, 5000)
+    }
+
+    const handleScroll = () => {
+      if (isHeroInView()) {
+        setShowHeroScrollHint(false)
+        queueHintReturn()
+      } else {
+        setShowHeroScrollHint(false)
+        clearIdleTimer()
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', queueHintReturn)
+
+    return () => {
+      clearIdleTimer()
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', queueHintReturn)
+    }
   }, [])
 
   useEffect(() => {
@@ -692,10 +738,45 @@ export default function HomePage() {
               <span>wood</span>
             </h1>
             <div className="home-mobile-panel">
-              <p className="label-text-compact">Couch Place</p>
-              <p>A quiet room built around one couch.</p>
-              <span>Scroll</span>
+              <p className="label-text-compact">The Sofa Room</p>
+              <p>Settle into the shape of home.</p>
             </div>
+            <MotionDiv
+              className="home-scroll-hint"
+              aria-hidden="true"
+              initial={false}
+              animate={showHeroScrollHint ? 'visible' : 'hidden'}
+              variants={{
+                visible: {
+                  opacity: 1,
+                  x: '-50%',
+                  y: 0,
+                  filter: 'blur(0px)',
+                  scale: 1,
+                  transition: {
+                    type: 'spring',
+                    stiffness: 360,
+                    damping: 30,
+                    mass: 0.7,
+                  },
+                },
+                hidden: {
+                  opacity: 0,
+                  x: '-50%',
+                  y: 18,
+                  filter: 'blur(8px)',
+                  scale: 0.96,
+                  transition: {
+                    type: 'spring',
+                    stiffness: 440,
+                    damping: 34,
+                    mass: 0.65,
+                  },
+                },
+              }}
+            >
+              <span />
+            </MotionDiv>
           </div>
         </div>
       </section>
