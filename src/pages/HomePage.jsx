@@ -336,7 +336,7 @@ export default function HomePage() {
   const [heroSceneActive, setHeroSceneActive] = useState(true)
   const [chairSceneActive, setChairSceneActive] = useState(true)
   const [bestSellerActionMode, setBestSellerActionMode] = useState('rest')
-  const [showHeroScrollHint, setShowHeroScrollHint] = useState(true)
+  const [showHeroScrollHint, setShowHeroScrollHint] = useState(false)
   const { products, loading: productsLoading } = useProducts()
   const bestSellerProducts = useMemo(() => {
     const bestSellers = products.filter(product => product.best_seller)
@@ -389,11 +389,18 @@ export default function HomePage() {
 
   useEffect(() => {
     let idleTimer = 0
+    let revealTimer = 0
 
     const clearIdleTimer = () => {
       if (!idleTimer) return
       window.clearTimeout(idleTimer)
       idleTimer = 0
+    }
+
+    const clearRevealTimer = () => {
+      if (!revealTimer) return
+      window.clearTimeout(revealTimer)
+      revealTimer = 0
     }
 
     const isHeroInView = () => {
@@ -413,6 +420,7 @@ export default function HomePage() {
     }
 
     const handleScroll = () => {
+      clearRevealTimer()
       if (isHeroInView()) {
         setShowHeroScrollHint(false)
         queueHintReturn()
@@ -422,10 +430,18 @@ export default function HomePage() {
       }
     }
 
+    revealTimer = window.setTimeout(() => {
+      revealTimer = 0
+      if (isHeroInView()) {
+        setShowHeroScrollHint(true)
+      }
+    }, 500)
+
     window.addEventListener('scroll', handleScroll, { passive: true })
     window.addEventListener('resize', queueHintReturn)
 
     return () => {
+      clearRevealTimer()
       clearIdleTimer()
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('resize', queueHintReturn)
@@ -744,7 +760,7 @@ export default function HomePage() {
             <MotionDiv
               className="home-scroll-hint"
               aria-hidden="true"
-              initial={false}
+              initial="hidden"
               animate={showHeroScrollHint ? 'visible' : 'hidden'}
               variants={{
                 visible: {
