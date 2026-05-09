@@ -550,7 +550,83 @@ export async function uploadModelSource(file, productId) {
   return path
 }
 
-export async function compressUploadedModel({ sourcePath, productId, sourceFileName, sourceContentType }) {
+function storagePathFromPublicUrl(url, bucket) {
+  if (!url || typeof url !== 'string') return null
+  const marker = `/storage/v1/object/public/${bucket}/`
+  const idx = url.indexOf(marker)
+  if (idx === -1) return null
+  return url.slice(idx + marker.length).split('?')[0]
+}
+
+export async function deleteProductModelAssets({ modelUrl, modelLiteUrl, modelPosterUrl, productId } = {}) {
+  if (!hasSupabaseConfig) return
+  const modelPaths = [
+    storagePathFromPublicUrl(modelUrl, 'product-models'),
+    storagePathFromPublicUrl(modelLiteUrl, 'product-models'),
+  ].filter(Boolean)
+  const posterPath = storagePathFromPublicUrl(modelPosterUrl, 'product-images')
+
+  // Also remove the original source upload — its path lives at
+  // product-models/source/<productId or 'draft'>/... — derive it from the
+  // tracked product_uploads rows so we don't leave the raw upload behind.
+  const trackedSourcePaths = []
+  if (modelPaths.length) {
+    const { data: tracked } = await supabase
+      .from('product_uploads')
+      .select('storage_path,asset_kind')
+      .in('storage_path', modelPaths)
+    if (Array.isArray(tracked)) {
+      for (const row of tracked) {
+        if (row.asset_kind !== 'source_model') continue
+        trackedSourcePaths.push(row.storage_path)
+      }
+    }
+    // also pull source rows tied to the same compressed dir(s)
+    const compressedDirs = new Set(modelPaths.map(p => p.split('/').slice(0, -1).join('/')))
+    if (compressedDirs.size && productId) {
+      const { data: relatedSources } = await supabase
+        .from('product_uploads')
+        .select('storage_path')
+        .eq('product_id', productId)
+        .eq('asset_kind', 'source_model')
+      if (Array.isArray(relatedSources)) {
+        for (const row of relatedSources) trackedSourcePaths.push(row.storage_path)
+      }
+    }
+  }
+
+  const allModelPaths = [...new Set([...modelPaths, ...trackedSourcePaths])]
+  if (allModelPaths.length) {
+    const { error } = await supabase.storage.from('product-models').remove(allModelPaths)
+    if (error) console.warn('Could not remove model storage objects:', error.message)
+  }
+  if (posterPath) {
+    const { error } = await supabase.storage.from('product-images').remove([posterPath])
+    if (error) console.warn('Could not remove poster:', error.message)
+  }
+
+  // Drop tracked upload rows for everything we just removed.
+  if (allModelPaths.length || posterPath) {
+    const allPaths = [...allModelPaths, ...(posterPath ? [posterPath] : [])]
+    const { error: trackErr } = await supabase
+      .from('product_uploads')
+      .delete()
+      .in('storage_path', allPaths)
+    if (trackErr) console.warn('Could not remove product_uploads rows:', trackErr.message)
+  }
+
+  // If the product is already persisted, drop its product_models row so the
+  // public site stops resolving the model.
+  if (productId) {
+    const { error: modelErr } = await supabase
+      .from('product_models')
+      .delete()
+      .eq('product_id', productId)
+    if (modelErr) console.warn('Could not remove product_models row:', modelErr.message)
+  }
+}
+
+export async function compressUploadedModel({ sourcePath, productId, sourceFileName, sourceContentType, force }) {
   if (!hasSupabaseConfig) throw new Error('Supabase is required for auto-compression')
   const { data, error } = await supabase.functions.invoke('compress-model', {
     body: {
@@ -558,9 +634,26 @@ export async function compressUploadedModel({ sourcePath, productId, sourceFileN
       productId: productId || null,
       sourceFileName: sourceFileName || null,
       sourceContentType: sourceContentType || null,
+      force: force || false,
     },
   })
-  if (error) throw error
+  if (error) {
+    // supabase-js wraps non-2xx responses in a FunctionsHttpError that hides
+    // the JSON body — pull it out so the admin sees the real cause.
+    let detail = ''
+    try {
+      const body = await error.context?.json?.()
+      if (body?.error) detail = `: ${body.error}`
+    } catch {
+      try {
+        const text = await error.context?.text?.()
+        if (text) detail = `: ${text}`
+      } catch {
+        // give up, surface bare message
+      }
+    }
+    throw new Error(`${error.message}${detail}`)
+  }
   if (data?.error) throw new Error(data.error)
   return data
 }

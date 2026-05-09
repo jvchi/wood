@@ -4,6 +4,7 @@ import ProductModelPreview from './ProductModelPreview'
 import {
   PRODUCT_PLACEHOLDER_IMAGE,
   compressUploadedModel,
+  deleteProductModelAssets,
   normalizeProduct,
   slugify,
   uploadAsset,
@@ -125,17 +126,74 @@ function Toggle({ label, checked, onChange }) {
   )
 }
 
+const DRAFT_STORAGE_PREFIX = 'wood:product-draft:'
+
+function draftStorageKey(product) {
+  return `${DRAFT_STORAGE_PREFIX}${product?.id || 'new'}`
+}
+
+function loadStoredDraft(product) {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.localStorage.getItem(draftStorageKey(product))
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 export default function ProductFormPanel({ product, categories, collections, onClose, onSave }) {
-  const [draft, setDraft] = useState(() => (product ? normalizeProduct(product) : { ...emptyProduct }))
+  const [draft, setDraft] = useState(() => {
+    const stored = loadStoredDraft(product)
+    if (stored) return stored
+    return product ? normalizeProduct(product) : { ...emptyProduct }
+  })
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [compressionStatus, setCompressionStatus] = useState('')
+  const [draftRestored, setDraftRestored] = useState(() => Boolean(loadStoredDraft(product)))
   const isEditing = Boolean(product?.id)
 
   useEffect(() => {
-    setDraft(product ? normalizeProduct(product) : { ...emptyProduct })
+    const stored = loadStoredDraft(product)
+    if (stored) {
+      setDraft(stored)
+      setDraftRestored(true)
+    } else {
+      setDraft(product ? normalizeProduct(product) : { ...emptyProduct })
+      setDraftRestored(false)
+    }
   }, [product])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(draftStorageKey(product), JSON.stringify(draft))
+    } catch {
+      // quota or serialization issue — ignore, draft persistence is best-effort
+    }
+  }, [draft, product])
+
+  function clearStoredDraft() {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.removeItem(draftStorageKey(product))
+    } catch {
+      // ignore
+    }
+    setDraftRestored(false)
+  }
+
+  function discardDraft() {
+    clearStoredDraft()
+    setDraft(product ? normalizeProduct(product) : { ...emptyProduct })
+  }
+
+  function handleCancel() {
+    clearStoredDraft()
+    onClose()
+  }
 
   const seoPreview = useMemo(() => ({
     title: draft.seo_title || `${draft.name || 'Product'} | Wood`,
@@ -224,13 +282,42 @@ export default function ProductFormPanel({ product, categories, collections, onC
       }))
 
       const fmt = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`
-      setCompressionStatus(`Done · source ${fmt(result.sourceSize)} → full ${fmt(result.fullSize)} · lite ${fmt(result.liteSize)}`)
+      setCompressionStatus(
+        result.skippedCompression
+          ? `Done · ${fmt(result.sourceSize)} (under 5MB, compression skipped)`
+          : `Done · source ${fmt(result.sourceSize)} → full ${fmt(result.fullSize)} · lite ${fmt(result.liteSize)}`,
+      )
     } catch (err) {
       setError(err.message || 'Auto-compression failed')
       setCompressionStatus('')
     } finally {
       setUploading(false)
       event.target.value = ''
+    }
+  }
+
+  async function handleRemoveModel() {
+    const snapshot = {
+      modelUrl: draft.model_url,
+      modelLiteUrl: draft.model_lite_url,
+      modelPosterUrl: draft.model_poster_url,
+      productId: draft.id,
+    }
+    setDraft(current => ({
+      ...current,
+      model_url: '',
+      model_lite_url: '',
+      model_poster_url: '',
+      model_version: '',
+      model_file_size: '',
+      fallback_image_url: '',
+    }))
+    setCompressionStatus('')
+    setError('')
+    try {
+      await deleteProductModelAssets(snapshot)
+    } catch (err) {
+      console.warn('Storage cleanup failed:', err)
     }
   }
 
@@ -275,6 +362,7 @@ export default function ProductFormPanel({ product, categories, collections, onC
         seo_title: draft.seo_title || seoPreview.title,
         seo_description: draft.seo_description || seoPreview.description,
       }))
+      clearStoredDraft()
       onClose()
     } catch (err) {
       setError(err.message || 'Product save failed')
@@ -292,10 +380,17 @@ export default function ProductFormPanel({ product, categories, collections, onC
               <p className="admin-kicker">{isEditing ? 'Edit' : 'New'}</p>
               <h2>{isEditing ? draft.name : 'Add product'}</h2>
             </div>
-            <button type="button" className="admin-icon-button pressable" onClick={onClose} aria-label="Close product form">×</button>
+            <button type="button" className="admin-icon-button pressable" onClick={handleCancel} aria-label="Close product form">×</button>
           </header>
 
           {error && <p className="admin-error" role="alert">{error}</p>}
+
+          {draftRestored && (
+            <p className="admin-helper" role="status" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <span>Restored unsaved draft.</span>
+              <button type="button" className="admin-rotation-reset" onClick={discardDraft}>Discard draft</button>
+            </p>
+          )}
 
           <section className="admin-form-section">
             <h3>Basic</h3>
@@ -347,6 +442,16 @@ export default function ProductFormPanel({ product, categories, collections, onC
               <label className="admin-upload admin-upload-secondary pressable">Upload pre-built full<input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={event => handleModelUpload(event, 'full')} /></label>
               <label className="admin-upload admin-upload-secondary pressable">Upload pre-built lite<input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={event => handleModelUpload(event, 'lite')} /></label>
               <label className="admin-upload admin-upload-secondary pressable">Upload model poster<input type="file" accept="image/*" onChange={handlePosterUpload} /></label>
+              {(draft.model_url || draft.model_lite_url || draft.model_poster_url) && (
+                <button
+                  type="button"
+                  className="admin-upload admin-upload-danger pressable"
+                  onClick={handleRemoveModel}
+                  disabled={uploading}
+                >
+                  Remove model
+                </button>
+              )}
               {uploading && <span className="admin-helper">Uploading...</span>}
             </div>
             {compressionStatus && <p className="admin-helper" role="status">{compressionStatus}</p>}
@@ -420,7 +525,7 @@ export default function ProductFormPanel({ product, categories, collections, onC
           </section>
 
           <footer className="admin-sheet-footer">
-            <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button type="button" variant="secondary" onClick={handleCancel}>Cancel</Button>
             <Button type="submit" disabled={saving || uploading}>{saving ? 'Saving...' : 'Save product'}</Button>
           </footer>
         </form>

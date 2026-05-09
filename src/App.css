@@ -3029,6 +3029,18 @@ input {
   color: var(--color-primary);
 }
 
+.admin-upload-danger {
+  background: #f4dfd8;
+  color: #7f1d1d;
+  border: none;
+  cursor: pointer;
+}
+
+.admin-upload-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .admin-upload input {
   position: absolute;
   inset: 0;

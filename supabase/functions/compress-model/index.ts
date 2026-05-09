@@ -13,6 +13,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const BUCKET = 'product-models'
+const SKIP_COMPRESSION_MAX_BYTES = 5 * 1024 * 1024
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,7 +34,9 @@ async function loadDeps() {
     const meshoptmod = await import('https://esm.sh/meshoptimizer@0.20.0?target=denonext')
     stage.step = 'draco3dgltf'
     const dracoMod = await import('https://esm.sh/draco3dgltf@1.5.7?target=denonext')
-    return { core, extensions, fns, meshoptmod, dracoMod }
+    stage.step = 'imagescript'
+    const imagescript = await import('https://deno.land/x/imagescript@1.2.17/mod.ts')
+    return { core, extensions, fns, meshoptmod, dracoMod, imagescript }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     throw new Error(`dep-load failed at ${stage.step}: ${message}`)
@@ -63,25 +66,84 @@ async function buildIO(deps: Awaited<ReturnType<typeof loadDeps>>) {
     })
 }
 
-async function compressFull(io: any, fns: any, bytes: Uint8Array) {
-  const doc = await io.readBinary(bytes)
-  await doc.transform(fns.dedup(), fns.prune(), fns.weld(), fns.draco({ method: 'edgebreaker' }))
-  return await io.writeBinary(doc)
+// Skip pre-decode if the encoded image is too big — Edge Functions have a
+// ~256MB memory ceiling and imagescript decodes to RGBA (4 bytes/pixel).
+// A 3MB encoded JPEG can easily expand to 100MB+ RGBA.
+const MAX_TEXTURE_DECODE_BYTES = 3 * 1024 * 1024
+
+async function resizeTextures(doc: any, maxSize: number, imagescript: any, stats: TextureStats) {
+  for (const tex of doc.getRoot().listTextures()) {
+    const mime = tex.getMimeType()
+    const buf = tex.getImage()
+    if (!buf) { stats.missing++; continue }
+    if (mime !== 'image/png' && mime !== 'image/jpeg') {
+      stats.unsupportedMime++
+      continue
+    }
+    if (buf.byteLength > MAX_TEXTURE_DECODE_BYTES) {
+      stats.skippedTooLarge++
+      continue
+    }
+    try {
+      const decoded = await imagescript.decode(buf)
+      const img = decoded?.constructor?.name === 'GIF' ? decoded.image : decoded
+      if (!img) { stats.unsupportedMime++; continue }
+      if (img.width <= maxSize && img.height <= maxSize) {
+        stats.alreadySmall++
+        continue
+      }
+      const scale = maxSize / Math.max(img.width, img.height)
+      const w = Math.max(1, Math.round(img.width * scale))
+      const h = Math.max(1, Math.round(img.height * scale))
+      img.resize(w, h)
+      const out = mime === 'image/jpeg'
+        ? await img.encodeJPEG(85)
+        : await img.encode()
+      tex.setImage(out instanceof Uint8Array ? out : new Uint8Array(out))
+      stats.resized++
+    } catch (e) {
+      stats.errored++
+      console.warn('texture resize skipped:', tex.getName?.(), (e as Error)?.message)
+    }
+  }
 }
 
-async function compressLite(io: any, fns: any, simplifier: any, encoder: any, bytes: Uint8Array) {
+interface TextureStats {
+  resized: number
+  alreadySmall: number
+  skippedTooLarge: number
+  unsupportedMime: number
+  missing: number
+  errored: number
+}
+
+function newTextureStats(): TextureStats {
+  return { resized: 0, alreadySmall: 0, skippedTooLarge: 0, unsupportedMime: 0, missing: 0, errored: 0 }
+}
+
+async function compressFull(io: any, fns: any, imagescript: any, bytes: Uint8Array) {
+  const stats = newTextureStats()
+  const doc = await io.readBinary(bytes)
+  await doc.transform(fns.dedup(), fns.prune(), fns.weld())
+  await resizeTextures(doc, 2048, imagescript, stats)
+  await doc.transform(fns.draco({ method: 'edgebreaker' }))
+  const out = await io.writeBinary(doc)
+  return { bytes: out, stats }
+}
+
+async function compressLite(io: any, fns: any, simplifier: any, encoder: any, imagescript: any, bytes: Uint8Array) {
+  const stats = newTextureStats()
   const doc = await io.readBinary(bytes)
   await doc.transform(
     fns.dedup(),
     fns.prune(),
     fns.weld(),
-    // Conservative simplification: keep 75% of triangles, tight error budget,
-    // lock border edges so UV seams and material boundaries don't collapse.
     fns.simplify({ simplifier, ratio: 0.75, error: 0.001, lockBorder: true }),
-    // 'medium' quantization preserves more precision than 'high'.
-    fns.meshopt({ encoder, level: 'medium' }),
   )
-  return await io.writeBinary(doc)
+  await resizeTextures(doc, 1024, imagescript, stats)
+  await doc.transform(fns.meshopt({ encoder, level: 'medium' }))
+  const out = await io.writeBinary(doc)
+  return { bytes: out, stats }
 }
 
 Deno.serve(async (req) => {
@@ -94,7 +156,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { sourcePath, productId, sourceFileName, sourceContentType } = await req.json()
+    const { sourcePath, productId, sourceFileName, sourceContentType, force } = await req.json()
     if (!sourcePath || typeof sourcePath !== 'string') {
       throw new Error('sourcePath is required')
     }
@@ -105,16 +167,42 @@ Deno.serve(async (req) => {
     if (dlErr) throw dlErr
     const bytes = new Uint8Array(await source.arrayBuffer())
 
-    const deps = await loadDeps()
-    const io = await buildIO(deps)
-    const fullBytes = await compressFull(io, deps.fns, bytes)
-    const liteBytes = await compressLite(
-      io,
-      deps.fns,
-      deps.meshoptmod.MeshoptSimplifier,
-      deps.meshoptmod.MeshoptEncoder,
-      bytes,
-    )
+    let fullBytes: Uint8Array
+    let liteBytes: Uint8Array
+    let skippedCompression = false
+    let fullStats: TextureStats | null = null
+    let liteStats: TextureStats | null = null
+    let stage = 'init'
+    if (!force && bytes.byteLength <= SKIP_COMPRESSION_MAX_BYTES) {
+      fullBytes = bytes
+      liteBytes = bytes
+      skippedCompression = true
+    } else {
+      try {
+        stage = 'load-deps'
+        const deps = await loadDeps()
+        stage = 'build-io'
+        const io = await buildIO(deps)
+        stage = 'compress-full'
+        const full = await compressFull(io, deps.fns, deps.imagescript, bytes)
+        fullBytes = full.bytes
+        fullStats = full.stats
+        stage = 'compress-lite'
+        const lite = await compressLite(
+          io,
+          deps.fns,
+          deps.meshoptmod.MeshoptSimplifier,
+          deps.meshoptmod.MeshoptEncoder,
+          deps.imagescript,
+          bytes,
+        )
+        liteBytes = lite.bytes
+        liteStats = lite.stats
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        throw new Error(`Compression failed at "${stage}": ${message}`)
+      }
+    }
 
     const stamp = Date.now()
     const dir = `compressed/${productId || 'draft'}/${stamp}`
@@ -190,6 +278,8 @@ Deno.serve(async (req) => {
         liteSize: liteBytes.byteLength,
         sourceSize: bytes.byteLength,
         version: String(stamp),
+        skippedCompression,
+        textureStats: { full: fullStats, lite: liteStats },
       }),
       { headers: { ...corsHeaders, 'content-type': 'application/json' } },
     )
