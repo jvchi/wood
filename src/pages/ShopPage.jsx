@@ -57,11 +57,11 @@ export default function ShopPage() {
 
       {loading ? (
         <div className="shop-masonry">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i}>
-              <Skeleton className="aspect-[4/5]" />
-              <Skeleton className="mt-2 h-3 w-24" />
-              <Skeleton className="mt-2 h-4 w-16" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="mb-[clamp(1.35rem,3vw,2.4rem)]">
+              <Skeleton className="aspect-[10/9]" />
+              <Skeleton className="mt-2 h-2.5 w-20" />
+              <Skeleton className="mt-1.5 h-2.5 w-12" />
             </div>
           ))}
         </div>

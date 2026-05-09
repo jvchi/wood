@@ -98,6 +98,7 @@ alter table public.product_models add column if not exists version text;
 alter table public.product_models add column if not exists format text not null default 'glb';
 alter table public.product_models add column if not exists file_size bigint;
 alter table public.product_models add column if not exists metadata jsonb not null default '{}'::jsonb;
+alter table public.product_models add column if not exists camera text;
 
 create table if not exists public.product_uploads (
   id uuid primary key default gen_random_uuid(),

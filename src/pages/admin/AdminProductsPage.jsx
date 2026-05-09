@@ -181,6 +181,13 @@ export default function AdminProductsPage() {
           collections={collections}
           onClose={() => setEditingProduct(null)}
           onSave={persistProduct}
+          onTaxonomyAdded={(type, item) => {
+            const updater = type === 'category' ? setCategories : setCollections
+            updater(prev => {
+              const exists = prev.some(entry => entry.id === item.id)
+              return exists ? prev.map(entry => (entry.id === item.id ? item : entry)) : [...prev, item]
+            })
+          }}
         />
       )}
 

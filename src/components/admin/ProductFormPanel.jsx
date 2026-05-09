@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Button from '../ui/Button'
 import ProductModelPreview from './ProductModelPreview'
+import { formatCameraCsv } from '../../lib/modelCamera'
 import {
   PRODUCT_PLACEHOLDER_IMAGE,
   compressUploadedModel,
   deleteProductModelAssets,
   normalizeProduct,
+  saveTaxonomy,
   slugify,
   uploadAsset,
   uploadModelSource,
@@ -90,6 +92,7 @@ const emptyProduct = {
   fallback_image_url: '',
   model_scale: 1,
   model_rotation: '0,0,0',
+  model_camera: '',
   model_format: 'glb',
   model_file_size: '',
   published: true,
@@ -126,6 +129,167 @@ function Toggle({ label, checked, onChange }) {
   )
 }
 
+const DIMENSION_UNITS = ['cm', 'in', 'mm']
+
+function parseDimensionText(text) {
+  if (!text) return { width: '', depth: '', height: '', unit: 'cm' }
+  const unitMatch = String(text).match(/(cm|mm|in|inches|")\s*$/i)
+  let unit = 'cm'
+  if (unitMatch) {
+    const u = unitMatch[1].toLowerCase()
+    unit = u === 'inches' || u === '"' ? 'in' : u
+  }
+  const numbers = String(text).match(/-?\d+(?:\.\d+)?/g) || []
+  return {
+    width: numbers[0] ?? '',
+    depth: numbers[1] ?? '',
+    height: numbers[2] ?? '',
+    unit,
+  }
+}
+
+function formatDimensionText({ width, depth, height, unit }) {
+  if (width === '' && depth === '' && height === '') return ''
+  const parts = [
+    width !== '' ? `${width}W` : null,
+    depth !== '' ? `${depth}D` : null,
+    height !== '' ? `${height}H` : null,
+  ].filter(Boolean)
+  return `${parts.join(' x ')} ${unit}`.trim()
+}
+
+function DimensionInput({ value, onChange }) {
+  const parsed = parseDimensionText(value)
+  const set = (key, next) => onChange(formatDimensionText({ ...parsed, [key]: next }))
+  return (
+    <div className="admin-dimension-input">
+      <input type="number" inputMode="decimal" placeholder="W" value={parsed.width} onChange={e => set('width', e.target.value)} />
+      <span aria-hidden>×</span>
+      <input type="number" inputMode="decimal" placeholder="D" value={parsed.depth} onChange={e => set('depth', e.target.value)} />
+      <span aria-hidden>×</span>
+      <input type="number" inputMode="decimal" placeholder="H" value={parsed.height} onChange={e => set('height', e.target.value)} />
+      <select value={parsed.unit} onChange={e => set('unit', e.target.value)}>
+        {DIMENSION_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+      </select>
+    </div>
+  )
+}
+
+const WEIGHT_UNITS = ['kg', 'lb', 'g']
+
+function parseWeight(text) {
+  if (!text) return { amount: '', unit: 'kg' }
+  const match = String(text).match(/(-?\d+(?:\.\d+)?)\s*(kg|lb|lbs|g)?/i)
+  if (!match) return { amount: '', unit: 'kg' }
+  const unit = (match[2] || 'kg').toLowerCase().replace('lbs', 'lb')
+  return { amount: match[1], unit }
+}
+
+function formatWeight({ amount, unit }) {
+  if (amount === '') return ''
+  return `${amount} ${unit}`
+}
+
+function WeightInput({ value, onChange }) {
+  const parsed = parseWeight(value)
+  const set = (key, next) => onChange(formatWeight({ ...parsed, [key]: next }))
+  return (
+    <div className="admin-weight-input">
+      <input type="number" inputMode="decimal" placeholder="0" value={parsed.amount} onChange={e => set('amount', e.target.value)} />
+      <select value={parsed.unit} onChange={e => set('unit', e.target.value)}>
+        {WEIGHT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+      </select>
+    </div>
+  )
+}
+
+function TagChips({ value, onChange, placeholder }) {
+  const [input, setInput] = useState('')
+  const tags = Array.isArray(value) ? value : []
+  function commit(raw) {
+    const parts = String(raw).split(',').map(t => t.trim()).filter(Boolean)
+    if (!parts.length) return
+    const next = [...tags]
+    for (const tag of parts) if (!next.includes(tag)) next.push(tag)
+    onChange(next)
+    setInput('')
+  }
+  function handleKey(event) {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault()
+      commit(input)
+    } else if (event.key === 'Backspace' && !input && tags.length) {
+      onChange(tags.slice(0, -1))
+    }
+  }
+  return (
+    <div className="admin-chip-input">
+      {tags.map(tag => (
+        <span key={tag} className="admin-chip">
+          {tag}
+          <button type="button" aria-label={`Remove ${tag}`} onClick={() => onChange(tags.filter(t => t !== tag))}>×</button>
+        </span>
+      ))}
+      <input
+        value={input}
+        placeholder={tags.length ? '' : placeholder}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={handleKey}
+        onBlur={() => commit(input)}
+      />
+    </div>
+  )
+}
+
+const ROOM_TYPE_OPTIONS = ['Living room', 'Bedroom', 'Dining room', 'Office', 'Outdoor', 'Kids', 'Hallway']
+
+const ASPECT_RATIO_OPTIONS = [
+  { value: '1:1', label: '1:1 Square' },
+  { value: '4:5', label: '4:5 Portrait' },
+  { value: '3:4', label: '3:4 Portrait' },
+  { value: '2:3', label: '2:3 Portrait' },
+  { value: '16:9', label: '16:9 Landscape' },
+  { value: '3:2', label: '3:2 Landscape' },
+  { value: '9:16', label: '9:16 Vertical' },
+]
+
+const COMMON_ASPECTS = [
+  ['1:1', 1],
+  ['4:5', 4 / 5],
+  ['5:4', 5 / 4],
+  ['3:4', 3 / 4],
+  ['4:3', 4 / 3],
+  ['2:3', 2 / 3],
+  ['3:2', 3 / 2],
+  ['16:9', 16 / 9],
+  ['9:16', 9 / 16],
+]
+
+function aspectLabel(w, h) {
+  if (!w || !h) return ''
+  const r = w / h
+  let best = null
+  let bestDiff = Infinity
+  for (const [label, value] of COMMON_ASPECTS) {
+    const diff = Math.abs(r - value) / value
+    if (diff < bestDiff) {
+      bestDiff = diff
+      best = label
+    }
+  }
+  return bestDiff < 0.025 ? best : `${w}×${h}`
+}
+
+const ASPECT_RATIO_MAP = {
+  '1:1': [1, 1],
+  '4:5': [4, 5],
+  '3:4': [3, 4],
+  '2:3': [2, 3],
+  '16:9': [16, 9],
+  '3:2': [3, 2],
+  '9:16': [9, 16],
+}
+
 const DRAFT_STORAGE_PREFIX = 'wood:product-draft:'
 
 function draftStorageKey(product) {
@@ -142,7 +306,7 @@ function loadStoredDraft(product) {
   }
 }
 
-export default function ProductFormPanel({ product, categories, collections, onClose, onSave }) {
+export default function ProductFormPanel({ product, categories, collections, onClose, onSave, onTaxonomyAdded }) {
   const [draft, setDraft] = useState(() => {
     const stored = loadStoredDraft(product)
     if (stored) return stored
@@ -152,8 +316,25 @@ export default function ProductFormPanel({ product, categories, collections, onC
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [compressionStatus, setCompressionStatus] = useState('')
+  const previewRef = useRef(null)
   const [draftRestored, setDraftRestored] = useState(() => Boolean(loadStoredDraft(product)))
+  const [capturing, setCapturing] = useState(false)
+  const [captureStatus, setCaptureStatus] = useState('')
+  const [aspectRatio, setAspectRatio] = useState('1:1')
+  const [captureSize, setCaptureSize] = useState(3000)
+  const [turntableCount, setTurntableCount] = useState(8)
+  const [captureTransparent, setCaptureTransparent] = useState(true)
+  const [imageAspects, setImageAspects] = useState({})
   const isEditing = Boolean(product?.id)
+
+  function handleImageMeta(image, event) {
+    const { naturalWidth, naturalHeight } = event.currentTarget
+    if (!naturalWidth || !naturalHeight) return
+    setImageAspects(current => {
+      if (current[image]?.w === naturalWidth && current[image]?.h === naturalHeight) return current
+      return { ...current, [image]: { w: naturalWidth, h: naturalHeight } }
+    })
+  }
 
   useEffect(() => {
     const stored = loadStoredDraft(product)
@@ -193,6 +374,20 @@ export default function ProductFormPanel({ product, categories, collections, onC
   function handleCancel() {
     clearStoredDraft()
     onClose()
+  }
+
+  async function handleAddTaxonomy(type) {
+    const label = type === 'category' ? 'category' : 'collection'
+    const name = window.prompt(`New ${label} name`)?.trim()
+    if (!name) return
+    try {
+      const created = await saveTaxonomy(type, { name, slug: slugify(name) })
+      onTaxonomyAdded?.(type, created)
+      const value = created.slug || created.id
+      update(type === 'category' ? 'category_id' : 'collection_id', value)
+    } catch (err) {
+      setError(err.message || `Could not add ${label}`)
+    }
   }
 
   const seoPreview = useMemo(() => ({
@@ -293,6 +488,113 @@ export default function ProductFormPanel({ product, categories, collections, onC
     } finally {
       setUploading(false)
       event.target.value = ''
+    }
+  }
+
+  function handleSaveCamera() {
+    const state = previewRef.current?.getCameraState?.()
+    if (!state) return
+    update('model_camera', formatCameraCsv(state))
+  }
+
+  function handleResetCamera() {
+    previewRef.current?.resetCamera?.()
+    update('model_camera', '')
+  }
+
+  function computeResolution() {
+    const [rw, rh] = ASPECT_RATIO_MAP[aspectRatio] || [1, 1]
+    const longest = Math.max(1000, Math.min(6000, Number(captureSize) || 3000))
+    if (rw >= rh) {
+      return { width: longest, height: Math.round((longest * rh) / rw) }
+    }
+    return { width: Math.round((longest * rw) / rh), height: longest }
+  }
+
+  const aspectRatioValue = (() => {
+    const [rw, rh] = ASPECT_RATIO_MAP[aspectRatio] || [1, 1]
+    return rw / rh
+  })()
+
+  async function uploadCaptureBlob(blob, label) {
+    const safeName = `${slugify(draft.name || 'product') || 'product'}-${label}-${Date.now()}.png`
+    const file = new File([blob], safeName, { type: 'image/png' })
+    return uploadAsset(file, 'product-images', draft.id, 'image')
+  }
+
+  async function handleCaptureSnapshot() {
+    if (capturing) return
+    if (!previewRef.current?.isReady?.()) {
+      setError('Model is still loading. Wait a moment and try again.')
+      return
+    }
+    setCapturing(true)
+    setError('')
+    setCaptureStatus('Rendering HD snapshot...')
+    try {
+      const { width, height } = computeResolution()
+      const blob = await previewRef.current.captureSnapshot({
+        width,
+        height,
+        supersample: 2,
+        transparent: captureTransparent,
+        aspectRatio: aspectRatioValue,
+      })
+      if (!blob) throw new Error('Capture returned no image')
+      setCaptureStatus('Uploading...')
+      const url = await uploadCaptureBlob(blob, 'hero')
+      setDraft(current => {
+        const currentImages = (current.images || []).filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
+        return { ...current, images: [...currentImages, url] }
+      })
+      setCaptureStatus(`Saved · ${width}×${height}`)
+    } catch (err) {
+      setError(err.message || 'Capture failed')
+      setCaptureStatus('')
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  async function handleCaptureTurntable() {
+    if (capturing) return
+    if (!previewRef.current?.isReady?.()) {
+      setError('Model is still loading. Wait a moment and try again.')
+      return
+    }
+    const count = Math.max(2, Math.min(36, Number(turntableCount) || 8))
+    setCapturing(true)
+    setError('')
+    setCaptureStatus(`Rendering ${count} angles...`)
+    try {
+      const { width, height } = computeResolution()
+      const blobs = await previewRef.current.captureTurntable(count, {
+        width,
+        height,
+        supersample: 2,
+        transparent: captureTransparent,
+        aspectRatio: aspectRatioValue,
+        onProgress: (done, total) => setCaptureStatus(`Rendering ${done}/${total}...`),
+      })
+      if (!blobs?.length) throw new Error('No frames captured')
+      setCaptureStatus(`Uploading ${blobs.length} images...`)
+      const urls = []
+      for (let i = 0; i < blobs.length; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        const url = await uploadCaptureBlob(blobs[i], `angle-${String(i + 1).padStart(2, '0')}`)
+        urls.push(url)
+        setCaptureStatus(`Uploading ${i + 1}/${blobs.length}...`)
+      }
+      setDraft(current => {
+        const currentImages = (current.images || []).filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
+        return { ...current, images: [...currentImages, ...urls] }
+      })
+      setCaptureStatus(`Saved · ${urls.length} × ${width}×${height}`)
+    } catch (err) {
+      setError(err.message || 'Turntable capture failed')
+      setCaptureStatus('')
+    } finally {
+      setCapturing(false)
     }
   }
 
@@ -397,17 +699,44 @@ export default function ProductFormPanel({ product, categories, collections, onC
             <div className="admin-form-grid">
               <Field label="Product name"><input value={draft.name} onChange={event => update('name', event.target.value)} required /></Field>
               <Field label="Slug"><input value={draft.slug} onChange={event => update('slug', slugify(event.target.value))} required /></Field>
-              <Field label="Category"><select value={draft.category_id} onChange={event => update('category_id', event.target.value)}>{categories.map(category => <option key={category.id} value={category.slug || category.id}>{category.name}</option>)}</select></Field>
-              <Field label="Collection"><select value={draft.collection_id} onChange={event => update('collection_id', event.target.value)}><option value="">None</option>{collections.map(collection => <option key={collection.id} value={collection.slug || collection.id}>{collection.name}</option>)}</select></Field>
+              <Field label="Category">
+                <div className="admin-taxonomy-select">
+                  <select value={draft.category_id} onChange={event => update('category_id', event.target.value)}>
+                    {categories.map(category => <option key={category.id} value={category.slug || category.id}>{category.name}</option>)}
+                  </select>
+                  <button type="button" className="admin-taxonomy-add pressable" onClick={() => handleAddTaxonomy('category')} aria-label="Add new category">+ New</button>
+                </div>
+              </Field>
+              <Field label="Collection">
+                <div className="admin-taxonomy-select">
+                  <select value={draft.collection_id} onChange={event => update('collection_id', event.target.value)}>
+                    <option value="">None</option>
+                    {collections.map(collection => <option key={collection.id} value={collection.slug || collection.id}>{collection.name}</option>)}
+                  </select>
+                  <button type="button" className="admin-taxonomy-add pressable" onClick={() => handleAddTaxonomy('collection')} aria-label="Add new collection">+ New</button>
+                </div>
+              </Field>
               <Field label="Short description"><textarea value={draft.short_description} onChange={event => update('short_description', event.target.value)} rows="3" /></Field>
               <Field label="Full description"><textarea value={draft.full_description} onChange={event => update('full_description', event.target.value)} rows="3" /></Field>
-              <Field label="Tags"><input value={draft.tags.join(', ')} onChange={event => update('tags', event.target.value.split(',').map(tag => tag.trim()).filter(Boolean))} placeholder="sofa, oak, modular" /></Field>
-              <Field label="Material"><input value={draft.material} onChange={event => update('material', event.target.value)} /></Field>
+              <Field label="Tags"><TagChips value={draft.tags} onChange={value => update('tags', value)} placeholder="Type a tag, press Enter" /></Field>
+              <Field label="Material"><input value={draft.material} onChange={event => update('material', event.target.value)} placeholder="oak, brass" /></Field>
               <Field label="Color"><input value={draft.color || ''} onChange={event => update('color', event.target.value)} /></Field>
-              <Field label="Dimensions"><input value={draft.dimension_text || ''} onChange={event => update('dimension_text', event.target.value)} placeholder="220W x 95D x 78H cm" /></Field>
-              <Field label="Weight"><input value={draft.weight || ''} onChange={event => update('weight', event.target.value)} /></Field>
+              <Field label="Dimensions"><DimensionInput value={draft.dimension_text || ''} onChange={value => update('dimension_text', value)} /></Field>
+              <Field label="Weight"><WeightInput value={draft.weight || ''} onChange={value => update('weight', value)} /></Field>
               <Field label="Brand/designer"><input value={draft.brand || ''} onChange={event => update('brand', event.target.value)} /></Field>
-              <Field label="Room type"><input value={draft.room_type || ''} onChange={event => update('room_type', event.target.value)} /></Field>
+              <Field label="Room type">
+                <select value={ROOM_TYPE_OPTIONS.includes(draft.room_type) ? draft.room_type : (draft.room_type ? '__custom__' : '')} onChange={event => {
+                  if (event.target.value === '__custom__') return
+                  update('room_type', event.target.value)
+                }}>
+                  <option value="">Select room…</option>
+                  {ROOM_TYPE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                  <option value="__custom__">Custom…</option>
+                </select>
+                {(!ROOM_TYPE_OPTIONS.includes(draft.room_type) && draft.room_type !== undefined) && (
+                  <input value={draft.room_type || ''} onChange={event => update('room_type', event.target.value)} placeholder="Custom room type" style={{ marginTop: '0.4rem' }} />
+                )}
+              </Field>
             </div>
           </section>
 
@@ -456,21 +785,45 @@ export default function ProductFormPanel({ product, categories, collections, onC
             </div>
             {compressionStatus && <p className="admin-helper" role="status">{compressionStatus}</p>}
             <div className="admin-image-strip">
-              {draft.images.map((image, index) => (
-                <figure key={`${image}-${index}`}>
-                  <img src={image} alt="" />
-                  <figcaption>
-                    <button type="button" onClick={() => moveImage(index, -1)} disabled={index === 0}>←</button>
-                    <button type="button" onClick={() => moveImage(index, 1)} disabled={index === draft.images.length - 1}>→</button>
-                    <button type="button" onClick={() => update('images', draft.images.filter((_, imageIndex) => imageIndex !== index))}>Delete</button>
-                  </figcaption>
-                </figure>
-              ))}
+              {draft.images.map((image, index) => {
+                const isFallback = (draft.fallback_image_url || draft.model_poster_url) === image
+                const meta = imageAspects[image]
+                const ratio = meta ? meta.w / meta.h : 1
+                const ratioLabel = meta ? aspectLabel(meta.w, meta.h) : ''
+                return (
+                  <figure key={`${image}-${index}`} className={isFallback ? 'is-fallback' : ''}>
+                    <div className="admin-image-strip-thumb" style={{ '--thumb-ratio': ratio }}>
+                      <img src={image} alt="" onLoad={event => handleImageMeta(image, event)} />
+                      {ratioLabel && <span className="admin-image-strip-aspect">{ratioLabel}</span>}
+                      {isFallback && <span className="admin-image-strip-badge">Fallback</span>}
+                      <div className="admin-image-strip-hover">
+                        <button
+                          type="button"
+                          className="admin-image-strip-hover-action"
+                          onClick={() => setDraft(current => ({
+                            ...current,
+                            fallback_image_url: image,
+                            model_poster_url: image,
+                            og_image_url: current.og_image_url || image,
+                          }))}
+                          disabled={isFallback}
+                        >
+                          {isFallback ? 'Fallback frame' : 'Use as fallback'}
+                        </button>
+                      </div>
+                    </div>
+                    <figcaption>
+                      <button type="button" onClick={() => moveImage(index, -1)} disabled={index === 0}>←</button>
+                      <button type="button" onClick={() => moveImage(index, 1)} disabled={index === draft.images.length - 1}>→</button>
+                      <button type="button" onClick={() => update('images', draft.images.filter((_, imageIndex) => imageIndex !== index))}>Delete</button>
+                    </figcaption>
+                  </figure>
+                )
+              })}
             </div>
             <div className="admin-form-grid admin-form-grid-compact">
               <Field label="Full model URL"><input value={draft.model_url || ''} onChange={event => update('model_url', event.target.value)} placeholder="Desktop .glb or .gltf" /></Field>
               <Field label="Model scale"><input type="number" step="0.1" value={draft.model_scale || 1} onChange={event => update('model_scale', event.target.value)} /></Field>
-              <Field label="Model rotation"><RotationSliders value={draft.model_rotation || '0,0,0'} onChange={value => update('model_rotation', value)} /></Field>
               <Field label="Lite model URL"><input value={draft.model_lite_url || ''} onChange={event => update('model_lite_url', event.target.value)} placeholder="Optimized mobile .glb" /></Field>
               <Field label="Poster URL"><input value={draft.model_poster_url || ''} onChange={event => update('model_poster_url', event.target.value)} placeholder="Model loading poster" /></Field>
               <Field label="Model version"><input value={draft.model_version || ''} onChange={event => update('model_version', event.target.value)} placeholder="Changes when model bytes change" /></Field>
@@ -485,7 +838,101 @@ export default function ProductFormPanel({ product, categories, collections, onC
               <span className={draft.model_version ? 'is-ready' : ''}>Versioned</span>
             </div>
             <p className="admin-helper">Production models should be published as full, lite, and poster assets. Use Draco or Meshopt compression before adding the final URLs here.</p>
-            <ProductModelPreview modelUrl={draft.model_url} fallbackImage={draft.model_poster_url || draft.fallback_image_url || draft.images[0]} scale={draft.model_scale} rotation={draft.model_rotation} />
+            <div className="admin-model-preview-wrapper">
+              <p className="admin-helper">Drag to rotate · scroll/pinch to zoom · this frame matches the live product page. Click <strong>Save view</strong> to lock the camera shoppers see first.</p>
+              <ProductModelPreview
+                ref={previewRef}
+                modelUrl={draft.model_url}
+                fallbackImage={draft.model_poster_url || draft.fallback_image_url || draft.images[0]}
+                scale={draft.model_scale}
+                rotation={draft.model_rotation}
+                camera={draft.model_camera}
+                aspectRatio={aspectRatioValue}
+                aspectLabel={aspectRatio}
+                showAspectGhost={!capturing}
+              />
+              {draft.model_url && (
+                <>
+                  <div className="admin-model-preview-rotation">
+                    <span className="admin-model-preview-rotation-label">Rotation</span>
+                    <RotationSliders value={draft.model_rotation || '0,0,0'} onChange={value => update('model_rotation', value)} />
+                  </div>
+                  <div className="admin-model-preview-toolbar">
+                    <button type="button" className="pressable admin-model-preview-action" onClick={handleSaveCamera}>
+                      Save view
+                    </button>
+                    <button type="button" className="pressable admin-model-preview-action admin-model-preview-action-secondary" onClick={handleResetCamera}>
+                      Reset view
+                    </button>
+                    {draft.model_camera && (
+                      <span className="admin-helper admin-model-preview-status">View saved</span>
+                    )}
+                  </div>
+                  <div className="admin-model-preview-toolbar">
+                    <select
+                      value={aspectRatio}
+                      onChange={event => setAspectRatio(event.target.value)}
+                      disabled={capturing}
+                      aria-label="Aspect ratio"
+                    >
+                      {ASPECT_RATIO_OPTIONS.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={captureSize}
+                      onChange={event => setCaptureSize(Number(event.target.value))}
+                      disabled={capturing}
+                      aria-label="Capture size"
+                    >
+                      <option value={1500}>1.5K</option>
+                      <option value={2000}>2K</option>
+                      <option value={3000}>3K</option>
+                      <option value={4000}>4K</option>
+                      <option value={6000}>6K</option>
+                    </select>
+                    <label className="admin-toggle" style={{ margin: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={captureTransparent}
+                        onChange={event => setCaptureTransparent(event.target.checked)}
+                        disabled={capturing}
+                      />
+                      <span>Transparent BG</span>
+                    </label>
+                    <button
+                      type="button"
+                      className="pressable admin-model-preview-action"
+                      onClick={handleCaptureSnapshot}
+                      disabled={capturing}
+                    >
+                      {capturing ? 'Working…' : 'Capture HD image'}
+                    </button>
+                    <input
+                      type="number"
+                      min="2"
+                      max="36"
+                      value={turntableCount}
+                      onChange={event => setTurntableCount(event.target.value)}
+                      disabled={capturing}
+                      style={{ width: '4.5rem' }}
+                      aria-label="Turntable angle count"
+                    />
+                    <button
+                      type="button"
+                      className="pressable admin-model-preview-action admin-model-preview-action-secondary"
+                      onClick={handleCaptureTurntable}
+                      disabled={capturing}
+                    >
+                      Capture turntable
+                    </button>
+                    {captureStatus && (
+                      <span className="admin-helper admin-model-preview-status">{captureStatus}</span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </section>
 
           <section className="admin-form-section">

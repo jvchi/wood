@@ -7,10 +7,11 @@ import LoadingSpinner from '../ui/LoadingSpinner'
 import UploadedProductModel from './UploadedProductModel'
 import ErrorBoundary from '../ui/ErrorBoundary'
 import { canUseWebGL, getDevicePerformanceProfile, resolveModelAsset } from '../../lib/threeAssetStrategy'
+import { parseCameraCsv } from '../../lib/modelCamera'
 
 const MODEL_LOAD_TIMEOUT_MS = 10000
 
-function AutoRotate({ enabled }) {
+function AutoRotate({ enabled, target }) {
   const controls = useRef()
 
   useFrame(() => {
@@ -28,6 +29,7 @@ function AutoRotate({ enabled }) {
       enablePan={false}
       autoRotate={enabled}
       autoRotateSpeed={1.5}
+      target={target}
       onStart={() => {
         if (controls.current) {
           controls.current.autoRotate = false
@@ -51,9 +53,14 @@ export default function ProductViewer({
   modelVersion,
   modelScale,
   modelRotation,
+  modelCamera,
   fallbackImage,
   active = true,
 }) {
+  const savedCamera = parseCameraCsv(modelCamera)
+  const cameraPosition = savedCamera?.position || [3, 1, 3]
+  const cameraFov = savedCamera?.fov || 40
+  const cameraTarget = savedCamera?.target || [0, 0, 0]
   const [autoRotate, setAutoRotate] = useState(true)
   const [loadedModelUrl, setLoadedModelUrl] = useState(null)
   const [failedModelUrl, setFailedModelUrl] = useState(null)
@@ -95,7 +102,7 @@ export default function ProductViewer({
     <div className="relative h-full min-h-[400px] w-full bg-[var(--color-surface)]">
       <Canvas
         style={{ width: '100%', height: '100%' }}
-        camera={{ position: [3, 1, 3], fov: 40 }}
+        camera={{ position: cameraPosition, fov: cameraFov }}
         dpr={[1, profile.dpr]}
         frameloop={active ? 'always' : 'demand'}
         gl={{ antialias: profile.tier === 'high', powerPreference: profile.tier === 'high' ? 'high-performance' : 'default' }}
@@ -106,7 +113,7 @@ export default function ProductViewer({
       >
         <ambientLight intensity={0.5} />
         <directionalLight position={[2, 5, 3]} intensity={0.7} />
-        <AutoRotate enabled={autoRotate} />
+        <AutoRotate enabled={autoRotate} target={cameraTarget} />
         <Center>
           {isUploadedModel ? (
             <ErrorBoundary

@@ -77,7 +77,7 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
           viewTransition
         >
           {!imageLoaded && (
-            <div className="absolute inset-0 bg-[var(--color-surface-muted)]" />
+            <div className="absolute inset-0 bg-black/[0.04]" />
           )}
           <MotionImg
             ref={imageRef}

@@ -327,6 +327,7 @@ function mapSupabaseProduct(row) {
     model_version: model?.version || row.updated_at || '',
     model_scale: model?.scale || row.model_scale || 1,
     model_rotation: model?.rotation || row.model_rotation || '0,0,0',
+    model_camera: model?.camera || row.model_camera || '',
     model_format: model?.format || '',
     model_file_size: model?.file_size || '',
   })
@@ -369,7 +370,16 @@ export async function saveProduct(product) {
   if (hasSupabaseConfig) {
     const payload = toSupabaseProduct(normalized)
     const { error } = await supabase.from('products').upsert(payload)
-    if (error) throw error
+    if (error) {
+      if (error.code === '23505' && /products_sku_key/.test(error.message || '')) {
+        throw new Error(
+          payload.sku
+            ? `SKU "${payload.sku}" is already used by another product.`
+            : 'Existing rows have empty-string SKUs from a previous version. Run: update products set sku = null where sku = \'\'; in the Supabase SQL editor, then save again.',
+        )
+      }
+      throw error
+    }
     await replaceProductImages(normalized)
     await replaceProductModel(normalized)
     await logInventory(normalized, product.previous_stock_quantity)
@@ -387,12 +397,78 @@ export async function saveProduct(product) {
 
 export async function deleteProduct(productId) {
   if (hasSupabaseConfig) {
+    await purgeProductStorage(productId)
     const { error } = await supabase.from('products').delete().eq('id', productId)
     if (error) throw error
     window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
     return
   }
   writeLocal(PRODUCTS_KEY, readLocal(PRODUCTS_KEY, fallbackProducts).filter(product => product.id !== productId))
+}
+
+// Remove every storage object tied to a product before the row is deleted, so
+// nothing lingers in the product-images/product-models buckets after delete.
+async function purgeProductStorage(productId) {
+  const pathsByBucket = new Map()
+  const addPath = (bucket, path) => {
+    if (!bucket || !path) return
+    if (!pathsByBucket.has(bucket)) pathsByBucket.set(bucket, new Set())
+    pathsByBucket.get(bucket).add(path)
+  }
+
+  const { data: uploads } = await supabase
+    .from('product_uploads')
+    .select('bucket_id,storage_path')
+    .eq('product_id', productId)
+  if (Array.isArray(uploads)) {
+    for (const row of uploads) addPath(row.bucket_id, row.storage_path)
+  }
+
+  const { data: imageRows } = await supabase
+    .from('product_images')
+    .select('url')
+    .eq('product_id', productId)
+  if (Array.isArray(imageRows)) {
+    for (const row of imageRows) addPath('product-images', storagePathFromPublicUrl(row.url, 'product-images'))
+  }
+
+  const { data: modelRows } = await supabase
+    .from('product_models')
+    .select('url,lite_url,poster_url')
+    .eq('product_id', productId)
+  if (Array.isArray(modelRows)) {
+    for (const row of modelRows) {
+      addPath('product-models', storagePathFromPublicUrl(row.url, 'product-models'))
+      addPath('product-models', storagePathFromPublicUrl(row.lite_url, 'product-models'))
+      addPath('product-images', storagePathFromPublicUrl(row.poster_url, 'product-images'))
+    }
+  }
+
+  const { data: productRow } = await supabase
+    .from('products')
+    .select('main_image_url,fallback_image_url,og_image_url')
+    .eq('id', productId)
+    .maybeSingle()
+  if (productRow) {
+    addPath('product-images', storagePathFromPublicUrl(productRow.main_image_url, 'product-images'))
+    addPath('product-images', storagePathFromPublicUrl(productRow.fallback_image_url, 'product-images'))
+    addPath('product-images', storagePathFromPublicUrl(productRow.og_image_url, 'product-images'))
+  }
+
+  for (const [bucket, set] of pathsByBucket) {
+    const paths = [...set]
+    if (!paths.length) continue
+    const { error } = await supabase.storage.from(bucket).remove(paths)
+    if (error) console.warn(`Could not remove ${bucket} objects:`, error.message)
+  }
+
+  // product_uploads has on-delete-set-null on product_id, so we must explicitly
+  // drop its rows here — otherwise the metadata stays after the product is gone.
+  const { error: uploadErr } = await supabase
+    .from('product_uploads')
+    .delete()
+    .eq('product_id', productId)
+  if (uploadErr) console.warn('Could not remove product_uploads rows:', uploadErr.message)
 }
 
 export async function saveTaxonomy(type, values) {
@@ -449,7 +525,7 @@ function toSupabaseProduct(product) {
     cost_price: product.cost_price || null,
     compare_at_price: product.compare_at_price || null,
     stock_quantity: product.stock_quantity,
-    sku: product.sku,
+    sku: product.sku ? String(product.sku).trim() || null : null,
     low_stock_threshold: product.low_stock_threshold,
     stock_status: product.stock_status,
     main_image_url: product.images[0] || product.main_image_url || null,
@@ -500,6 +576,7 @@ async function replaceProductModel(product) {
     fallback_image_url: product.fallback_image_url || product.images[0] || null,
     scale: Number(product.model_scale || 1),
     rotation: product.model_rotation || '0,0,0',
+    camera: product.model_camera || null,
     format: product.model_format || 'glb',
     file_size: product.model_file_size ? Number(product.model_file_size) : null,
   })
