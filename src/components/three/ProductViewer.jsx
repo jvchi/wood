@@ -1,6 +1,8 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Center } from '@react-three/drei'
+import { ACESFilmicToneMapping, SRGBColorSpace, PMREMGenerator } from 'three'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import Couch from '../../../components/Couch'
 import ThreeModelPlaceholder from './ThreeModelPlaceholder'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -37,6 +39,34 @@ function AutoRotate({ enabled, target }) {
       }}
     />
   )
+}
+
+// Bakes three's built-in RoomEnvironment as scene.environment so PBR
+// materials have something to reflect — without this metallic / low-roughness
+// surfaces render near-black. RoomEnvironment ships with three so there's
+// no network fetch and Suspense never blocks.
+function SceneEnvironment() {
+  const { gl, scene } = useThree()
+  useEffect(() => {
+    const pmrem = new PMREMGenerator(gl)
+    const room = new RoomEnvironment()
+    const rt = pmrem.fromScene(room, 0.04)
+    const prev = scene.environment
+    scene.environment = rt.texture
+    return () => {
+      scene.environment = prev
+      rt.dispose()
+      pmrem.dispose()
+      room.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose()
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+          mats.forEach(m => m.dispose())
+        }
+      })
+    }
+  }, [gl, scene])
+  return null
 }
 
 function ProductModelLoadFallback({ onError }) {
@@ -105,14 +135,24 @@ export default function ProductViewer({
         camera={{ position: cameraPosition, fov: cameraFov }}
         dpr={[1, profile.dpr]}
         frameloop={active ? 'always' : 'demand'}
-        gl={{ antialias: profile.tier === 'high', powerPreference: profile.tier === 'high' ? 'high-performance' : 'default' }}
+        gl={{
+          antialias: profile.tier === 'high',
+          powerPreference: profile.tier === 'high' ? 'high-performance' : 'default',
+          toneMapping: ACESFilmicToneMapping,
+          toneMappingExposure: 1.05,
+          outputColorSpace: SRGBColorSpace,
+        }}
         onPointerDown={() => setAutoRotate(false)}
         onPointerUp={() => {
           setTimeout(() => setAutoRotate(true), 3000)
         }}
       >
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[2, 5, 3]} intensity={0.7} />
+        <SceneEnvironment />
+        <hemisphereLight args={[0xffffff, 0xe6e3d8, 0.65]} />
+        <ambientLight intensity={0.45} />
+        <directionalLight position={[3, 5, 4]} intensity={1.1} />
+        <directionalLight position={[-4, 2, -3]} intensity={0.55} />
+        <directionalLight position={[0, 3, -5]} intensity={0.4} />
         <AutoRotate enabled={autoRotate} target={cameraTarget} />
         <Center>
           {isUploadedModel ? (

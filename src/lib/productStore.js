@@ -1,4 +1,4 @@
-import { supabase, hasSupabaseConfig } from './supabase'
+import { supabase, hasSupabaseConfig, supabaseUrlPublic, supabaseAnonKeyPublic } from './supabase'
 
 export const PRODUCT_EVENT = 'wood:products-updated'
 
@@ -705,34 +705,46 @@ export async function deleteProductModelAssets({ modelUrl, modelLiteUrl, modelPo
 
 export async function compressUploadedModel({ sourcePath, productId, sourceFileName, sourceContentType, force }) {
   if (!hasSupabaseConfig) throw new Error('Supabase is required for auto-compression')
-  const { data, error } = await supabase.functions.invoke('compress-model', {
-    body: {
-      sourcePath,
-      productId: productId || null,
-      sourceFileName: sourceFileName || null,
-      sourceContentType: sourceContentType || null,
-      force: force || false,
-    },
-  })
-  if (error) {
-    // supabase-js wraps non-2xx responses in a FunctionsHttpError that hides
-    // the JSON body — pull it out so the admin sees the real cause.
-    let detail = ''
-    try {
-      const body = await error.context?.json?.()
-      if (body?.error) detail = `: ${body.error}`
-    } catch {
-      try {
-        const text = await error.context?.text?.()
-        if (text) detail = `: ${text}`
-      } catch {
-        // give up, surface bare message
-      }
-    }
-    throw new Error(`${error.message}${detail}`)
+  // Bypass supabase.functions.invoke — it wraps non-2xx responses in a
+  // FunctionsHttpError that swallows the JSON body, so admins only see the
+  // useless "Edge Function returned a non-2xx status code". A direct fetch
+  // lets us read the function's actual error message and stage info.
+  const session = (await supabase.auth.getSession()).data?.session
+  const token = session?.access_token || supabaseAnonKeyPublic
+  const url = `${supabaseUrlPublic}/functions/v1/compress-model`
+  let response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'authorization': `Bearer ${token}`,
+        'apikey': supabaseAnonKeyPublic,
+      },
+      body: JSON.stringify({
+        sourcePath,
+        productId: productId || null,
+        sourceFileName: sourceFileName || null,
+        sourceContentType: sourceContentType || null,
+        force: force || false,
+      }),
+    })
+  } catch (err) {
+    throw new Error(`compress-model network error: ${err.message || err}`)
   }
-  if (data?.error) throw new Error(data.error)
-  return data
+  const text = await response.text()
+  let body = null
+  try {
+    body = text ? JSON.parse(text) : null
+  } catch {
+    // non-JSON body (e.g. proxy 502 HTML) — surface raw text below
+  }
+  if (!response.ok) {
+    const reason = body?.error || text || response.statusText || 'unknown error'
+    throw new Error(`compress-model failed (${response.status}): ${reason}`)
+  }
+  if (body?.error) throw new Error(body.error)
+  return body
 }
 
 async function trackUpload({ file, bucket, productId, path, publicUrl, assetKind }) {

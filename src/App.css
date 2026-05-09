@@ -1700,9 +1700,41 @@ input {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition-property: opacity, transform;
+  outline: none;
+  transition-property: opacity, transform, scale;
   transition-duration: 180ms;
   transition-timing-function: var(--ease-out);
+}
+
+.product-media-masonry img {
+  outline: none;
+}
+
+/* Tactile click feedback on product cards. Scale only on the media area so
+   the meta text doesn't bounce. 0.96 is the canonical value — anything below
+   0.95 feels exaggerated. Specific transition properties (no `all`) so we
+   don't accidentally tween layout-affecting things. */
+.product-media a {
+  display: block;
+  height: 100%;
+  scale: 1;
+  transition-property: scale, opacity;
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  will-change: scale;
+}
+
+.product-media a:active {
+  scale: 0.96;
+  transition-duration: 120ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-media a,
+  .product-media a:active {
+    scale: 1;
+    transition: none;
+  }
 }
 
 .product-media:hover img {
@@ -1712,12 +1744,26 @@ input {
 .product-media-masonry {
   aspect-ratio: auto;
   background: transparent;
-  overflow: visible;
+  overflow: hidden;
+  max-height: clamp(22rem, 48vh, 34rem);
 }
 
 .product-media-masonry img {
-  height: auto;
+  height: 100%;
+  width: 100%;
+  max-height: clamp(22rem, 48vh, 34rem);
   object-fit: contain;
+}
+
+/* Tighter cap on mobile/tablet so a portrait image doesn't dominate the
+   single-column grid and push the next product way off-screen. Desktop keeps
+   the larger cap because cards sit in 3-4 columns and have more room. */
+@media (max-width: 880px) {
+  .product-media-masonry,
+  .product-media-masonry img,
+  .product-card-masonry.is-tall .product-media-masonry {
+    max-height: clamp(16rem, 36vh, 24rem);
+  }
 }
 
 .product-page {
@@ -1831,11 +1877,17 @@ input {
 }
 
 .product-thumbnail {
-  width: 4rem;
-  height: 5rem;
+  width: 6.5rem;
+  height: 6.5rem;
   flex: 0 0 auto;
   overflow: hidden;
   opacity: 0.5;
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
 }
 
 .product-thumbnail.is-active {
@@ -1843,9 +1895,12 @@ input {
 }
 
 .product-thumbnail img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  outline: none;
 }
 
 .product-gallery-frame {
@@ -3405,6 +3460,46 @@ input {
   letter-spacing: 0.04em;
 }
 
+.admin-saved-view-thumb {
+  margin: 0;
+  display: grid;
+  gap: 0.25rem;
+  justify-items: center;
+}
+
+.admin-saved-view-thumb img {
+  width: 5rem;
+  height: 5rem;
+  object-fit: contain;
+  background: #efeee8;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.admin-model-preview-retry {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-primary, #111);
+  color: #fff;
+  border: none;
+  padding: 0.55rem 1rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  z-index: 3;
+}
+
+.admin-saved-view-thumb figcaption {
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-secondary);
+}
+
 .admin-model-fallback {
   display: grid;
   place-items: center;
@@ -4625,14 +4720,14 @@ input {
   }
 
   .product-thumbnails {
-    width: 5rem;
+    width: 7.5rem;
     flex-direction: column;
     overflow: visible;
   }
 
   .product-thumbnail {
-    width: 5rem;
-    height: 6rem;
+    width: 7.5rem;
+    height: 7.5rem;
   }
 
   .product-gallery-frame {

@@ -10,13 +10,44 @@ import ErrorBoundary from '../ui/ErrorBoundary'
 import { canUseWebGL, getDevicePerformanceProfile, resolveModelAsset } from '../../lib/threeAssetStrategy'
 import { DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_TARGET, DEFAULT_FOV, parseCameraCsv } from '../../lib/modelCamera'
 
-const MODEL_LOAD_TIMEOUT_MS = 10000
+// Generous timeout — large GLBs (15+ MB) over typical broadband easily
+// exceed 10s, and admin previews shouldn't bail early. Retry button below
+// lets the admin recover without reloading the page.
+const MODEL_LOAD_TIMEOUT_MS = 45000
 
 function ModelLoadFallback({ onError }) {
   useEffect(() => {
     onError?.()
   }, [onError])
 
+  return null
+}
+
+// Adds a baked RoomEnvironment as scene.environment so PBR materials
+// (especially metallic/rough surfaces) have something to reflect — without
+// this they render near-black. RoomEnvironment is shipped with three itself,
+// so there is no network fetch and Suspense never blocks.
+function SceneEnvironment() {
+  const { gl, scene } = useThree()
+  useEffect(() => {
+    const pmrem = new PMREMGenerator(gl)
+    const room = new RoomEnvironment()
+    const rt = pmrem.fromScene(room, 0.04)
+    const prev = scene.environment
+    scene.environment = rt.texture
+    return () => {
+      scene.environment = prev
+      rt.dispose()
+      pmrem.dispose()
+      room.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose()
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material]
+          mats.forEach(m => m.dispose())
+        }
+      })
+    }
+  }, [gl, scene])
   return null
 }
 
@@ -241,6 +272,10 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
       if (!captureRef.current) return []
       return captureRef.current.captureTurntable(count, opts)
     },
+    retry() {
+      setFailedModelUrl(null)
+      setLoadedModelUrl(null)
+    },
   }), [modelReady])
 
   useEffect(() => {
@@ -261,6 +296,18 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
     return (
       <div className="admin-model-preview-frame admin-model-fallback">
         {fallbackImage ? <img src={fallbackImage} alt="" /> : <ThreeModelPlaceholder variant="product" label="No 3D model" spinner={false} />}
+        {failed && (
+          <button
+            type="button"
+            className="admin-model-preview-retry pressable"
+            onClick={() => {
+              setFailedModelUrl(null)
+              setLoadedModelUrl(null)
+            }}
+          >
+            Model didn’t load — retry
+          </button>
+        )}
         {ghostOverlay}
       </div>
     )
@@ -276,11 +323,18 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
           powerPreference: 'high-performance',
           preserveDrawingBuffer: true,
           alpha: true,
+          toneMapping: ACESFilmicToneMapping,
+          toneMappingExposure: 1.05,
+          outputColorSpace: SRGBColorSpace,
         }}
         onError={() => setFailedModelUrl(resolvedModelSrc)}
       >
-        <ambientLight intensity={0.7} />
-        <directionalLight position={[2, 4, 3]} intensity={0.9} />
+        <SceneEnvironment />
+        <hemisphereLight args={[0xffffff, 0xe6e3d8, 0.65]} />
+        <ambientLight intensity={0.45} />
+        <directionalLight position={[3, 5, 4]} intensity={1.1} />
+        <directionalLight position={[-4, 2, -3]} intensity={0.55} />
+        <directionalLight position={[0, 3, -5]} intensity={0.4} />
         <ErrorBoundary
           key={resolvedModelSrc}
           fallback={<ModelLoadFallback onError={() => setFailedModelUrl(resolvedModelSrc)} />}

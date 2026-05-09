@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
+import { imageThumbUrl } from '../utils/imageThumb'
 import Button from '../components/ui/Button'
 import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumber'
 import LazyThreeScene from '../components/three/LazyThreeScene'
@@ -87,7 +88,26 @@ function ImageGallery({ images, name }) {
             className={`pressable product-thumbnail ${activeIndex === i ? 'is-active' : ''}`}
             aria-label={`View image ${i + 1}`}
           >
-            <img src={img} alt="" width="160" height="200" loading="lazy" />
+            <img
+              src={imageThumbUrl(img, { width: 240, quality: 65 })}
+              alt=""
+              width="160"
+              height="200"
+              loading={i === 0 ? 'eager' : 'lazy'}
+              decoding="async"
+              fetchPriority={i === 0 ? 'high' : 'low'}
+              onError={event => {
+                // Image render endpoint not available (e.g. transforms not
+                // enabled on this Supabase project) — fall back to original.
+                if (event.currentTarget.src !== img) event.currentTarget.src = img
+              }}
+              onLoad={event => {
+                const { naturalWidth, naturalHeight } = event.currentTarget
+                if (naturalWidth && naturalHeight) {
+                  setImageRatios(p => (p[i] ? p : { ...p, [i]: `${naturalWidth} / ${naturalHeight}` }))
+                }
+              }}
+            />
           </button>
         ))}
       </div>

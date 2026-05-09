@@ -324,6 +324,7 @@ export default function ProductFormPanel({ product, categories, collections, onC
   const [captureSize, setCaptureSize] = useState(3000)
   const [turntableCount, setTurntableCount] = useState(8)
   const [captureTransparent, setCaptureTransparent] = useState(true)
+  const [savedViewThumb, setSavedViewThumb] = useState(null)
   const [imageAspects, setImageAspects] = useState({})
   const isEditing = Boolean(product?.id)
 
@@ -491,15 +492,37 @@ export default function ProductFormPanel({ product, categories, collections, onC
     }
   }
 
-  function handleSaveCamera() {
+  async function handleSaveCamera() {
     const state = previewRef.current?.getCameraState?.()
     if (!state) return
     update('model_camera', formatCameraCsv(state))
+    // Capture a small local-only preview so the admin can eyeball the saved
+    // framing without uploading anything. Failure here is non-fatal.
+    try {
+      if (previewRef.current?.isReady?.()) {
+        const blob = await previewRef.current.captureSnapshot({
+          width: 480,
+          height: 480,
+          supersample: 1,
+          transparent: true,
+        })
+        if (blob) {
+          if (savedViewThumb) URL.revokeObjectURL(savedViewThumb)
+          setSavedViewThumb(URL.createObjectURL(blob))
+        }
+      }
+    } catch {
+      // ignore — thumbnail is just a UX nicety
+    }
   }
 
   function handleResetCamera() {
     previewRef.current?.resetCamera?.()
     update('model_camera', '')
+    if (savedViewThumb) {
+      URL.revokeObjectURL(savedViewThumb)
+      setSavedViewThumb(null)
+    }
   }
 
   function computeResolution() {
@@ -866,6 +889,12 @@ export default function ProductFormPanel({ product, categories, collections, onC
                     </button>
                     {draft.model_camera && (
                       <span className="admin-helper admin-model-preview-status">View saved</span>
+                    )}
+                    {savedViewThumb && (
+                      <figure className="admin-saved-view-thumb">
+                        <img src={savedViewThumb} alt="Saved view preview" />
+                        <figcaption>Saved framing</figcaption>
+                      </figure>
                     )}
                   </div>
                   <div className="admin-model-preview-toolbar">
