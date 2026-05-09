@@ -538,6 +538,33 @@ export async function uploadAsset(file, bucket, productId, assetKind) {
   })
 }
 
+export async function uploadModelSource(file, productId) {
+  if (!hasSupabaseConfig) throw new Error('Supabase storage is required for auto-compression')
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+  const path = `source/${productId || 'draft'}/${Date.now()}-${safeName}`
+  const { error } = await supabase.storage.from('product-models').upload(path, file, {
+    cacheControl: '3600',
+    upsert: true,
+  })
+  if (error) throw error
+  return path
+}
+
+export async function compressUploadedModel({ sourcePath, productId, sourceFileName, sourceContentType }) {
+  if (!hasSupabaseConfig) throw new Error('Supabase is required for auto-compression')
+  const { data, error } = await supabase.functions.invoke('compress-model', {
+    body: {
+      sourcePath,
+      productId: productId || null,
+      sourceFileName: sourceFileName || null,
+      sourceContentType: sourceContentType || null,
+    },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
 async function trackUpload({ file, bucket, productId, path, publicUrl, assetKind }) {
   const kind = assetKind || (bucket === 'product-models' ? 'model' : 'image')
   const { error } = await supabase.from('product_uploads').insert({

@@ -105,7 +105,7 @@ create table if not exists public.product_uploads (
   bucket_id text not null check (bucket_id in ('product-images', 'product-models')),
   storage_path text not null,
   public_url text not null,
-  asset_kind text not null check (asset_kind in ('image', 'model', 'poster', 'lite_model')),
+  asset_kind text not null check (asset_kind in ('image', 'model', 'poster', 'lite_model', 'source_model', 'full_model')),
   file_name text not null,
   content_type text,
   file_size bigint check (file_size is null or file_size >= 0),

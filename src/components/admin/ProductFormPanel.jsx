@@ -1,7 +1,60 @@
 import { useEffect, useMemo, useState } from 'react'
 import Button from '../ui/Button'
 import ProductModelPreview from './ProductModelPreview'
-import { PRODUCT_PLACEHOLDER_IMAGE, normalizeProduct, slugify, uploadAsset } from '../../lib/productStore'
+import {
+  PRODUCT_PLACEHOLDER_IMAGE,
+  compressUploadedModel,
+  normalizeProduct,
+  slugify,
+  uploadAsset,
+  uploadModelSource,
+} from '../../lib/productStore'
+
+function parseRotationCsv(value) {
+  const parts = String(value || '0,0,0').split(',').map(part => Number(part.trim()))
+  return [
+    Number.isFinite(parts[0]) ? parts[0] : 0,
+    Number.isFinite(parts[1]) ? parts[1] : 0,
+    Number.isFinite(parts[2]) ? parts[2] : 0,
+  ]
+}
+
+function formatRotationCsv(values) {
+  return values.map(v => Number(v.toFixed(3))).join(',')
+}
+
+function RotationSliders({ value, onChange }) {
+  const radians = parseRotationCsv(value)
+  const setAxis = (index, next) => {
+    const updated = [...radians]
+    updated[index] = next
+    onChange(formatRotationCsv(updated))
+  }
+  const reset = () => onChange('0,0,0')
+  return (
+    <div className="admin-rotation-sliders">
+      {['X', 'Y', 'Z'].map((axis, index) => {
+        const rad = radians[index]
+        const deg = Math.round((rad * 180) / Math.PI)
+        return (
+          <div key={axis} className="admin-rotation-row">
+            <span className="admin-rotation-label">{axis}</span>
+            <input
+              type="range"
+              min={-Math.PI}
+              max={Math.PI}
+              step={0.01}
+              value={rad}
+              onChange={event => setAxis(index, Number(event.target.value))}
+            />
+            <span className="admin-rotation-value">{deg}°</span>
+          </div>
+        )
+      })}
+      <button type="button" className="admin-rotation-reset" onClick={reset}>Reset</button>
+    </div>
+  )
+}
 
 const emptyProduct = {
   name: '',
@@ -73,14 +126,15 @@ function Toggle({ label, checked, onChange }) {
 }
 
 export default function ProductFormPanel({ product, categories, collections, onClose, onSave }) {
-  const [draft, setDraft] = useState(() => normalizeProduct(product || emptyProduct))
+  const [draft, setDraft] = useState(() => (product ? normalizeProduct(product) : { ...emptyProduct }))
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [compressionStatus, setCompressionStatus] = useState('')
   const isEditing = Boolean(product?.id)
 
   useEffect(() => {
-    setDraft(normalizeProduct(product || emptyProduct))
+    setDraft(product ? normalizeProduct(product) : { ...emptyProduct })
   }, [product])
 
   const seoPreview = useMemo(() => ({
@@ -93,7 +147,7 @@ export default function ProductFormPanel({ product, categories, collections, onC
       const next = { ...current, [key]: value }
       if (key === 'name' && !isEditing) next.slug = slugify(value)
       if (key === 'short_description') next.description = value
-      return normalizeProduct(next)
+      return next
     })
   }
 
@@ -105,8 +159,8 @@ export default function ProductFormPanel({ product, categories, collections, onC
     try {
       const urls = await Promise.all(files.map(file => uploadAsset(file, 'product-images', draft.id, 'image')))
       setDraft(current => {
-        const currentImages = current.images.filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
-        return normalizeProduct({ ...current, images: [...currentImages, ...urls] })
+        const currentImages = (current.images || []).filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
+        return { ...current, images: [...currentImages, ...urls] }
       })
     } catch (err) {
       setError(err.message || 'Image upload failed')
@@ -135,10 +189,45 @@ export default function ProductFormPanel({ product, categories, collections, onC
           next.model_format = file.name.toLowerCase().endsWith('.gltf') ? 'gltf' : 'glb'
           next.model_file_size = file.size
         }
-        return normalizeProduct(next)
+        return next
       })
     } catch (err) {
       setError(err.message || 'Model upload failed')
+    } finally {
+      setUploading(false)
+      event.target.value = ''
+    }
+  }
+
+  async function handleAutoCompressUpload(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setError('')
+    setCompressionStatus('Uploading source...')
+    try {
+      const sourcePath = await uploadModelSource(file, draft.id)
+      setCompressionStatus('Compressing — this can take 30–90s for large models...')
+      const result = await compressUploadedModel({
+        sourcePath,
+        productId: draft.id,
+        sourceFileName: file.name,
+        sourceContentType: file.type || 'model/gltf-binary',
+      })
+      setDraft(current => ({
+        ...current,
+        model_url: result.fullUrl,
+        model_lite_url: result.liteUrl,
+        model_format: 'glb',
+        model_file_size: result.fullSize,
+        model_version: result.version || String(Date.now()),
+      }))
+
+      const fmt = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`
+      setCompressionStatus(`Done · source ${fmt(result.sourceSize)} → full ${fmt(result.fullSize)} · lite ${fmt(result.liteSize)}`)
+    } catch (err) {
+      setError(err.message || 'Auto-compression failed')
+      setCompressionStatus('')
     } finally {
       setUploading(false)
       event.target.value = ''
@@ -152,7 +241,7 @@ export default function ProductFormPanel({ product, categories, collections, onC
     setError('')
     try {
       const url = await uploadAsset(file, 'product-images', draft.id, 'poster')
-      setDraft(current => normalizeProduct({
+      setDraft(current => ({
         ...current,
         model_poster_url: url,
         fallback_image_url: url,
@@ -196,7 +285,7 @@ export default function ProductFormPanel({ product, categories, collections, onC
 
   return (
     <div className="admin-sheet-backdrop" role="presentation">
-      <aside className="admin-sheet" aria-label={isEditing ? 'Edit product' : 'Add product'}>
+      <aside className="admin-sheet" data-lenis-prevent aria-label={isEditing ? 'Edit product' : 'Add product'}>
         <form onSubmit={submit}>
           <header className="admin-sheet-header">
             <div>
@@ -254,11 +343,13 @@ export default function ProductFormPanel({ product, categories, collections, onC
             <h3>Media</h3>
             <div className="admin-upload-row">
               <label className="admin-upload pressable">Upload images<input type="file" accept="image/*" multiple onChange={handleImageUpload} /></label>
-              <label className="admin-upload pressable">Upload full model<input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={event => handleModelUpload(event, 'full')} /></label>
-              <label className="admin-upload admin-upload-secondary pressable">Upload lite model<input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={event => handleModelUpload(event, 'lite')} /></label>
+              <label className="admin-upload pressable">Upload &amp; auto-compress model<input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={handleAutoCompressUpload} /></label>
+              <label className="admin-upload admin-upload-secondary pressable">Upload pre-built full<input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={event => handleModelUpload(event, 'full')} /></label>
+              <label className="admin-upload admin-upload-secondary pressable">Upload pre-built lite<input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onChange={event => handleModelUpload(event, 'lite')} /></label>
               <label className="admin-upload admin-upload-secondary pressable">Upload model poster<input type="file" accept="image/*" onChange={handlePosterUpload} /></label>
               {uploading && <span className="admin-helper">Uploading...</span>}
             </div>
+            {compressionStatus && <p className="admin-helper" role="status">{compressionStatus}</p>}
             <div className="admin-image-strip">
               {draft.images.map((image, index) => (
                 <figure key={`${image}-${index}`}>
@@ -274,7 +365,7 @@ export default function ProductFormPanel({ product, categories, collections, onC
             <div className="admin-form-grid admin-form-grid-compact">
               <Field label="Full model URL"><input value={draft.model_url || ''} onChange={event => update('model_url', event.target.value)} placeholder="Desktop .glb or .gltf" /></Field>
               <Field label="Model scale"><input type="number" step="0.1" value={draft.model_scale || 1} onChange={event => update('model_scale', event.target.value)} /></Field>
-              <Field label="Model rotation"><input value={draft.model_rotation || '0,0,0'} onChange={event => update('model_rotation', event.target.value)} placeholder="0,0,0" /></Field>
+              <Field label="Model rotation"><RotationSliders value={draft.model_rotation || '0,0,0'} onChange={value => update('model_rotation', value)} /></Field>
               <Field label="Lite model URL"><input value={draft.model_lite_url || ''} onChange={event => update('model_lite_url', event.target.value)} placeholder="Optimized mobile .glb" /></Field>
               <Field label="Poster URL"><input value={draft.model_poster_url || ''} onChange={event => update('model_poster_url', event.target.value)} placeholder="Model loading poster" /></Field>
               <Field label="Model version"><input value={draft.model_version || ''} onChange={event => update('model_version', event.target.value)} placeholder="Changes when model bytes change" /></Field>
