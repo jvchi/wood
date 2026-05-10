@@ -35,7 +35,9 @@
       "Bash(git checkout *)",
       "mcp__Claude_Preview__preview_start",
       "Bash(awk '/@media/{m=$0} /shop-masonry/{print NR\": \"m\" -> \"$0}' /Users/destiny/wood/src/App.css)",
-      "Bash(awk '/@media/{m=$0} /\\\\.shop-masonry|\\\\.product-card-masonry|\\\\.product-media-masonry/{print NR\": \"m\" -> \"$0}' /Users/destiny/wood/src/App.css)"
+      "Bash(awk '/@media/{m=$0} /\\\\.shop-masonry|\\\\.product-card-masonry|\\\\.product-media-masonry/{print NR\": \"m\" -> \"$0}' /Users/destiny/wood/src/App.css)",
+      "Bash(awk '/^\\\\.product-card-masonry/,/^\\\\.product-card-meta {/')",
+      "Bash(awk '/^\\\\.product-media-masonry/,/^\\\\.product-page {/')"
     ]
   }
 }

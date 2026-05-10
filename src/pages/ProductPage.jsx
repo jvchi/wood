@@ -6,7 +6,7 @@ import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
-import { imageThumbUrl } from '../utils/imageThumb'
+import SmartImage from '../components/ui/SmartImage'
 import Button from '../components/ui/Button'
 import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumber'
 import LazyThreeScene from '../components/three/LazyThreeScene'
@@ -16,7 +16,6 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 const ProductViewer = lazy(() => import('../components/three/ProductViewer'))
 
 const MotionDiv = framerMotion.div
-const MotionImg = framerMotion.img
 
 /* const sharedImageTransition = {
   layout: {
@@ -88,19 +87,13 @@ function ImageGallery({ images, name }) {
             className={`pressable product-thumbnail ${activeIndex === i ? 'is-active' : ''}`}
             aria-label={`View image ${i + 1}`}
           >
-            <img
-              src={imageThumbUrl(img, { width: 240, quality: 65 })}
+            <SmartImage
+              src={img}
               alt=""
-              width="160"
-              height="200"
+              width={240}
+              quality={65}
               loading={i === 0 ? 'eager' : 'lazy'}
-              decoding="async"
               fetchPriority={i === 0 ? 'high' : 'low'}
-              onError={event => {
-                // Image render endpoint not available (e.g. transforms not
-                // enabled on this Supabase project) — fall back to original.
-                if (event.currentTarget.src !== img) event.currentTarget.src = img
-              }}
               onLoad={event => {
                 const { naturalWidth, naturalHeight } = event.currentTarget
                 if (naturalWidth && naturalHeight) {
@@ -126,16 +119,12 @@ function ImageGallery({ images, name }) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <MotionImg
-          /* layoutId={activeIndex === 0 ? `product-image-${productId}` : undefined} */
-          /* layout */
+        <SmartImage
+          key={images[activeIndex]}
           src={images[activeIndex]}
           alt={name}
-          /* transition={sharedImageTransition} */
-          /* initial={false} */
-          /* animate={{ opacity: 1, borderRadius: 0 }} */
-          /* exit={{ opacity: 1 }} */
-          style={{ opacity: 1 }}
+          loading="eager"
+          fetchPriority="high"
           onLoad={event => {
             const { naturalWidth, naturalHeight } = event.currentTarget
             if (naturalWidth && naturalHeight) {

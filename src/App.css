@@ -1696,6 +1696,64 @@ input {
   background: transparent;
 }
 
+/* SmartImage: blurred low-quality placeholder painted as the background of the
+   wrapper, full-resolution <img> on top fades in once decoded. */
+.smart-image {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.04);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  overflow: hidden;
+}
+
+.smart-image::before {
+  content: '';
+  position: absolute;
+  inset: -8%;
+  background-image: inherit;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(18px) saturate(1.1);
+  transform: scale(1.05);
+  opacity: 1;
+  pointer-events: none;
+}
+
+/* Once the high-res image is loaded, hide the LQIP entirely (no fade overlap)
+   so the placeholder is never visible alongside the real image. */
+.smart-image.is-loaded {
+  background-image: none !important;
+}
+
+.smart-image.is-loaded::before {
+  display: none;
+}
+
+.smart-image > img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.smart-image.is-loaded > img {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .smart-image::before,
+  .smart-image > img {
+    transition: none;
+  }
+}
+
 .product-media img {
   width: 100%;
   height: 100%;
@@ -1903,6 +1961,49 @@ input {
   outline: none;
 }
 
+.product-thumbnail .smart-image,
+.product-gallery-frame .smart-image {
+  background-color: transparent;
+}
+
+/* Thumbnails are too small to benefit from a blurred LQIP backdrop and the
+   blur visually leaks past the contained image. Hide it for thumbs. */
+.product-thumbnail .smart-image {
+  background-image: none !important;
+}
+
+.product-thumbnail .smart-image::before {
+  display: none;
+}
+
+.product-thumbnail .smart-image > img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.product-gallery-frame .smart-image {
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+}
+
+.product-gallery-frame .smart-image > img {
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: none;
+}
+
+.product-gallery-frame .smart-image.is-loaded > img {
+  transition: none;
+}
+
 .product-gallery-frame {
   position: relative;
   display: flex;
@@ -1924,7 +2025,6 @@ input {
   outline: 0;
   box-shadow: none;
   object-fit: contain;
-  transition: opacity 180ms var(--ease-out);
 }
 
 .product-gallery-frame canvas,

@@ -12,6 +12,18 @@
 //    CDN respects them.
 //  - Anything else → return the URL unchanged.
 
+// 1x1 transparent gif — used as a no-op `src` so the browser never paints the
+// default broken-image icon when a real source fails to load.
+export const TRANSPARENT_PIXEL =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+
+// Tiny blurred placeholder URL — ~24px wide, low quality. Pair with CSS
+// `filter: blur()` for an LQIP (low-quality image placeholder) that is shown
+// instantly while the full-resolution image streams in.
+export function imageLqipUrl(url) {
+  return imageThumbUrl(url, { width: 24, quality: 20 })
+}
+
 export function imageThumbUrl(url, { width = 240, quality = 70 } = {}) {
   if (!url || typeof url !== 'string') return url
   try {
