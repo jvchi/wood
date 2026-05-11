@@ -1966,14 +1966,18 @@ input {
   background-color: transparent;
 }
 
-/* Thumbnails are too small to benefit from a blurred LQIP backdrop and the
-   blur visually leaks past the contained image. Hide it for thumbs. */
+/* Thumbnails: the HQ image is contained inside the fixed thumb box. Paint
+   the LQIP backdrop with `contain` (and no scale on the blur pseudo) so the
+   blurred low-res shares the exact same dimensions as the loaded image —
+   no overhang into the thumbnail's letterbox. */
 .product-thumbnail .smart-image {
-  background-image: none !important;
+  background-size: contain;
 }
 
 .product-thumbnail .smart-image::before {
-  display: none;
+  inset: 0;
+  background-size: contain;
+  transform: none;
 }
 
 .product-thumbnail .smart-image > img {
