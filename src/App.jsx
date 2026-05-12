@@ -4,6 +4,7 @@ import { AnimatePresence, LayoutGroup, motion as framerMotion } from 'framer-mot
 import gsap from 'gsap'
 import Lenis from 'lenis'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import { CartProvider } from './context/CartContext'
 import { WishlistProvider } from './context/WishlistContext'
 import { ToastProvider } from './context/ToastContext'
@@ -182,6 +183,7 @@ export default function App() {
           </WishlistProvider>
         </CartProvider>
       </BrowserRouter>
+      <SpeedInsights />
     </ErrorBoundary>
   )
 }
