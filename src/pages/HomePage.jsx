@@ -338,12 +338,10 @@ export default function HomePage() {
   const [bestSellerActionMode, setBestSellerActionMode] = useState('rest')
   const [showHeroScrollHint, setShowHeroScrollHint] = useState(false)
   const { products, loading: productsLoading } = useProducts()
-  const bestSellerProducts = useMemo(() => {
-    const bestSellers = products.filter(product => product.best_seller)
-    const bestSellerIds = new Set(bestSellers.map(product => product.id))
-    const supportingProducts = products.filter(product => !bestSellerIds.has(product.id))
-    return [...bestSellers, ...supportingProducts].slice(0, 8)
-  }, [products])
+  const bestSellerProducts = useMemo(
+    () => products.filter(product => product.best_seller).slice(0, 8),
+    [products],
+  )
   const heroScene = useMemo(() => ({ active }) => (
     <LazyThreeScene
       fallback={null}
