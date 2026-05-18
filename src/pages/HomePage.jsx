@@ -14,6 +14,7 @@ import LazyThreeScene from '../components/three/LazyThreeScene'
 import ThreeModelPlaceholder from '../components/three/ThreeModelPlaceholder'
 import { PersistentThreeSceneSlot } from '../components/three/PersistentThreeSceneProvider'
 import Footer from '../components/layout/Footer'
+import PeakedGradient from '../components/ui/PeakedGradient'
 import Skeleton from '../components/ui/Skeleton'
 import { useProducts } from '../hooks/useProducts'
 import { formatPrice } from '../utils/formatPrice'
@@ -39,9 +40,6 @@ const bestSellerStackTransition = {
 const BEST_SELLER_HOVER_DELAY = 50
 const bestSellerLayerHoverDelays = [0, 0.035, 0.07]
 const bestSellerLayerExitDelays = [0.12, 0.08, 0.04]
-const bestSellerTransitionImage =
-  'https://i.postimg.cc/1ztkf4hX/moveimage.png'
-
 gsap.registerPlugin(ScrollTrigger, SplitText)
 
 function markHomeSceneReady(sceneName) {
@@ -648,17 +646,7 @@ export default function HomePage() {
       }
 
       const refreshBestSellerTrigger = () => ScrollTrigger.refresh()
-      const bestSellerBgImage = bestSellerBgRef.current?.querySelector('img')
       const refreshFrame = window.requestAnimationFrame(refreshBestSellerTrigger)
-
-      if (bestSellerBgImage) {
-        if (bestSellerBgImage.complete) {
-          window.requestAnimationFrame(refreshBestSellerTrigger)
-        } else {
-          bestSellerBgImage.addEventListener('load', refreshBestSellerTrigger, { once: true })
-          bestSellerBgImage.addEventListener('error', refreshBestSellerTrigger, { once: true })
-        }
-      }
 
       window.addEventListener('orientationchange', refreshBestSellerTrigger)
 
@@ -725,8 +713,6 @@ export default function HomePage() {
       return () => {
         window.cancelAnimationFrame(refreshFrame)
         window.removeEventListener('orientationchange', refreshBestSellerTrigger)
-        bestSellerBgImage?.removeEventListener('load', refreshBestSellerTrigger)
-        bestSellerBgImage?.removeEventListener('error', refreshBestSellerTrigger)
         gsap.ticker.remove(tick)
         chairTitleSplit?.revert()
         bestSellerBgTween?.scrollTrigger?.kill()
@@ -831,9 +817,12 @@ export default function HomePage() {
         aria-labelledby="home-bestseller-title"
       >
         <div ref={bestSellerBgRef} className="home-bestseller-bg-motion" aria-hidden="true">
-          <picture>
-            <img src={bestSellerTransitionImage} alt="" loading="eager" decoding="async" />
-          </picture>
+          <PeakedGradient
+            colors={['#B6C9FF', '#8AA8FF', '#285fff', '#0041ff', '#000000']}
+            peakHeight={100}
+            pointiness={50}
+            blur={50}
+          />
         </div>
 
         <div className="home-bestseller-content">
