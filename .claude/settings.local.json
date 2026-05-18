@@ -37,7 +37,16 @@
       "Bash(awk '/@media/{m=$0} /shop-masonry/{print NR\": \"m\" -> \"$0}' /Users/destiny/wood/src/App.css)",
       "Bash(awk '/@media/{m=$0} /\\\\.shop-masonry|\\\\.product-card-masonry|\\\\.product-media-masonry/{print NR\": \"m\" -> \"$0}' /Users/destiny/wood/src/App.css)",
       "Bash(awk '/^\\\\.product-card-masonry/,/^\\\\.product-card-meta {/')",
-      "Bash(awk '/^\\\\.product-media-masonry/,/^\\\\.product-page {/')"
+      "Bash(awk '/^\\\\.product-media-masonry/,/^\\\\.product-page {/')",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh pr create --base master --title 'Hide LQIP once high-res loads; instant gallery swap' --body ' *)",
+      "Bash(npm run *)",
+      "Bash(npx vercel *)",
+      "Bash(curl -sI http://localhost:5173/)",
+      "Bash(curl -sI -m 5 http://localhost:5173/)",
+      "Bash(curl -s -m 5 -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5174/)"
     ]
   }
 }

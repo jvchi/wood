@@ -6,7 +6,6 @@ import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
-import SmartImage from '../components/ui/SmartImage'
 import Button from '../components/ui/Button'
 import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumber'
 import LazyThreeScene from '../components/three/LazyThreeScene'
@@ -87,13 +86,12 @@ function ImageGallery({ images, name }) {
             className={`pressable product-thumbnail ${activeIndex === i ? 'is-active' : ''}`}
             aria-label={`View image ${i + 1}`}
           >
-            <SmartImage
+            <img
               src={img}
               alt=""
-              width={240}
-              quality={65}
               loading={i === 0 ? 'eager' : 'lazy'}
               fetchPriority={i === 0 ? 'high' : 'low'}
+              decoding="async"
               onLoad={event => {
                 const { naturalWidth, naturalHeight } = event.currentTarget
                 if (naturalWidth && naturalHeight) {
@@ -119,12 +117,13 @@ function ImageGallery({ images, name }) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <SmartImage
+        <img
           key={images[activeIndex]}
           src={images[activeIndex]}
           alt={name}
           loading="eager"
           fetchPriority="high"
+          decoding="async"
           onLoad={event => {
             const { naturalWidth, naturalHeight } = event.currentTarget
             if (naturalWidth && naturalHeight) {
