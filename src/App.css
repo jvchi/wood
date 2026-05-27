@@ -2230,6 +2230,11 @@ input {
   display: inline-flex;
 }
 
+.morph-menu-icon {
+  display: block;
+  overflow: visible;
+}
+
 .wishlist-toggle {
   overflow: hidden;
 }

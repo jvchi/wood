@@ -11,6 +11,7 @@ import MobileNav from './MobileNav'
 const MotionSpan = framerMotion.span
 const MotionLink = framerMotion.create(Link)
 const MotionButton = framerMotion.button
+const MotionLine = framerMotion.line
 const brandLayoutTransition = loaderMotion.brandLayout
 const productMenuEntryTransition = {
   type: 'spring',
@@ -20,6 +21,46 @@ const productMenuEntryTransition = {
   stiffness: 150,
 }
 const mobileNavActionShift = 48
+
+function MorphMenuIcon({ isOpen, reduceMotion }) {
+  const lineTransition = reduceMotion
+    ? { duration: 0 }
+    : { type: 'spring', stiffness: 520, damping: 34, mass: 0.55 }
+  const lines = isOpen
+    ? [
+        { x1: 6, y1: 6, x2: 18, y2: 18, opacity: 1 },
+        { x1: 12, y1: 12, x2: 12, y2: 12, opacity: 0 },
+        { x1: 6, y1: 18, x2: 18, y2: 6, opacity: 1 },
+      ]
+    : [
+        { x1: 3, y1: 6, x2: 21, y2: 6, opacity: 1 },
+        { x1: 3, y1: 12, x2: 21, y2: 12, opacity: 1 },
+        { x1: 3, y1: 18, x2: 21, y2: 18, opacity: 1 },
+      ]
+
+  return (
+    <svg
+      className="morph-menu-icon"
+      aria-hidden="true"
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    >
+      {lines.map((line, index) => (
+        <MotionLine
+          key={index}
+          initial={false}
+          animate={line}
+          transition={lineTransition}
+        />
+      ))}
+    </svg>
+  )
+}
 
 export default function Navbar({ brandIntroReady = true, visualLocation }) {
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -69,7 +110,7 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
         Skip to Main Content
       </a>
       <nav
-        className={`navbar fixed left-0 right-0 top-0 z-50 ${isHome ? 'navbar-home' : 'navbar-default'}`}
+        className={`navbar fixed left-0 right-0 top-0 ${mobileOpen ? 'z-[120]' : 'z-50'} ${isHome ? 'navbar-home' : 'navbar-default'}`}
         role="navigation"
         aria-label="Main navigation"
       >
@@ -155,8 +196,10 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
 
             <MotionButton
               className={`pressable icon-button mobile-menu-button ${isHome ? 'mix-blend-difference' : ''}`}
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open menu"
+              type="button"
+              onClick={() => setMobileOpen(open => !open)}
+              aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+              aria-controls="mobile-navigation-menu"
               aria-expanded={mobileOpen}
               animate={{
                 opacity: shouldAnimateProductActions ? 0 : 1,
@@ -166,11 +209,7 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
               transition={productActionTransition(shouldAnimateProductActions ? 0 : 0)}
               style={{ pointerEvents: shouldAnimateProductActions ? 'none' : 'auto' }}
             >
-              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
+              <MorphMenuIcon isOpen={mobileOpen} reduceMotion={reduceMotion} />
             </MotionButton>
           </div>
         </div>

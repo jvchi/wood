@@ -46,39 +46,20 @@ export default function MobileNav({ isOpen, onClose, visualLocation }) {
   return (
     <div
       ref={overlayRef}
-      className={`fixed inset-0 z-[100] flex flex-col bg-white transition-[opacity,transform] duration-[260ms] ease-[var(--ease-out)] ${
+      id="mobile-navigation-menu"
+      className={`fixed inset-0 z-[90] flex flex-col bg-white pt-16 transition-[opacity,transform] duration-[260ms] ease-[var(--ease-out)] ${
         isOpen ? 'translate-x-0 opacity-100 pointer-events-auto' : 'translate-x-full opacity-0 pointer-events-none'
       }`}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Navigation menu"
+      role="navigation"
+      aria-hidden={!isOpen}
+      aria-label="Mobile navigation"
     >
-      <div className="page-shell flex h-16 shrink-0 items-center justify-between border-b border-[var(--color-border)]">
-        <Link
-          to="/"
-          className="pressable text-base font-bold uppercase"
-          translate="no"
-        >
-          Wood
-        </Link>
-        <button
-          onClick={onClose}
-          className="pressable icon-button"
-          aria-label="Close menu"
-        >
-          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-
-      <div className="page-shell flex flex-1 flex-col justify-center gap-2">
+      <div className="page-shell flex flex-1 flex-col items-center justify-center gap-2 text-center">
         {navLinks.map(link => (
           <Link
             key={link.to}
             to={link.to}
-            className={`pressable drawer-link inline-flex min-h-14 items-center text-[clamp(2rem,13vw,4.5rem)] font-bold uppercase leading-none ${displayedLocation.pathname === link.to ? 'is-current' : ''}`}
+            className={`pressable drawer-link inline-flex min-h-14 items-center justify-center text-[clamp(2rem,13vw,4.5rem)] font-bold uppercase leading-none ${displayedLocation.pathname === link.to ? 'is-current' : ''}`}
             aria-current={displayedLocation.pathname === link.to ? 'page' : undefined}
           >
             {link.label}
