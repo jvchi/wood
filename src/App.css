@@ -4322,7 +4322,7 @@ input {
   }
 
   .home-chair-copy {
-    bottom: clamp(9rem, 28vh, 15rem);
+    bottom: clamp(7.5rem, 24vh, 13rem);
     max-width: calc(100% - 2rem);
   }
 
