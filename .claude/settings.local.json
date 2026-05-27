@@ -46,7 +46,8 @@
       "Bash(npx vercel *)",
       "Bash(curl -sI http://localhost:5173/)",
       "Bash(curl -sI -m 5 http://localhost:5173/)",
-      "Bash(curl -s -m 5 -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5174/)"
+      "Bash(curl -s -m 5 -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5174/)",
+      "Bash(git stash *)"
     ]
   }
 }

@@ -14,8 +14,8 @@ import LazyThreeScene from '../components/three/LazyThreeScene'
 import ThreeModelPlaceholder from '../components/three/ThreeModelPlaceholder'
 import { PersistentThreeSceneSlot } from '../components/three/PersistentThreeSceneProvider'
 import Footer from '../components/layout/Footer'
-import PeakedGradient from '../components/ui/PeakedGradient'
 import Skeleton from '../components/ui/Skeleton'
+import { LetterCascade } from '../components/ui/LetterCascade'
 import { useProducts } from '../hooks/useProducts'
 import { formatPrice } from '../utils/formatPrice'
 
@@ -315,7 +315,6 @@ export default function HomePage() {
   const stickyRef = useRef(null)
   const scrollRef = useRef(null)
   const bestSellerRef = useRef(null)
-  const bestSellerBgRef = useRef(null)
   const bestSellerActionRef = useRef(null)
   const bestSellerActionFlipRectRef = useRef(null)
   const bestSellerHeaderRef = useRef(null)
@@ -623,38 +622,13 @@ export default function HomePage() {
         onRefresh: measureChairProgress,
       })
 
-      let bestSellerBgTween = null
-
-      if (bestSellerBgRef.current) {
-        if (reducedMotion) {
-          gsap.set(bestSellerBgRef.current, { rotateX: 0 })
-        } else {
-          bestSellerBgTween = gsap.fromTo(
-            bestSellerBgRef.current,
-            { rotateX: 89.6, force3D: true },
-            {
-              rotateX: 0,
-              force3D: true,
-              ease: 'none',
-              scrollTrigger: {
-                id: 'home-bestseller-bg-reveal',
-                trigger: bestSellerRef.current,
-                start: 'top bottom',
-                end: 'bottom top',
-                scrub: true,
-                invalidateOnRefresh: true,
-              },
-            },
-          )
-        }
-      }
-
       const refreshBestSellerTrigger = () => ScrollTrigger.refresh()
       const refreshFrame = window.requestAnimationFrame(refreshBestSellerTrigger)
 
       window.addEventListener('orientationchange', refreshBestSellerTrigger)
 
       let chairTitleSplit = null
+      let bestSellerTitleSplit = null
 
       if (chairTitleRef.current) {
         if (reducedMotion) {
@@ -670,8 +644,8 @@ export default function HomePage() {
                 scrollTrigger: {
                   id: 'home-chair-title-mask',
                   trigger: showcaseRef.current,
-                  start: 'top 88%',
-                  end: 'top 32%',
+                  start: 'top 55%',
+                  end: 'top 15%',
                   scrub: 0.8,
                   invalidateOnRefresh: true,
                 },
@@ -692,6 +666,48 @@ export default function HomePage() {
               return tl
             },
           })
+        }
+      }
+
+      if (bestSellerHeaderRef.current) {
+        const titleEl = bestSellerHeaderRef.current.querySelector('h2')
+        if (titleEl) {
+          if (reducedMotion) {
+            gsap.set(titleEl, { clearProps: 'all' })
+          } else {
+            bestSellerTitleSplit = SplitText.create(titleEl, {
+              type: 'lines',
+              mask: 'lines',
+              linesClass: 'home-bestseller-title-line',
+              autoSplit: true,
+              onSplit(self) {
+                const tl = gsap.timeline({
+                  scrollTrigger: {
+                    id: 'home-bestseller-title-mask',
+                    trigger: bestSellerRef.current,
+                    start: 'top 55%',
+                    end: 'top 15%',
+                    scrub: 0.8,
+                    invalidateOnRefresh: true,
+                  },
+                })
+
+                tl.fromTo(
+                  self.lines,
+                  { yPercent: 112, rotate: 2.5 },
+                  {
+                    yPercent: 0,
+                    rotate: 0,
+                    duration: 1,
+                    ease: 'power3.out',
+                    stagger: 0.08,
+                  },
+                )
+
+                return tl
+              },
+            })
+          }
         }
       }
 
@@ -719,8 +735,7 @@ export default function HomePage() {
         window.removeEventListener('orientationchange', refreshBestSellerTrigger)
         gsap.ticker.remove(tick)
         chairTitleSplit?.revert()
-        bestSellerBgTween?.scrollTrigger?.kill()
-        bestSellerBgTween?.kill()
+        bestSellerTitleSplit?.revert()
         chairTrigger.kill()
         heroTrigger.kill()
       }
@@ -812,6 +827,9 @@ export default function HomePage() {
 
         <div className="home-chair-copy">
           <p className="home-chair-caption">Walnut frame, soft seat, quieter presence.</p>
+          <button type="button" className="home-chair-preorder">
+            <LetterCascade text="Pre-order now" />
+          </button>
         </div>
       </section>
 
@@ -820,20 +838,11 @@ export default function HomePage() {
         className="home-bestseller-section"
         aria-labelledby="home-bestseller-title"
       >
-        <div ref={bestSellerBgRef} className="home-bestseller-bg-motion" aria-hidden="true">
-          <PeakedGradient
-            colors={['#B6C9FF', '#8AA8FF', '#285fff', '#0041ff', '#000000']}
-            peakHeight={100}
-            pointiness={50}
-            blur={50}
-          />
+        <div ref={bestSellerHeaderRef} className="home-bestseller-backdrop" aria-hidden="true">
+          <h2 id="home-bestseller-title">Best sellers</h2>
         </div>
 
         <div className="home-bestseller-content">
-          <div ref={bestSellerHeaderRef} className="home-bestseller-header">
-            <h2 id="home-bestseller-title">Best sellers</h2>
-          </div>
-
           <MotionDiv
             ref={bestSellerActionRef}
             className={`home-bestseller-action is-${bestSellerActionMode}`}
