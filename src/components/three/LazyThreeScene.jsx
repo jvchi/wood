@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useState } from 'react'
 import ThreeModelPlaceholder from './ThreeModelPlaceholder'
-import { getDevicePerformanceProfile, runWhenIdle } from '../../lib/threeAssetStrategy'
+import { runWhenIdle } from '../../lib/threeAssetStrategy'
 
 const readyScenes = new Set()
 
@@ -15,7 +15,6 @@ export default function LazyThreeScene({
   idleTimeout = 1200,
 }) {
   const [ready, setReady] = useState(() => idleTimeout <= 0 || readyScenes.has(cacheKey))
-  const [profile] = useState(getDevicePerformanceProfile)
   const resolvedFallback = fallback !== undefined
     ? fallback
     : <ThreeModelPlaceholder poster={poster} label={label} variant={variant} />
@@ -25,14 +24,14 @@ export default function LazyThreeScene({
       readyScenes.add(cacheKey)
       return undefined
     }
-    if (disabled || profile.preferStatic || readyScenes.has(cacheKey)) return undefined
+    if (disabled || readyScenes.has(cacheKey)) return undefined
     return runWhenIdle(() => {
       readyScenes.add(cacheKey)
       setReady(true)
     }, idleTimeout)
-  }, [cacheKey, disabled, idleTimeout, profile.preferStatic])
+  }, [cacheKey, disabled, idleTimeout])
 
-  if (disabled || profile.preferStatic || !ready) {
+  if (disabled || !ready) {
     return resolvedFallback
   }
 

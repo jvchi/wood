@@ -80,15 +80,26 @@ export function getDevicePerformanceProfile() {
   const lowMemory = Number(navigator.deviceMemory || 8) <= 4
   const lowCores = Number(navigator.hardwareConcurrency || 8) <= 4
   const saveData = navigator.connection?.saveData === true
-  const slowConnection = /(^2g$|^3g$|slow-2g)/i.test(navigator.connection?.effectiveType || '')
+  const effectiveType = navigator.connection?.effectiveType || ''
+  const verySlowConnection = /(^2g$|slow-2g)/i.test(effectiveType)
+  const constrainedConnection = /^3g$/i.test(effectiveType)
   const webgl = canUseWebGL()
   const deviceDpr = Math.min(window.devicePixelRatio || 1, 1.75)
 
-  if (!webgl || reducedMotion || saveData || slowConnection) {
+  if (!webgl) {
     return { tier: 'static', preferStatic: true, preferLite: true, dpr: 1 }
   }
 
-  if (coarsePointer || narrow || lowMemory || lowCores) {
+  if (
+    reducedMotion ||
+    coarsePointer ||
+    narrow ||
+    lowMemory ||
+    lowCores ||
+    saveData ||
+    verySlowConnection ||
+    constrainedConnection
+  ) {
     return { tier: 'balanced', preferStatic: false, preferLite: true, dpr: Math.max(1.35, deviceDpr) }
   }
 
@@ -106,8 +117,12 @@ export function runWhenIdle(callback, timeout = 1500) {
 }
 
 export function preloadModel(assetOrUrl, options = {}) {
-  const asset = resolveModelAsset(assetOrUrl, options)
-  if (!asset.src || getDevicePerformanceProfile().preferStatic) return undefined
+  const profile = getDevicePerformanceProfile()
+  const asset = resolveModelAsset(assetOrUrl, {
+    ...options,
+    quality: options.quality || (profile.preferLite ? MODEL_QUALITY.lite : MODEL_QUALITY.full),
+  })
+  if (!asset.src || profile.preferStatic) return undefined
   return runWhenIdle(async () => {
     const { useGLTF } = await import('@react-three/drei')
     useGLTF.preload(asset.src)

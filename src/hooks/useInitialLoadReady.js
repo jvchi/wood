@@ -70,8 +70,6 @@ function preloadHomeHeroAsset() {
 }
 
 function waitForHomeScenes() {
-  const profile = getDevicePerformanceProfile()
-  if (profile.preferStatic) return Promise.resolve()
   if (
     document.documentElement.dataset.homeHeroReady === 'true' &&
     document.documentElement.dataset.homeChairReady === 'true'
@@ -81,11 +79,9 @@ function waitForHomeScenes() {
 
   return new Promise((resolve) => {
     const done = () => {
-      window.clearTimeout(timer)
       window.removeEventListener('wood:home-scenes-ready', done)
       resolve()
     }
-    const timer = window.setTimeout(done, maxHoldMs)
 
     window.addEventListener('wood:home-scenes-ready', done)
   })

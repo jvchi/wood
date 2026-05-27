@@ -5,6 +5,7 @@ import { Environment, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   MODEL_ASSETS,
+  MODEL_QUALITY,
   canUseWebGL,
   getDevicePerformanceProfile,
   preloadModel,
@@ -75,6 +76,8 @@ function ChairModel({ active, pointerRef, dragRef, hoverRef, sectionProgressRef,
   const { scene } = useGLTF(modelUrl)
   const { size } = useThree()
   const groupRef = useRef(null)
+  const readyFrameCountRef = useRef(0)
+  const readyCalledRef = useRef(false)
 
   const { model, scale } = useMemo(() => {
     const clone = scene.clone(true)
@@ -102,19 +105,15 @@ function ChairModel({ active, pointerRef, dragRef, hoverRef, sectionProgressRef,
     }
   }, [scene])
 
-  useEffect(() => {
-    let cancelled = false
-    const frame = window.requestAnimationFrame(() => {
-      if (!cancelled) onReady?.()
-    })
-
-    return () => {
-      cancelled = true
-      window.cancelAnimationFrame(frame)
-    }
-  }, [model, onReady])
-
   useFrame((_, delta) => {
+    if (!readyCalledRef.current && groupRef.current) {
+      readyFrameCountRef.current += 1
+      if (readyFrameCountRef.current >= 2) {
+        readyCalledRef.current = true
+        onReady?.()
+      }
+    }
+
     if (!active) return
     if (!groupRef.current) return
 
@@ -179,19 +178,13 @@ function StaticReadySignal({ onReady }) {
   return null
 }
 
-function ModelLoadFallback({ onReady }) {
-  useEffect(() => {
-    onReady?.()
-  }, [onReady])
-
-  return null
-}
-
 export default function ChairShowcaseScene({ active = true, sectionProgressRef, onReady }) {
   const [webglAvailable] = useState(canUseWebGL)
   const [profile] = useState(getDevicePerformanceProfile)
   const [sceneReady, setSceneReady] = useState(false)
-  const modelAsset = resolveModelAsset(MODEL_ASSETS.pipoChair)
+  const modelAsset = resolveModelAsset(MODEL_ASSETS.pipoChair, {
+    quality: profile.preferLite ? MODEL_QUALITY.lite : MODEL_QUALITY.full,
+  })
   const pointerRef = useRef({ x: 0, y: 0 })
   const hoverRef = useRef(false)
   const dragRef = useRef({
@@ -288,14 +281,7 @@ export default function ChairShowcaseScene({ active = true, sectionProgressRef, 
         <Environment preset="studio" />
         <ShowcaseCamera active={active} pointerRef={pointerRef} sectionProgressRef={sectionProgressRef} />
         <ErrorBoundary
-          fallback={(
-            <ModelLoadFallback
-              onReady={() => {
-                setSceneReady(true)
-                onReady?.()
-              }}
-            />
-          )}
+          fallback={null}
         >
           <Suspense fallback={null}>
             <ChairModel

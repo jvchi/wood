@@ -342,7 +342,7 @@ export default function HomePage() {
   )
   const heroScene = useMemo(() => ({ active }) => (
     <LazyThreeScene
-      fallback={null}
+      fallback={<ThreeModelPlaceholder variant="room" label="Loading room view" />}
       variant="room"
       label="Loading room view"
       idleTimeout={0}
@@ -594,7 +594,11 @@ export default function HomePage() {
         id: 'home-hero-lift',
         trigger: scrollRef.current,
         start: 'top top',
-        end: () => showcaseRef.current?.offsetTop ?? Math.max(1, scrollRef.current.offsetHeight - stickyRef.current.offsetHeight),
+        end: () => {
+          if (showcaseRef.current) return showcaseRef.current.offsetTop
+          if (!scrollRef.current || !stickyRef.current) return 1
+          return Math.max(1, scrollRef.current.offsetHeight - stickyRef.current.offsetHeight)
+        },
         onUpdate: (self) => {
           heroTargetProgressRef.current = self.progress
           measureChairProgress()
@@ -790,7 +794,7 @@ export default function HomePage() {
         <div className="home-chair-stage">
           <Suspense fallback={<ThreeModelPlaceholder variant="chair" label="Loading chair view" />}>
             <LazyThreeScene
-              fallback={null}
+              fallback={<ThreeModelPlaceholder variant="chair" label="Loading chair view" />}
               variant="chair"
               label="Loading chair view"
               idleTimeout={0}

@@ -403,7 +403,7 @@ export default function HeroScene({ active = true, fallbackImage, fallbackAlt = 
         <directionalLight position={[2, 5, 5]} intensity={0.85} />
         <Environment preset="apartment" />
         {!scrollDriven && <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.45} />}
-        <ErrorBoundary fallback={<SceneReadySignal onReady={onReady} />}>
+        <ErrorBoundary fallback={null}>
           <ScrollDrivenScene
             active={active}
             scrollDriven={scrollDriven}
