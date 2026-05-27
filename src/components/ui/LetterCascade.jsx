@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react'
-import { motion, stagger, useAnimate } from 'framer-motion'
+import { useCallback, useEffect, useState } from 'react'
+import { motion, stagger, useAnimate, useReducedMotion } from 'framer-motion'
 
 function cx(...classes) {
   return classes.filter(Boolean).join(' ')
@@ -14,10 +14,12 @@ export function LetterCascade({
   stiffness = 220,
   damping = 16,
   triggerOnClick = false,
+  autoIntervalMs = 0,
   onComplete,
 }) {
   const [scope, animate] = useAnimate()
   const [blocked, setBlocked] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   const trigger = useCallback(() => {
     if (blocked) return
@@ -78,6 +80,16 @@ export function LetterCascade({
       )
     })
   }, [blocked, animate, staggerDuration, staggerFrom, stiffness, damping, onComplete])
+
+  useEffect(() => {
+    if (!autoIntervalMs || reduceMotion) return undefined
+
+    const interval = window.setInterval(() => {
+      trigger()
+    }, autoIntervalMs)
+
+    return () => window.clearInterval(interval)
+  }, [autoIntervalMs, reduceMotion, trigger])
 
   return (
     <span

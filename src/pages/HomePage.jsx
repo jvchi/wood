@@ -827,7 +827,7 @@ export default function HomePage() {
 
         <div className="home-chair-copy">
           <button type="button" className="home-chair-preorder">
-            <LetterCascade text="Pre-order now" />
+            <LetterCascade text="Pre-order now" autoIntervalMs={4200} />
           </button>
         </div>
       </section>
