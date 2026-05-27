@@ -761,11 +761,12 @@ input {
 .home-chair-copy {
   position: absolute;
   left: 50%;
-  bottom: clamp(1rem, 2.5vw, 1.5rem);
-  z-index: 2;
+  bottom: clamp(4rem, 10vw, 7rem);
+  z-index: 40;
   width: max-content;
   max-width: calc(100% - 2rem);
   color: rgba(17, 17, 17, 0.64);
+  pointer-events: none;
   transform: translate3d(-50%, calc((1 - var(--chair-progress)) * 1.25rem), 0);
   transition: transform 180ms linear;
 }
@@ -786,9 +787,9 @@ input {
   justify-content: center;
   width: 100%;
   flex-shrink: 0;
-  height: calc(0.25rem * 9);
+  height: calc(0.25rem * 10);
 
-  padding-inline: calc(0.5rem * 4);
+  padding-inline: calc(0.5rem * 5);
   margin: 0;
 
   box-sizing: border-box;
@@ -805,8 +806,8 @@ input {
       #a8a8a8,
       #111);
 
-  font-size: 0.875rem;
-  line-height: calc(1.25 / 0.875);
+  font-size: 0.9375rem;
+  line-height: calc(1.25 / 0.9375);
   font-weight: 450;
   color: #111 !important;
   text-overflow: ellipsis;
@@ -828,6 +829,8 @@ input {
   animation: 4s cubic-bezier(0.4, 0, 0.6, 1) infinite upgrade-glow;
 
   position: relative;
+  z-index: 1;
+  pointer-events: auto;
 }
 
 @keyframes upgrade-glow {
@@ -4319,7 +4322,7 @@ input {
   }
 
   .home-chair-copy {
-    bottom: 0.75rem;
+    bottom: clamp(9rem, 28vh, 15rem);
     max-width: calc(100% - 2rem);
   }
 

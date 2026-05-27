@@ -826,7 +826,6 @@ export default function HomePage() {
         </div>
 
         <div className="home-chair-copy">
-          <p className="home-chair-caption">Walnut frame, soft seat, quieter presence.</p>
           <button type="button" className="home-chair-preorder">
             <LetterCascade text="Pre-order now" />
           </button>
