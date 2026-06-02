@@ -27,7 +27,7 @@ export default function CartPage() {
           {items.map(item => (
             <div key={item.key} className="cart-item">
               <Link to={`/product/${item.product.id}`} className="cart-item-image">
-                <img src={item.product.images[0]} alt={item.product.name} width="256" height="320" className="h-full w-full object-cover" loading="lazy" />
+                <img src={item.product.images[0]} alt={item.product.name} width="256" height="320" className="cart-item-thumb" loading="lazy" />
               </Link>
 
               <div className="min-w-0 flex-1 flex flex-col justify-between">

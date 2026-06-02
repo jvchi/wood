@@ -59,6 +59,19 @@ function RotationSliders({ value, onChange }) {
   )
 }
 
+function PositionNudgeControls({ onNudge, onReset }) {
+  const step = 0.18
+  return (
+    <div className="admin-position-nudge" aria-label="Position framing controls">
+      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(0, step)} aria-label="Move frame up">↑</button>
+      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(-step, 0)} aria-label="Move frame left">←</button>
+      <button type="button" className="admin-position-nudge-button" onClick={onReset} aria-label="Reset position">•</button>
+      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(step, 0)} aria-label="Move frame right">→</button>
+      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(0, -step)} aria-label="Move frame down">↓</button>
+    </div>
+  )
+}
+
 const emptyProduct = {
   name: '',
   slug: '',
@@ -592,6 +605,11 @@ export default function ProductFormPanel({ product, categories, collections, pro
     }
   }
 
+  function handleNudgeCamera(deltaX, deltaY) {
+    const nextState = previewRef.current?.panBy?.(deltaX, deltaY)
+    if (nextState) update('model_camera', formatCameraCsv(nextState))
+  }
+
   function computeResolution() {
     const [rw, rh] = ASPECT_RATIO_MAP[aspectRatio] || [1, 1]
     const longest = Math.max(1000, Math.min(6000, Number(captureSize) || 3000))
@@ -940,7 +958,7 @@ export default function ProductFormPanel({ product, categories, collections, pro
             </div>
             <p className="admin-helper">Production models should be published as full, lite, and poster assets. Use Draco or Meshopt compression before adding the final URLs here.</p>
             <div className="admin-model-preview-wrapper">
-              <p className="admin-helper">Drag to rotate · scroll/pinch to zoom · this frame matches the live product page. Click <strong>Save view</strong> to lock the camera shoppers see first.</p>
+              <p className="admin-helper">Drag to rotate · scroll/pinch to zoom · use Position to pan the frame · this frame matches the live product page. Click <strong>Save view</strong> to lock the camera shoppers see first.</p>
               <ProductModelPreview
                 ref={previewRef}
                 modelUrl={draft.model_url}
@@ -957,6 +975,10 @@ export default function ProductFormPanel({ product, categories, collections, pro
                   <div className="admin-model-preview-rotation">
                     <span className="admin-model-preview-rotation-label">Rotation</span>
                     <RotationSliders value={draft.model_rotation || '0,0,0'} onChange={value => update('model_rotation', value)} />
+                  </div>
+                  <div className="admin-model-preview-rotation admin-model-preview-position">
+                    <span className="admin-model-preview-rotation-label">Position</span>
+                    <PositionNudgeControls onNudge={handleNudgeCamera} onReset={handleResetCamera} />
                   </div>
                   <div className="admin-model-preview-toolbar">
                     <button type="button" className="pressable admin-model-preview-action" onClick={handleSaveCamera}>

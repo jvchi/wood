@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react'
+import { Suspense, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { ACESFilmicToneMapping, SRGBColorSpace, Vector2, Vector3, PMREMGenerator } from 'three'
@@ -247,11 +247,11 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
   const modelReady = loadedModelUrl === resolvedModelSrc
   const failed = failedModelUrl === resolvedModelSrc
 
-  const parsedCamera = parseCameraCsv(camera) || {
+  const parsedCamera = useMemo(() => parseCameraCsv(camera) || {
     position: DEFAULT_CAMERA_POSITION,
     target: DEFAULT_CAMERA_TARGET,
     fov: DEFAULT_FOV,
-  }
+  }, [camera])
   const controlsRef = useRef(null)
   const cameraStateRef = useRef({ ...parsedCamera })
   const captureRef = useRef(null)
@@ -266,6 +266,28 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
       controls.object.position.set(...DEFAULT_CAMERA_POSITION)
       controls.target.set(...DEFAULT_CAMERA_TARGET)
       controls.update()
+    },
+    panBy(deltaX = 0, deltaY = 0) {
+      const controls = controlsRef.current
+      if (!controls) return null
+      const camera = controls.object
+      const targetDistance = camera.position.distanceTo(controls.target)
+      const panScale = Math.max(0.08, targetDistance * 0.12)
+      const right = new Vector3()
+      const direction = new Vector3()
+      const up = new Vector3()
+      camera.getWorldDirection(direction)
+      right.crossVectors(direction, camera.up).normalize()
+      up.copy(camera.up).normalize()
+      const offset = right.multiplyScalar(deltaX * panScale).add(up.multiplyScalar(deltaY * panScale))
+      camera.position.add(offset)
+      controls.target.add(offset)
+      controls.update()
+      return {
+        position: [camera.position.x, camera.position.y, camera.position.z],
+        target: [controls.target.x, controls.target.y, controls.target.z],
+        fov: camera.fov,
+      }
     },
     isReady() {
       return Boolean(captureRef.current && modelReady)
@@ -293,6 +315,9 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
   const ghostOverlay = showAspectGhost && Number.isFinite(aspectRatio) && aspectRatio > 0 ? (
     <div className="admin-model-aspect-ghost" aria-hidden="true">
       <div className="admin-model-aspect-ghost-box" style={{ '--ar': aspectRatio }}>
+        <div className="admin-model-safe-area">
+          <span className="admin-model-safe-area-label">Safe area</span>
+        </div>
         {aspectLabel && <span className="admin-model-aspect-ghost-label">{aspectLabel}</span>}
       </div>
     </div>
