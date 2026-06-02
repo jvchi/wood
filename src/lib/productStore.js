@@ -470,6 +470,11 @@ async function fetchProductsFromSource({ includeUnpublished }) {
     if (!includeUnpublished) query.eq('published', true).eq('archived', false)
     const { data, error } = await runSupabaseProductQuery(query)
     if (!error && Array.isArray(data)) return data.map(mapSupabaseProduct)
+
+    // Supabase is the source of truth — don't fall back to seed fixtures on
+    // transient failure, or stale test products start appearing on /shop.
+    const local = readLocal(PRODUCTS_KEY, [])
+    return local.map(normalizeProduct).filter(product => includeUnpublished || (product.published && !product.archived))
   }
 
   const local = readLocal(PRODUCTS_KEY, fallbackProducts)
