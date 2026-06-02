@@ -296,6 +296,40 @@ function draftStorageKey(product) {
   return `${DRAFT_STORAGE_PREFIX}${product?.id || 'new'}`
 }
 
+function skuPart(value, fallback = 'PRD') {
+  const part = slugify(value).replaceAll('-', '').toUpperCase()
+  return (part || fallback).slice(0, 12)
+}
+
+function baseSkuForProduct(product) {
+  const category = skuPart(product.category_id || product.category, 'CAT').slice(0, 3)
+  const nameParts = slugify(product.name || 'product')
+    .split('-')
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('-')
+    .toUpperCase()
+
+  return `${category}-${nameParts || 'PRODUCT'}`
+}
+
+function generateSku(product, products = []) {
+  const base = baseSkuForProduct(product)
+  const usedSkus = new Set(
+    products
+      .filter(item => item.id !== product.id)
+      .map(item => String(item.sku || '').trim().toUpperCase())
+      .filter(Boolean),
+  )
+
+  for (let index = 1; index < 1000; index += 1) {
+    const sku = `${base}-${String(index).padStart(3, '0')}`
+    if (!usedSkus.has(sku)) return sku
+  }
+
+  return `${base}-${Date.now().toString(36).toUpperCase()}`
+}
+
 function loadStoredDraft(product) {
   if (typeof window === 'undefined') return null
   try {
@@ -306,7 +340,7 @@ function loadStoredDraft(product) {
   }
 }
 
-export default function ProductFormPanel({ product, categories, collections, onClose, onSave, onTaxonomyAdded }) {
+export default function ProductFormPanel({ product, categories, collections, products = [], onClose, onSave, onTaxonomyAdded }) {
   const [draft, setDraft] = useState(() => {
     const stored = loadStoredDraft(product)
     if (stored) return stored
@@ -327,6 +361,11 @@ export default function ProductFormPanel({ product, categories, collections, onC
   const [savedViewThumb, setSavedViewThumb] = useState(null)
   const [imageAspects, setImageAspects] = useState({})
   const isEditing = Boolean(product?.id)
+  const [skuManuallyEdited, setSkuManuallyEdited] = useState(() => Boolean(product?.sku || loadStoredDraft(product)?.sku))
+  const lastAutoSkuRef = useRef('')
+  const draftId = draft.id
+  const draftName = draft.name
+  const draftCategoryId = draft.category_id
 
   function handleImageMeta(image, event) {
     const { naturalWidth, naturalHeight } = event.currentTarget
@@ -342,11 +381,25 @@ export default function ProductFormPanel({ product, categories, collections, onC
     if (stored) {
       setDraft(stored)
       setDraftRestored(true)
+      setSkuManuallyEdited(Boolean(stored.sku))
     } else {
       setDraft(product ? normalizeProduct(product) : { ...emptyProduct })
       setDraftRestored(false)
+      setSkuManuallyEdited(Boolean(product?.sku))
     }
+    lastAutoSkuRef.current = ''
   }, [product])
+
+  useEffect(() => {
+    if (isEditing || skuManuallyEdited || !draftName) return
+    const previousAutoSku = lastAutoSkuRef.current
+    const nextSku = generateSku({ id: draftId, name: draftName, category_id: draftCategoryId }, products)
+    setDraft(current => {
+      if (current.sku && previousAutoSku && current.sku !== previousAutoSku) return current
+      lastAutoSkuRef.current = nextSku
+      return { ...current, sku: nextSku }
+    })
+  }, [draftCategoryId, draftId, draftName, isEditing, products, skuManuallyEdited])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -370,6 +423,8 @@ export default function ProductFormPanel({ product, categories, collections, onC
   function discardDraft() {
     clearStoredDraft()
     setDraft(product ? normalizeProduct(product) : { ...emptyProduct })
+    setSkuManuallyEdited(Boolean(product?.sku))
+    lastAutoSkuRef.current = ''
   }
 
   function handleCancel() {
@@ -403,6 +458,18 @@ export default function ProductFormPanel({ product, categories, collections, onC
       if (key === 'short_description') next.description = value
       return next
     })
+  }
+
+  function updateSku(value) {
+    setSkuManuallyEdited(true)
+    update('sku', String(value || '').toUpperCase().replace(/[^A-Z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+/, ''))
+  }
+
+  function regenerateSku() {
+    const nextSku = generateSku(draft, products)
+    lastAutoSkuRef.current = nextSku
+    setSkuManuallyEdited(false)
+    update('sku', nextSku)
   }
 
   async function handleImageUpload(event) {
@@ -603,7 +670,6 @@ export default function ProductFormPanel({ product, categories, collections, onC
       setCaptureStatus(`Uploading ${blobs.length} images...`)
       const urls = []
       for (let i = 0; i < blobs.length; i += 1) {
-        // eslint-disable-next-line no-await-in-loop
         const url = await uploadCaptureBlob(blobs[i], `angle-${String(i + 1).padStart(2, '0')}`)
         urls.push(url)
         setCaptureStatus(`Uploading ${i + 1}/${blobs.length}...`)
@@ -681,8 +747,15 @@ export default function ProductFormPanel({ product, categories, collections, onC
     setSaving(true)
     setError('')
     try {
+      const normalizedSku = String(draft.sku || '').trim().toUpperCase()
+      const duplicateSku = normalizedSku && products.some(item => (
+        item.id !== draft.id &&
+        String(item.sku || '').trim().toUpperCase() === normalizedSku
+      ))
+      if (duplicateSku) throw new Error(`SKU "${normalizedSku}" is already used by another product.`)
       await onSave(normalizeProduct({
         ...draft,
+        sku: normalizedSku,
         previous_stock_quantity: product?.stock_quantity,
         seo_title: draft.seo_title || seoPreview.title,
         seo_description: draft.seo_description || seoPreview.description,
@@ -779,7 +852,12 @@ export default function ProductFormPanel({ product, categories, collections, onC
             <h3>Inventory</h3>
             <div className="admin-form-grid admin-form-grid-compact">
               <Field label="Stock quantity"><input type="number" min="0" value={draft.stock_quantity} onChange={event => update('stock_quantity', event.target.value)} /></Field>
-              <Field label="SKU"><input value={draft.sku || ''} onChange={event => update('sku', event.target.value)} /></Field>
+              <Field label="SKU">
+                <div className="admin-taxonomy-select">
+                  <input value={draft.sku || ''} onChange={event => updateSku(event.target.value)} placeholder="Auto-generated" />
+                  <button type="button" className="admin-taxonomy-add pressable" onClick={regenerateSku}>Regenerate</button>
+                </div>
+              </Field>
               <Field label="Low stock threshold"><input type="number" min="0" value={draft.low_stock_threshold} onChange={event => update('low_stock_threshold', event.target.value)} /></Field>
               <Field label="Stock status"><select value={draft.stock_status} onChange={event => update('stock_status', event.target.value)}><option value="in_stock">In stock</option><option value="low_stock">Low stock</option><option value="out_of_stock">Out of stock</option><option value="preorder">Preorder</option></select></Field>
             </div>

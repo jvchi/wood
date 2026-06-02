@@ -7,6 +7,7 @@ import {
   useScroll,
   useTransform,
 } from 'framer-motion'
+import { Squircle } from '@squircle-js/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { SplitText } from 'gsap/SplitText'
@@ -826,9 +827,17 @@ export default function HomePage() {
         </div>
 
         <div className="home-chair-copy">
-          <button type="button" className="home-chair-preorder">
-            <LetterCascade text="Pre-order now" autoIntervalMs={4200} />
-          </button>
+          <Squircle
+            asChild
+            cornerRadius={22}
+            cornerSmoothing={1}
+            defaultWidth={286}
+            defaultHeight={66}
+          >
+            <button type="button" className="home-chair-preorder">
+              <LetterCascade text="Pre-order now" autoIntervalMs={4200} />
+            </button>
+          </Squircle>
         </div>
       </section>
 

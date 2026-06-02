@@ -787,17 +787,15 @@ input {
   justify-content: center;
   width: 100%;
   flex-shrink: 0;
-  height: calc(0.25rem * 10);
+  min-width: min(17.875rem, calc(100vw - 2rem));
+  height: clamp(3.875rem, 13vw, 4.35rem);
 
-  padding-inline: calc(0.5rem * 5);
+  padding-inline: clamp(2rem, 8vw, 3rem);
   margin: 0;
 
   box-sizing: border-box;
-  border: 0 solid;
-  border-top-style: solid;
-  border-top-width: 0.5px;
-  border-color: color-mix(in oklab, #fff 50%, transparent);
-  border-radius: calc(0.625rem - 2px);
+  border: 0;
+  border-radius: 1.375rem;
   outline-color: color-mix(in oklab, oklch(55.6% 0 0) 50%, transparent);
   outline-style: none;
 
@@ -813,6 +811,7 @@ input {
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
+  clip-path: inherit;
   user-select: none;
 
   cursor: pointer;
@@ -822,6 +821,7 @@ input {
   transition-timing-function: linear;
 
   box-shadow:
+    rgba(255, 255, 255, 0.78) 0px 0.5px 0px 0px inset,
     color-mix(in oklab, var(--color-white) 82%, transparent) 0px 0px 12.7929px -1.86786px,
     rgba(17, 17, 17, 0.12) 0px 0px 21.3214px -3.73571px,
     rgba(255, 255, 255, 0.42) 0px 0px 6.26429px 0px inset;

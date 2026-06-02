@@ -161,6 +161,31 @@ create index if not exists idx_product_uploads_product_created on public.product
 create index if not exists idx_product_uploads_bucket_status on public.product_uploads (bucket_id, status);
 create index if not exists idx_inventory_logs_product_created on public.inventory_logs (product_id, created_at desc);
 
+insert into public.categories (id, name, slug, description)
+values
+  ('sofas', 'Sofas', 'sofas', 'Soft seating for living spaces.'),
+  ('sectionals', 'Sectionals', 'sectionals', 'Modular pieces for larger rooms.'),
+  ('chairs', 'Chairs', 'chairs', 'Lounge, accent, and work chairs.'),
+  ('benches', 'Benches', 'benches', 'Entry, dining, and bedroom benches.'),
+  ('ottomans', 'Ottomans', 'ottomans', 'Footrests and soft tables.'),
+  ('daybeds', 'Daybeds', 'daybeds', 'Hybrid lounging pieces.')
+on conflict (id) do update set
+  name = excluded.name,
+  slug = excluded.slug,
+  description = excluded.description,
+  updated_at = now();
+
+insert into public.collections (id, name, slug, description)
+values
+  ('quiet-room', 'Quiet Room', 'quiet-room', 'Low-profile pieces with calm silhouettes.'),
+  ('soft-forms', 'Soft Forms', 'soft-forms', 'Rounded upholstery and tactile materials.'),
+  ('work-lounge', 'Work Lounge', 'work-lounge', 'Pieces for studios, offices, and reading corners.')
+on conflict (id) do update set
+  name = excluded.name,
+  slug = excluded.slug,
+  description = excluded.description,
+  updated_at = now();
+
 insert into storage.buckets (id, name, public)
 values ('product-images', 'product-images', true), ('product-models', 'product-models', true)
 on conflict (id) do update set public = excluded.public;

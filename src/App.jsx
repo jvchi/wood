@@ -62,11 +62,8 @@ function AppRoutes() {
   const backgroundLocation = location.state?.backgroundLocation
   const activeProductId = location.state?.sharedProductId ? String(location.state.sharedProductId) : null
   const shouldUseRouteLoader = !backgroundLocation && LOADER_ROUTES.has(location.pathname)
-  const shouldUseProductOverlayLoader = Boolean(backgroundLocation) && location.pathname.startsWith('/product/')
   const initialLoad = useInitialLoadReady(location.pathname, { enabled: shouldUseRouteLoader })
-  const productOverlayLoad = useInitialLoadReady(location.pathname, { enabled: shouldUseProductOverlayLoader })
   const [showInitialProgress, setShowInitialProgress] = useState(true)
-  const [showProductOverlayLoader, setShowProductOverlayLoader] = useState(false)
   const routeIsPending = shouldUseRouteLoader && displayedLocation.key !== location.key
   const routeCanReveal = initialLoad.ready && !routeIsPending
   const routeIsComplete = initialLoad.complete && !routeIsPending
@@ -80,14 +77,6 @@ function AppRoutes() {
 
     return () => window.cancelAnimationFrame(frame)
   }, [backgroundLocation, location, shouldUseRouteLoader])
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setShowProductOverlayLoader(shouldUseProductOverlayLoader)
-    })
-
-    return () => window.cancelAnimationFrame(frame)
-  }, [location.key, shouldUseProductOverlayLoader])
 
   return (
     <SharedProductTransitionContext.Provider value={{ activeProductId }}>
@@ -145,18 +134,6 @@ function AppRoutes() {
             onExitComplete={() => {
               setShowInitialProgress(false)
               initialLoad.setComplete(true)
-            }}
-          />
-        )}
-
-        {showProductOverlayLoader && (
-          <InitialLoadTransition
-            key={`product-loader-${location.key}`}
-            ready={productOverlayLoad.ready}
-            variant="default"
-            onExitComplete={() => {
-              setShowProductOverlayLoader(false)
-              productOverlayLoad.setComplete(true)
             }}
           />
         )}

@@ -29,14 +29,21 @@ function ModelLoadFallback({ onError }) {
 // so there is no network fetch and Suspense never blocks.
 function SceneEnvironment() {
   const { gl, scene } = useThree()
+  const sceneRef = useRef(scene)
+
+  useEffect(() => {
+    sceneRef.current = scene
+  }, [scene])
+
   useEffect(() => {
     const pmrem = new PMREMGenerator(gl)
     const room = new RoomEnvironment()
     const rt = pmrem.fromScene(room, 0.04)
-    const prev = scene.environment
-    scene.environment = rt.texture
+    const currentScene = sceneRef.current
+    const prev = currentScene.environment
+    currentScene.environment = rt.texture
     return () => {
-      scene.environment = prev
+      currentScene.environment = prev
       rt.dispose()
       pmrem.dispose()
       room.traverse(obj => {
@@ -47,7 +54,7 @@ function SceneEnvironment() {
         }
       })
     }
-  }, [gl, scene])
+  }, [gl])
   return null
 }
 
@@ -202,7 +209,6 @@ function CaptureBridge({ controlsRef, captureRef }) {
           )
           camera.lookAt(target)
           controls.update()
-          // eslint-disable-next-line no-await-in-loop
           const blob = await captureOnce(opts)
           if (blob) blobs.push(blob)
           if (opts.onProgress) opts.onProgress(i + 1, count)

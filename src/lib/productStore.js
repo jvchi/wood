@@ -5,6 +5,13 @@ export const PRODUCT_EVENT = 'wood:products-updated'
 const PRODUCTS_KEY = 'wood.admin.products'
 const CATEGORIES_KEY = 'wood.admin.categories'
 const COLLECTIONS_KEY = 'wood.admin.collections'
+const PRODUCT_CACHE_PUBLIC = 'published'
+const PRODUCT_CACHE_ALL = 'include-unpublished'
+const PRODUCT_QUERY_TIMEOUT_MS = 2500
+const SUPABASE_REACHABILITY_TIMEOUT_MS = 1500
+const productListCache = new Map()
+const productListRequests = new Map()
+let productListCacheVersion = 0
 export const PRODUCT_PLACEHOLDER_IMAGE = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 800 1000%22%3E%3Crect width=%22800%22 height=%221000%22 fill=%22%23efeee8%22/%3E%3Cpath d=%22M210 570h380M250 500h300M310 430h180%22 stroke=%22%23000%22 stroke-opacity=%22.24%22 stroke-width=%2214%22 stroke-linecap=%22square%22/%3E%3Ctext x=%22400%22 y=%22635%22 text-anchor=%22middle%22 font-family=%22Arial,sans-serif%22 font-size=%2232%22 font-weight=%22700%22 fill=%22%23000%22 fill-opacity=%22.42%22%3EWOOD%3C/text%3E%3C/svg%3E'
 
 export const defaultCategories = [
@@ -231,7 +238,127 @@ function readLocal(key, fallback) {
 function writeLocal(key, value) {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(key, JSON.stringify(value))
+  if (key === PRODUCTS_KEY) clearProductListCache()
   window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
+}
+
+function isSupabaseUnavailableError(error) {
+  const message = String(error?.message || error || '').toLowerCase()
+  return (
+    error?.name === 'AbortError' ||
+    message.includes('failed to fetch') ||
+    message.includes('fetch failed') ||
+    message.includes('network') ||
+    message.includes('timed out')
+  )
+}
+
+async function canReachSupabase() {
+  if (!hasSupabaseConfig || typeof fetch !== 'function') return hasSupabaseConfig
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const timer = controller
+    ? setTimeout(() => controller.abort(), SUPABASE_REACHABILITY_TIMEOUT_MS)
+    : null
+
+  try {
+    await fetch(`${supabaseUrlPublic}/rest/v1/`, {
+      method: 'GET',
+      headers: {
+        apikey: supabaseAnonKeyPublic,
+        authorization: `Bearer ${supabaseAnonKeyPublic}`,
+      },
+      signal: controller?.signal,
+    })
+    return true
+  } catch {
+    return false
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+function saveProductLocal(normalized) {
+  const products = readLocal(PRODUCTS_KEY, fallbackProducts).map(normalizeProduct)
+  const index = products.findIndex(item => item.id === normalized.id)
+  const next = index >= 0
+    ? products.map(item => (item.id === normalized.id ? normalized : item))
+    : [normalized, ...products]
+  writeLocal(PRODUCTS_KEY, next)
+  return normalized
+}
+
+function deleteProductLocal(productId) {
+  writeLocal(PRODUCTS_KEY, readLocal(PRODUCTS_KEY, fallbackProducts).filter(product => product.id !== productId))
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+function productListCacheKey(includeUnpublished) {
+  return includeUnpublished ? PRODUCT_CACHE_ALL : PRODUCT_CACHE_PUBLIC
+}
+
+function filterPublicProducts(products) {
+  return products.filter(product => product.published && !product.archived)
+}
+
+function setCachedProducts(includeUnpublished, products) {
+  const cachedAt = Date.now()
+  productListCache.set(productListCacheKey(includeUnpublished), { products, cachedAt })
+
+  if (includeUnpublished) {
+    productListCache.set(PRODUCT_CACHE_PUBLIC, {
+      products: filterPublicProducts(products),
+      cachedAt,
+    })
+  }
+}
+
+export function getCachedProducts({ includeUnpublished = false } = {}) {
+  const cached = productListCache.get(productListCacheKey(includeUnpublished))
+  if (cached) return cached.products
+
+  if (!includeUnpublished) {
+    const allProducts = productListCache.get(PRODUCT_CACHE_ALL)
+    if (allProducts) return filterPublicProducts(allProducts.products)
+  }
+
+  return null
+}
+
+export function clearProductListCache() {
+  productListCacheVersion += 1
+  productListCache.clear()
+  productListRequests.clear()
+}
+
+async function runSupabaseProductQuery(query) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const timer = controller
+    ? setTimeout(() => controller.abort(), PRODUCT_QUERY_TIMEOUT_MS)
+    : null
+
+  try {
+    const request = controller && typeof query.abortSignal === 'function'
+      ? query.abortSignal(controller.signal)
+      : query
+    return await Promise.race([
+      request,
+      new Promise(resolve => {
+        setTimeout(() => resolve({ data: null, error: new Error('Product query timed out') }), PRODUCT_QUERY_TIMEOUT_MS)
+      }),
+    ])
+  } catch (error) {
+    return { data: null, error }
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
 
 export function slugify(value) {
@@ -333,7 +460,7 @@ function mapSupabaseProduct(row) {
   })
 }
 
-export async function listProducts({ includeUnpublished = false } = {}) {
+async function fetchProductsFromSource({ includeUnpublished }) {
   if (hasSupabaseConfig) {
     const query = supabase
       .from('products')
@@ -341,7 +468,7 @@ export async function listProducts({ includeUnpublished = false } = {}) {
       .order('updated_at', { ascending: false })
 
     if (!includeUnpublished) query.eq('published', true).eq('archived', false)
-    const { data, error } = await query
+    const { data, error } = await runSupabaseProductQuery(query)
     if (!error && Array.isArray(data)) return data.map(mapSupabaseProduct)
   }
 
@@ -349,10 +476,46 @@ export async function listProducts({ includeUnpublished = false } = {}) {
   return local.map(normalizeProduct).filter(product => includeUnpublished || (product.published && !product.archived))
 }
 
+export async function listProducts({ includeUnpublished = false, force = false } = {}) {
+  if (force) clearProductListCache()
+
+  const cached = !force ? getCachedProducts({ includeUnpublished }) : null
+  if (cached) return cached
+
+  const key = productListCacheKey(includeUnpublished)
+  const pending = productListRequests.get(key)
+  if (pending) return pending
+
+  if (!includeUnpublished) {
+    const pendingAllProducts = productListRequests.get(PRODUCT_CACHE_ALL)
+    if (pendingAllProducts) {
+      return pendingAllProducts.then(filterPublicProducts)
+    }
+  }
+
+  const requestVersion = productListCacheVersion
+  const request = fetchProductsFromSource({ includeUnpublished })
+    .then(products => {
+      if (requestVersion === productListCacheVersion) {
+        setCachedProducts(includeUnpublished, products)
+      }
+      return products
+    })
+    .finally(() => {
+      productListRequests.delete(key)
+    })
+
+  productListRequests.set(key, request)
+  return request
+}
+
 export async function listCategories() {
   if (hasSupabaseConfig) {
     const { data, error } = await supabase.from('categories').select('*').order('name')
-    if (!error && Array.isArray(data)) return data
+    if (!error && Array.isArray(data)) {
+      if (data.length) return data
+      return seedDefaultTaxonomy('category')
+    }
   }
   return readLocal(CATEGORIES_KEY, defaultCategories)
 }
@@ -360,7 +523,10 @@ export async function listCategories() {
 export async function listCollections() {
   if (hasSupabaseConfig) {
     const { data, error } = await supabase.from('collections').select('*').order('name')
-    if (!error && Array.isArray(data)) return data
+    if (!error && Array.isArray(data)) {
+      if (data.length) return data
+      return seedDefaultTaxonomy('collection')
+    }
   }
   return readLocal(COLLECTIONS_KEY, defaultCollections)
 }
@@ -368,42 +534,100 @@ export async function listCollections() {
 export async function saveProduct(product) {
   const normalized = normalizeProduct({ ...product, updated_at: new Date().toISOString() })
   if (hasSupabaseConfig) {
-    const payload = toSupabaseProduct(normalized)
-    const { error } = await supabase.from('products').upsert(payload)
-    if (error) {
-      if (error.code === '23505' && /products_sku_key/.test(error.message || '')) {
-        throw new Error(
-          payload.sku
-            ? `SKU "${payload.sku}" is already used by another product.`
-            : 'Existing rows have empty-string SKUs from a previous version. Run: update products set sku = null where sku = \'\'; in the Supabase SQL editor, then save again.',
-        )
+    try {
+      if (!(await canReachSupabase())) return saveProductLocal(normalized)
+      await ensureTaxonomyReference('category', normalized.category_id)
+      if (normalized.collection_id) await ensureTaxonomyReference('collection', normalized.collection_id)
+      const payload = toSupabaseProduct(normalized)
+      const { error } = await supabase.from('products').upsert(payload)
+      if (error) {
+        if (error.code === '23505' && /products_sku_key/.test(error.message || '')) {
+          throw new Error(
+            payload.sku
+              ? `SKU "${payload.sku}" is already used by another product.`
+              : 'Existing rows have empty-string SKUs from a previous version. Run: update products set sku = null where sku = \'\'; in the Supabase SQL editor, then save again.',
+          )
+        }
+        throw error
       }
-      throw error
+      await replaceProductImages(normalized)
+      await replaceProductModel(normalized)
+      await logInventory(normalized, product.previous_stock_quantity)
+      clearProductListCache()
+      window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
+      return normalized
+    } catch (error) {
+      if (!isSupabaseUnavailableError(error)) throw error
+      return saveProductLocal(normalized)
     }
-    await replaceProductImages(normalized)
-    await replaceProductModel(normalized)
-    await logInventory(normalized, product.previous_stock_quantity)
-    return normalized
   }
 
-  const products = readLocal(PRODUCTS_KEY, fallbackProducts).map(normalizeProduct)
-  const index = products.findIndex(item => item.id === normalized.id)
-  const next = index >= 0
-    ? products.map(item => (item.id === normalized.id ? normalized : item))
-    : [normalized, ...products]
-  writeLocal(PRODUCTS_KEY, next)
-  return normalized
+  return saveProductLocal(normalized)
 }
 
 export async function deleteProduct(productId) {
   if (hasSupabaseConfig) {
-    await purgeProductStorage(productId)
-    const { error } = await supabase.from('products').delete().eq('id', productId)
-    if (error) throw error
-    window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
-    return
+    try {
+      if (!(await canReachSupabase())) {
+        deleteProductLocal(productId)
+        return
+      }
+      await purgeProductStorage(productId)
+      const { error } = await supabase.from('products').delete().eq('id', productId)
+      if (error) throw error
+      clearProductListCache()
+      window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
+      return
+    } catch (error) {
+      if (!isSupabaseUnavailableError(error)) throw error
+      deleteProductLocal(productId)
+      return
+    }
   }
-  writeLocal(PRODUCTS_KEY, readLocal(PRODUCTS_KEY, fallbackProducts).filter(product => product.id !== productId))
+  deleteProductLocal(productId)
+}
+
+function taxonomyConfig(type) {
+  return type === 'category'
+    ? { table: 'categories', defaults: defaultCategories }
+    : { table: 'collections', defaults: defaultCollections }
+}
+
+function sortByName(items) {
+  return [...items].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function labelFromSlug(value) {
+  const words = String(value || '').split(/[-_\s]+/).filter(Boolean)
+  if (!words.length) return 'Uncategorized'
+  return words.map(word => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join(' ')
+}
+
+async function seedDefaultTaxonomy(type) {
+  const { table, defaults } = taxonomyConfig(type)
+  const { data, error } = await supabase
+    .from(table)
+    .upsert(defaults, { onConflict: 'id' })
+    .select('*')
+
+  if (error || !Array.isArray(data)) return defaults
+  return sortByName(data)
+}
+
+async function ensureTaxonomyReference(type, value) {
+  if (!value) return
+  const { table, defaults } = taxonomyConfig(type)
+  const fallback = defaults.find(item => item.id === value || item.slug === value)
+  const id = fallback?.id || value
+  const row = fallback || {
+    id,
+    slug: slugify(value),
+    name: labelFromSlug(value),
+    description: '',
+  }
+
+  const { error } = await supabase.from(table).upsert(row, { onConflict: 'id' })
+  if (error) throw error
 }
 
 // Remove every storage object tied to a product before the row is deleted, so
@@ -596,23 +820,22 @@ async function logInventory(product, previousQuantity) {
 export async function uploadAsset(file, bucket, productId, assetKind) {
   if (!file) return ''
   if (hasSupabaseConfig) {
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
-    const path = `${productId || 'draft'}/${Date.now()}-${safeName}`
-    const { error } = await supabase.storage.from(bucket).upload(path, file, {
-      cacheControl: '31536000',
-      upsert: true,
-    })
-    if (error) throw error
-    const { data } = supabase.storage.from(bucket).getPublicUrl(path)
-    await trackUpload({ file, bucket, productId, path, publicUrl: data.publicUrl, assetKind })
-    return data.publicUrl
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+      const path = `${productId || 'draft'}/${Date.now()}-${safeName}`
+      const { error } = await supabase.storage.from(bucket).upload(path, file, {
+        cacheControl: '31536000',
+        upsert: true,
+      })
+      if (error) throw error
+      const { data } = supabase.storage.from(bucket).getPublicUrl(path)
+      await trackUpload({ file, bucket, productId, path, publicUrl: data.publicUrl, assetKind })
+      return data.publicUrl
+    } catch (error) {
+      if (!isSupabaseUnavailableError(error)) throw error
+    }
   }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
+  return fileToDataUrl(file)
 }
 
 export async function uploadModelSource(file, productId) {

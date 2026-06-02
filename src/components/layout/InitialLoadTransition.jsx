@@ -32,7 +32,7 @@ export default function InitialLoadTransition({
   }, [ready])
 
   function handleCoverEntered() {
-    if (ready || isFirstLoad || coverEnteredRef.current) return
+    if (ready || coverEnteredRef.current) return
     coverEnteredRef.current = true
     onCoverEnterComplete?.()
   }

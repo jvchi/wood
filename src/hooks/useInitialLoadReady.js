@@ -96,6 +96,12 @@ function routeKeyFromPathname(pathname) {
   return routeLoaders[pathname] ? pathname : '*'
 }
 
+async function preloadRouteData(routeKey) {
+  if (routeKey !== '/shop') return
+  const { listProducts } = await import('../lib/productStore')
+  await listProducts()
+}
+
 export default function useInitialLoadReady(pathname, { enabled = true } = {}) {
   const [readyPath, setReadyPath] = useState(null)
   const [completePath, setCompletePath] = useState(null)
@@ -125,6 +131,7 @@ export default function useInitialLoadReady(pathname, { enabled = true } = {}) {
         preloadRouteForPath(pathname) || routeLoader?.(),
         routeKey === '/' ? preloadHomeHeroAsset() : undefined,
       ]), maxHoldMs)
+      await preloadRouteData(routeKey)
 
       if (routeKey === '/') {
         await waitForHomeScenes()
@@ -143,7 +150,7 @@ export default function useInitialLoadReady(pathname, { enabled = true } = {}) {
       }
     }
 
-    const hardTimeout = routeKey === '/'
+    const hardTimeout = routeKey === '/' || routeKey === '/shop'
       ? undefined
       : window.setTimeout(() => {
         if (!cancelled) setReadyPath(pathname)

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { motion, stagger, useAnimate, useReducedMotion } from 'framer-motion'
 
+const MotionSpan = motion.span
+
 function cx(...classes) {
   return classes.filter(Boolean).join(' ')
 }
@@ -107,7 +109,7 @@ export function LetterCascade({
           className="relative inline-flex whitespace-pre"
           style={{ perspective: '500px' }}
         >
-          <motion.span
+          <MotionSpan
             className={cx('cascade-front inline-block', letterClassName)}
             style={{
               rotateX: 0,
@@ -117,9 +119,9 @@ export function LetterCascade({
             }}
           >
             {letter}
-          </motion.span>
+          </MotionSpan>
 
-          <motion.span
+          <MotionSpan
             className={cx('cascade-echo absolute inset-0 inline-block', letterClassName)}
             style={{
               rotateX: -90,
@@ -132,7 +134,7 @@ export function LetterCascade({
             }}
           >
             {letter}
-          </motion.span>
+          </MotionSpan>
         </span>
       ))}
     </span>

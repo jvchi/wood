@@ -179,6 +179,7 @@ export default function AdminProductsPage() {
           product={editingProduct.id ? editingProduct : null}
           categories={categories}
           collections={collections}
+          products={products}
           onClose={() => setEditingProduct(null)}
           onSave={persistProduct}
           onTaxonomyAdded={(type, item) => {
