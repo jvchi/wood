@@ -70,11 +70,14 @@ create table if not exists public.product_images (
   id uuid primary key default gen_random_uuid(),
   product_id text not null references public.products(id) on delete cascade,
   url text not null,
+  thumbnail_url text,
   alt_text text,
   sort_order integer not null default 0,
   is_main boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+alter table public.product_images add column if not exists thumbnail_url text;
 
 create table if not exists public.product_models (
   id uuid primary key default gen_random_uuid(),
@@ -106,7 +109,7 @@ create table if not exists public.product_uploads (
   bucket_id text not null check (bucket_id in ('product-images', 'product-models')),
   storage_path text not null,
   public_url text not null,
-  asset_kind text not null check (asset_kind in ('image', 'model', 'poster', 'lite_model', 'source_model', 'full_model')),
+  asset_kind text not null check (asset_kind in ('image', 'image_thumbnail', 'model', 'poster', 'lite_model', 'source_model', 'full_model')),
   file_name text not null,
   content_type text,
   file_size bigint check (file_size is null or file_size >= 0),
@@ -114,6 +117,11 @@ create table if not exists public.product_uploads (
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table public.product_uploads drop constraint if exists product_uploads_asset_kind_check;
+alter table public.product_uploads
+  add constraint product_uploads_asset_kind_check
+  check (asset_kind in ('image', 'image_thumbnail', 'model', 'poster', 'lite_model', 'source_model', 'full_model'));
 
 create table if not exists public.inventory_logs (
   id uuid primary key default gen_random_uuid(),

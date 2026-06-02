@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "backfill:thumbnails": "node scripts/backfill-product-thumbnails.mjs",
     "model:inspect": "npx @gltf-transform/cli inspect",
     "model:optimize": "npx @gltf-transform/cli optimize"
   },
@@ -38,6 +39,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "sharp": "^0.34.5",
     "vite": "^8.0.1"
   }
 }

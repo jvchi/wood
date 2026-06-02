@@ -91,8 +91,27 @@ function CaptureBridge({ controlsRef, captureRef }) {
       exposure = 1.05,
       aspectRatio = null,
     } = {}) {
-      const ssWidth = Math.max(1, Math.round(width * supersample))
-      const ssHeight = Math.max(1, Math.round(height * supersample))
+      const outWidth = Math.max(1, Math.round(width))
+      const outHeight = Math.max(1, Math.round(height))
+      const context = gl.getContext()
+      const viewportDims = context.getParameter(context.MAX_VIEWPORT_DIMS)
+      const maxRenderbufferSize = context.getParameter(context.MAX_RENDERBUFFER_SIZE)
+      const maxRenderSize = Math.max(
+        1,
+        Math.min(
+          gl.capabilities?.maxTextureSize || 8192,
+          maxRenderbufferSize || 8192,
+          viewportDims?.[0] || 8192,
+          viewportDims?.[1] || 8192,
+        ),
+      )
+      const requestedScale = Math.max(1, Number(supersample) || 1)
+      const renderScale = Math.max(
+        0.25,
+        Math.min(requestedScale, maxRenderSize / outWidth, maxRenderSize / outHeight),
+      )
+      const ssWidth = Math.max(1, Math.min(maxRenderSize, Math.round(outWidth * renderScale)))
+      const ssHeight = Math.max(1, Math.min(maxRenderSize, Math.round(outHeight * renderScale)))
 
       // Snapshot renderer + scene + camera state so we can restore exactly.
       const prevSize = new Vector2()
@@ -123,7 +142,9 @@ function CaptureBridge({ controlsRef, captureRef }) {
       gl.outputColorSpace = SRGBColorSpace
       gl.autoClear = true
 
-      // Drive the renderer to the supersampled target size.
+      // Drive the renderer to a bounded supersampled target size. High capture
+      // presets can exceed mobile/WebGL buffer limits, which makes the export
+      // distort or crop even though the live preview is correctly framed.
       // Match the FOV to what's inside the ghost overlay so the captured
       // image frames the model exactly as previewed within the aspect box.
       if (aspectRatio && Number.isFinite(aspectRatio) && aspectRatio > 0) {
@@ -139,7 +160,7 @@ function CaptureBridge({ controlsRef, captureRef }) {
 
       gl.setPixelRatio(1)
       gl.setSize(ssWidth, ssHeight, false)
-      camera.aspect = ssWidth / ssHeight
+      camera.aspect = outWidth / outHeight
       camera.updateProjectionMatrix()
 
       gl.render(scene, camera)
@@ -177,12 +198,12 @@ function CaptureBridge({ controlsRef, captureRef }) {
         img.onerror = reject
       })
       const out = document.createElement('canvas')
-      out.width = width
-      out.height = height
+      out.width = outWidth
+      out.height = outHeight
       const ctx = out.getContext('2d')
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
-      ctx.drawImage(img, 0, 0, width, height)
+      ctx.drawImage(img, 0, 0, outWidth, outHeight)
       const blob = await new Promise(resolve => out.toBlob(resolve, 'image/png'))
       return blob
     }
@@ -266,6 +287,25 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
       controls.object.position.set(...DEFAULT_CAMERA_POSITION)
       controls.target.set(...DEFAULT_CAMERA_TARGET)
       controls.update()
+    },
+    resetPosition() {
+      const controls = controlsRef.current
+      if (!controls) return null
+      const camera = controls.object
+      const target = new Vector3(...DEFAULT_CAMERA_TARGET)
+      const distance = camera.position.distanceTo(controls.target)
+      const direction = new Vector3()
+      camera.getWorldDirection(direction)
+
+      camera.position.copy(target).add(direction.multiplyScalar(-distance))
+      controls.target.copy(target)
+      controls.update()
+
+      return {
+        position: [camera.position.x, camera.position.y, camera.position.z],
+        target: [controls.target.x, controls.target.y, controls.target.z],
+        fov: camera.fov,
+      }
     },
     panBy(deltaX = 0, deltaY = 0) {
       const controls = controlsRef.current

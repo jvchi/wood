@@ -300,6 +300,82 @@ function fileToDataUrl(file) {
   })
 }
 
+async function createImageThumbnailFile(file, { width = 180, quality = 0.58 } = {}) {
+  if (!file || typeof document === 'undefined') return null
+
+  let bitmap = null
+  let objectUrl = ''
+  try {
+    if ('createImageBitmap' in window) {
+      bitmap = await createImageBitmap(file)
+    } else {
+      objectUrl = URL.createObjectURL(file)
+      bitmap = await new Promise((resolve, reject) => {
+        const image = new Image()
+        image.onload = () => resolve(image)
+        image.onerror = reject
+        image.src = objectUrl
+      })
+    }
+
+    const sourceCanvas = document.createElement('canvas')
+    sourceCanvas.width = bitmap.width
+    sourceCanvas.height = bitmap.height
+    const sourceContext = sourceCanvas.getContext('2d')
+    if (!sourceContext) return null
+    sourceContext.drawImage(bitmap, 0, 0)
+
+    const pixels = sourceContext.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height).data
+    let minX = sourceCanvas.width
+    let minY = sourceCanvas.height
+    let maxX = -1
+    let maxY = -1
+    for (let y = 0; y < sourceCanvas.height; y += 1) {
+      for (let x = 0; x < sourceCanvas.width; x += 1) {
+        if (pixels[(y * sourceCanvas.width + x) * 4 + 3] <= 8) continue
+        minX = Math.min(minX, x)
+        minY = Math.min(minY, y)
+        maxX = Math.max(maxX, x)
+        maxY = Math.max(maxY, y)
+      }
+    }
+
+    const cropX = maxX >= 0 ? minX : 0
+    const cropY = maxY >= 0 ? minY : 0
+    const cropWidth = maxX >= 0 ? maxX - minX + 1 : sourceCanvas.width
+    const cropHeight = maxY >= 0 ? maxY - minY + 1 : sourceCanvas.height
+    const padding = Math.round(width * 0.08)
+    const horizonInset = Math.round(width * 0.08)
+    const availableWidth = width - padding * 2
+    const availableHeight = width - padding - horizonInset
+    const scale = Math.min(availableWidth / cropWidth, availableHeight / cropHeight, 1)
+    const drawWidth = Math.max(1, Math.round(cropWidth * scale))
+    const drawHeight = Math.max(1, Math.round(cropHeight * scale))
+    const drawX = Math.round((width - drawWidth) / 2)
+    const drawY = width - horizonInset - drawHeight
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = width
+    const context = canvas.getContext('2d')
+    if (!context) return null
+    context.drawImage(sourceCanvas, cropX, cropY, cropWidth, cropHeight, drawX, drawY, drawWidth, drawHeight)
+
+    const blob = await new Promise(resolve => {
+      canvas.toBlob(resolve, 'image/webp', quality)
+    })
+    if (!blob) return null
+
+    const baseName = String(file.name || 'image').replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9._-]/g, '-')
+    return new File([blob], `${baseName}-thumb.webp`, { type: 'image/webp' })
+  } catch {
+    return null
+  } finally {
+    if (bitmap?.close) bitmap.close()
+    if (objectUrl) URL.revokeObjectURL(objectUrl)
+  }
+}
+
 function productListCacheKey(includeUnpublished) {
   return includeUnpublished ? PRODUCT_CACHE_ALL : PRODUCT_CACHE_PUBLIC
 }
@@ -382,6 +458,11 @@ export function normalizeProduct(product) {
   const regularPrice = Number(product.regular_price ?? product.price ?? 0)
   const salePrice = product.sale_price === '' || product.sale_price == null ? '' : Number(product.sale_price)
   const images = Array.isArray(product.images) && product.images.length ? product.images : [PRODUCT_PLACEHOLDER_IMAGE]
+  const imageThumbnails = Array.isArray(product.image_thumbnails)
+    ? product.image_thumbnails
+    : Array.isArray(product.thumbnail_images)
+      ? product.thumbnail_images
+      : []
   const tags = Array.isArray(product.tags)
     ? product.tags
     : String(product.tags || '').split(',').map(tag => tag.trim()).filter(Boolean)
@@ -402,6 +483,7 @@ export function normalizeProduct(product) {
     price: salePrice || regularPrice,
     currency: product.currency || 'USD',
     images,
+    image_thumbnails: images.map((_, index) => imageThumbnails[index] || ''),
     main_image_url: product.main_image_url || images[0] || '',
     description: product.description || product.short_description || '',
     short_description: product.short_description || product.description || '',
@@ -438,9 +520,10 @@ function calculateDiscount(regularPrice, salePrice) {
 }
 
 function mapSupabaseProduct(row) {
-  const images = (row.product_images || [])
+  const imageRows = (row.product_images || [])
     .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-    .map(image => image.url)
+  const images = imageRows.map(image => image.url)
+  const imageThumbnails = imageRows.map(image => image.thumbnail_url || '')
   const model = Array.isArray(row.product_models) ? row.product_models[0] : null
 
   return normalizeProduct({
@@ -448,6 +531,7 @@ function mapSupabaseProduct(row) {
     category: row.categories?.slug || row.category_id,
     collection: row.collections?.slug || row.collection_id,
     images: images.length ? images : [row.main_image_url].filter(Boolean),
+    image_thumbnails: imageThumbnails,
     model_url: model?.url || row.model_url || '',
     model_lite_url: model?.lite_url || row.model_lite_url || '',
     model_poster_url: model?.poster_url || row.model_poster_url || '',
@@ -658,7 +742,10 @@ async function purgeProductStorage(productId) {
     .select('url')
     .eq('product_id', productId)
   if (Array.isArray(imageRows)) {
-    for (const row of imageRows) addPath('product-images', storagePathFromPublicUrl(row.url, 'product-images'))
+    for (const row of imageRows) {
+      addPath('product-images', storagePathFromPublicUrl(row.url, 'product-images'))
+      addPath('product-images', storagePathFromPublicUrl(row.thumbnail_url, 'product-images'))
+    }
   }
 
   const { data: modelRows } = await supabase
@@ -785,6 +872,7 @@ async function replaceProductImages(product) {
   const rows = product.images.map((url, index) => ({
     product_id: product.id,
     url,
+    thumbnail_url: product.image_thumbnails?.[index] || null,
     sort_order: index,
     is_main: index === 0,
     alt_text: product.name,
@@ -841,6 +929,43 @@ export async function uploadAsset(file, bucket, productId, assetKind) {
     }
   }
   return fileToDataUrl(file)
+}
+
+export async function uploadImageWithThumbnail(file, productId, assetKind = 'image') {
+  if (!file) return { url: '', thumbnailUrl: '' }
+  const thumbnailFile = await createImageThumbnailFile(file)
+
+  if (hasSupabaseConfig) {
+    const url = await uploadAsset(file, 'product-images', productId, assetKind)
+    let thumbnailUrl = ''
+    if (thumbnailFile) {
+      const safeName = thumbnailFile.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+      const path = `thumbs/${productId || 'draft'}/${Date.now()}-${safeName}`
+      const { error } = await supabase.storage.from('product-images').upload(path, thumbnailFile, {
+        cacheControl: '31536000',
+        contentType: 'image/webp',
+        upsert: true,
+      })
+      if (!error) {
+        const { data } = supabase.storage.from('product-images').getPublicUrl(path)
+        thumbnailUrl = data.publicUrl
+        await trackUpload({
+          file: thumbnailFile,
+          bucket: 'product-images',
+          productId,
+          path,
+          publicUrl: thumbnailUrl,
+          assetKind: 'image_thumbnail',
+        })
+      }
+    }
+    return { url, thumbnailUrl }
+  }
+
+  return {
+    url: await fileToDataUrl(file),
+    thumbnailUrl: thumbnailFile ? await fileToDataUrl(thumbnailFile) : '',
+  }
 }
 
 export async function uploadModelSource(file, productId) {

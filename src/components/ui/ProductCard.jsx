@@ -129,9 +129,18 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
             <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
           </svg>
         </button>
+        {isMasonry && !hideInfo && (
+          <div className="product-card-meta">
+            <Link to={`/product/${product.id}`} viewTransition>
+              <h3 className="product-title break-words">
+                {product.name}
+              </h3>
+            </Link>
+          </div>
+        )}
       </MotionDiv>
 
-      {!hideInfo && (
+      {!isMasonry && !hideInfo && (
         <div className="product-card-meta">
           <Link to={`/product/${product.id}`} viewTransition>
             <h3 className="product-title break-words">

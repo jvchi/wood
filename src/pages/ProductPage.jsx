@@ -6,6 +6,7 @@ import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
+import { imageThumbUrl } from '../utils/imageThumb'
 import Button from '../components/ui/Button'
 import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumber'
 import LazyThreeScene from '../components/three/LazyThreeScene'
@@ -15,6 +16,8 @@ import LoadingSpinner from '../components/ui/LoadingSpinner'
 const ProductViewer = lazy(() => import('../components/three/ProductViewer'))
 
 const MotionDiv = framerMotion.div
+const GALLERY_THUMB_WIDTH = 160
+const GALLERY_THUMB_QUALITY = 42
 
 /* const sharedImageTransition = {
   layout: {
@@ -45,9 +48,10 @@ function HeartIcon({ filled = false }) {
   )
 }
 
-function ImageGallery({ images, name }) {
+function ImageGallery({ images, thumbnails = [], name }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [imageRatios, setImageRatios] = useState({})
+  const [thumbnailFallbacks, setThumbnailFallbacks] = useState({})
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
 
@@ -87,16 +91,24 @@ function ImageGallery({ images, name }) {
             aria-label={`View image ${i + 1}`}
           >
             <img
-              src={img}
+              src={thumbnailFallbacks[i] ? img : (thumbnails[i] || imageThumbUrl(img, {
+                width: GALLERY_THUMB_WIDTH,
+                quality: GALLERY_THUMB_QUALITY,
+              }))}
               alt=""
+              width={GALLERY_THUMB_WIDTH}
+              height={GALLERY_THUMB_WIDTH}
               loading={i === 0 ? 'eager' : 'lazy'}
-              fetchPriority={i === 0 ? 'high' : 'low'}
+              fetchPriority="low"
               decoding="async"
               onLoad={event => {
                 const { naturalWidth, naturalHeight } = event.currentTarget
                 if (naturalWidth && naturalHeight) {
                   setImageRatios(p => (p[i] ? p : { ...p, [i]: `${naturalWidth} / ${naturalHeight}` }))
                 }
+              }}
+              onError={() => {
+                setThumbnailFallbacks(p => (p[i] ? p : { ...p, [i]: true }))
               }}
             />
           </button>
@@ -283,7 +295,7 @@ export default function ProductPage({ isOverlay = false }) {
           </div>
 
           {activeTab === 'photos' ? (
-            <ImageGallery images={product.images} name={product.name} />
+            <ImageGallery images={product.images} thumbnails={product.image_thumbnails} name={product.name} />
           ) : (
             <div className="product-gallery-frame">
               <Suspense fallback={<LoadingSpinner className="product-media-loader" label="Loading product model" size={32} />}>

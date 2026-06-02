@@ -10,6 +10,7 @@ import {
   saveTaxonomy,
   slugify,
   uploadAsset,
+  uploadImageWithThumbnail,
   uploadModelSource,
 } from '../../lib/productStore'
 
@@ -63,11 +64,11 @@ function PositionNudgeControls({ onNudge, onReset }) {
   const step = 0.18
   return (
     <div className="admin-position-nudge" aria-label="Position framing controls">
-      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(0, step)} aria-label="Move frame up">↑</button>
-      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(-step, 0)} aria-label="Move frame left">←</button>
+      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(0, -step)} aria-label="Move frame up">↑</button>
+      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(step, 0)} aria-label="Move frame left">←</button>
       <button type="button" className="admin-position-nudge-button" onClick={onReset} aria-label="Reset position">•</button>
-      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(step, 0)} aria-label="Move frame right">→</button>
-      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(0, -step)} aria-label="Move frame down">↓</button>
+      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(-step, 0)} aria-label="Move frame right">→</button>
+      <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(0, step)} aria-label="Move frame down">↓</button>
     </div>
   )
 }
@@ -98,6 +99,7 @@ const emptyProduct = {
   low_stock_threshold: 3,
   stock_status: 'out_of_stock',
   images: [],
+  image_thumbnails: [],
   model_url: '',
   model_lite_url: '',
   model_poster_url: '',
@@ -491,10 +493,15 @@ export default function ProductFormPanel({ product, categories, collections, pro
     setUploading(true)
     setError('')
     try {
-      const urls = await Promise.all(files.map(file => uploadAsset(file, 'product-images', draft.id, 'image')))
+      const uploaded = await Promise.all(files.map(file => uploadImageWithThumbnail(file, draft.id, 'image')))
       setDraft(current => {
         const currentImages = (current.images || []).filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
-        return { ...current, images: [...currentImages, ...urls] }
+        const currentThumbnails = (current.image_thumbnails || []).slice(0, currentImages.length)
+        return {
+          ...current,
+          images: [...currentImages, ...uploaded.map(image => image.url)],
+          image_thumbnails: [...currentThumbnails, ...uploaded.map(image => image.thumbnailUrl || '')],
+        }
       })
     } catch (err) {
       setError(err.message || 'Image upload failed')
@@ -605,6 +612,11 @@ export default function ProductFormPanel({ product, categories, collections, pro
     }
   }
 
+  function handleResetPosition() {
+    const nextState = previewRef.current?.resetPosition?.()
+    if (nextState) update('model_camera', formatCameraCsv(nextState))
+  }
+
   function handleNudgeCamera(deltaX, deltaY) {
     const nextState = previewRef.current?.panBy?.(deltaX, deltaY)
     if (nextState) update('model_camera', formatCameraCsv(nextState))
@@ -627,7 +639,7 @@ export default function ProductFormPanel({ product, categories, collections, pro
   async function uploadCaptureBlob(blob, label) {
     const safeName = `${slugify(draft.name || 'product') || 'product'}-${label}-${Date.now()}.png`
     const file = new File([blob], safeName, { type: 'image/png' })
-    return uploadAsset(file, 'product-images', draft.id, 'image')
+    return uploadImageWithThumbnail(file, draft.id, 'image')
   }
 
   async function handleCaptureSnapshot() {
@@ -650,10 +662,15 @@ export default function ProductFormPanel({ product, categories, collections, pro
       })
       if (!blob) throw new Error('Capture returned no image')
       setCaptureStatus('Uploading...')
-      const url = await uploadCaptureBlob(blob, 'hero')
+      const uploaded = await uploadCaptureBlob(blob, 'hero')
       setDraft(current => {
         const currentImages = (current.images || []).filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
-        return { ...current, images: [...currentImages, url] }
+        const currentThumbnails = (current.image_thumbnails || []).slice(0, currentImages.length)
+        return {
+          ...current,
+          images: [...currentImages, uploaded.url],
+          image_thumbnails: [...currentThumbnails, uploaded.thumbnailUrl || ''],
+        }
       })
       setCaptureStatus(`Saved · ${width}×${height}`)
     } catch (err) {
@@ -686,17 +703,22 @@ export default function ProductFormPanel({ product, categories, collections, pro
       })
       if (!blobs?.length) throw new Error('No frames captured')
       setCaptureStatus(`Uploading ${blobs.length} images...`)
-      const urls = []
+      const uploaded = []
       for (let i = 0; i < blobs.length; i += 1) {
-        const url = await uploadCaptureBlob(blobs[i], `angle-${String(i + 1).padStart(2, '0')}`)
-        urls.push(url)
+        const image = await uploadCaptureBlob(blobs[i], `angle-${String(i + 1).padStart(2, '0')}`)
+        uploaded.push(image)
         setCaptureStatus(`Uploading ${i + 1}/${blobs.length}...`)
       }
       setDraft(current => {
         const currentImages = (current.images || []).filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
-        return { ...current, images: [...currentImages, ...urls] }
+        const currentThumbnails = (current.image_thumbnails || []).slice(0, currentImages.length)
+        return {
+          ...current,
+          images: [...currentImages, ...uploaded.map(image => image.url)],
+          image_thumbnails: [...currentThumbnails, ...uploaded.map(image => image.thumbnailUrl || '')],
+        }
       })
-      setCaptureStatus(`Saved · ${urls.length} × ${width}×${height}`)
+      setCaptureStatus(`Saved · ${uploaded.length} × ${width}×${height}`)
     } catch (err) {
       setError(err.message || 'Turntable capture failed')
       setCaptureStatus('')
@@ -753,11 +775,18 @@ export default function ProductFormPanel({ product, categories, collections, pro
 
   function moveImage(index, direction) {
     const nextImages = [...draft.images]
+    const nextThumbnails = [...(draft.image_thumbnails || [])]
     const target = index + direction
     if (target < 0 || target >= nextImages.length) return
     const [image] = nextImages.splice(index, 1)
     nextImages.splice(target, 0, image)
-    update('images', nextImages)
+    const [thumbnail] = nextThumbnails.splice(index, 1)
+    nextThumbnails.splice(target, 0, thumbnail || '')
+    setDraft(current => ({
+      ...current,
+      images: nextImages,
+      image_thumbnails: nextThumbnails,
+    }))
   }
 
   async function submit(event) {
@@ -934,7 +963,14 @@ export default function ProductFormPanel({ product, categories, collections, pro
                     <figcaption>
                       <button type="button" onClick={() => moveImage(index, -1)} disabled={index === 0}>←</button>
                       <button type="button" onClick={() => moveImage(index, 1)} disabled={index === draft.images.length - 1}>→</button>
-                      <button type="button" onClick={() => update('images', draft.images.filter((_, imageIndex) => imageIndex !== index))}>Delete</button>
+                      <button
+                        type="button"
+                        onClick={() => setDraft(current => ({
+                          ...current,
+                          images: current.images.filter((_, imageIndex) => imageIndex !== index),
+                          image_thumbnails: (current.image_thumbnails || []).filter((_, imageIndex) => imageIndex !== index),
+                        }))}
+                      >Delete</button>
                     </figcaption>
                   </figure>
                 )
@@ -978,7 +1014,7 @@ export default function ProductFormPanel({ product, categories, collections, pro
                   </div>
                   <div className="admin-model-preview-rotation admin-model-preview-position">
                     <span className="admin-model-preview-rotation-label">Position</span>
-                    <PositionNudgeControls onNudge={handleNudgeCamera} onReset={handleResetCamera} />
+                    <PositionNudgeControls onNudge={handleNudgeCamera} onReset={handleResetPosition} />
                   </div>
                   <div className="admin-model-preview-toolbar">
                     <button type="button" className="pressable admin-model-preview-action" onClick={handleSaveCamera}>
