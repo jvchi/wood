@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { ACESFilmicToneMapping, SRGBColorSpace, Vector2, Vector3, PMREMGenerator } from 'three'
+import { ACESFilmicToneMapping, SRGBColorSpace, Vector2, Vector3, Vector4, PMREMGenerator } from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import ThreeModelPlaceholder from '../three/ThreeModelPlaceholder'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -93,6 +93,13 @@ function CaptureBridge({ controlsRef, captureRef }) {
     } = {}) {
       const outWidth = Math.max(1, Math.round(width))
       const outHeight = Math.max(1, Math.round(height))
+      const liveW = gl.domElement.clientWidth || gl.domElement.width || outWidth
+      const liveH = gl.domElement.clientHeight || gl.domElement.height || outHeight
+      const cropAspect = aspectRatio && Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : null
+      const cropCssW = cropAspect ? Math.min(0.92 * liveW, 0.92 * liveH * cropAspect) : liveW
+      const cropCssH = cropAspect ? cropCssW / cropAspect : liveH
+      const cropCssX = cropAspect ? (liveW - cropCssW) / 2 : 0
+      const cropCssY = cropAspect ? (liveH - cropCssH) / 2 : 0
       const context = gl.getContext()
       const viewportDims = context.getParameter(context.MAX_VIEWPORT_DIMS)
       const maxRenderbufferSize = context.getParameter(context.MAX_RENDERBUFFER_SIZE)
@@ -106,17 +113,27 @@ function CaptureBridge({ controlsRef, captureRef }) {
         ),
       )
       const requestedScale = Math.max(1, Number(supersample) || 1)
+      const targetCropScale = Math.max(outWidth / cropCssW, outHeight / cropCssH) * requestedScale
       const renderScale = Math.max(
         0.25,
-        Math.min(requestedScale, maxRenderSize / outWidth, maxRenderSize / outHeight),
+        Math.min(targetCropScale, maxRenderSize / liveW, maxRenderSize / liveH),
       )
-      const ssWidth = Math.max(1, Math.min(maxRenderSize, Math.round(outWidth * renderScale)))
-      const ssHeight = Math.max(1, Math.min(maxRenderSize, Math.round(outHeight * renderScale)))
+      const ssWidth = Math.max(1, Math.min(maxRenderSize, Math.round(liveW * renderScale)))
+      const ssHeight = Math.max(1, Math.min(maxRenderSize, Math.round(liveH * renderScale)))
+      const cropX = Math.max(0, Math.round(cropCssX * renderScale))
+      const cropY = Math.max(0, Math.round(cropCssY * renderScale))
+      const cropW = Math.max(1, Math.min(ssWidth - cropX, Math.round(cropCssW * renderScale)))
+      const cropH = Math.max(1, Math.min(ssHeight - cropY, Math.round(cropCssH * renderScale)))
 
       // Snapshot renderer + scene + camera state so we can restore exactly.
       const prevSize = new Vector2()
       gl.getSize(prevSize)
       const prevPixelRatio = gl.getPixelRatio()
+      const prevViewport = new Vector4()
+      const prevScissor = new Vector4()
+      gl.getViewport(prevViewport)
+      gl.getScissor(prevScissor)
+      const prevScissorTest = gl.getScissorTest()
       const prevToneMapping = gl.toneMapping
       const prevExposure = gl.toneMappingExposure
       const prevOutputColorSpace = gl.outputColorSpace
@@ -142,27 +159,15 @@ function CaptureBridge({ controlsRef, captureRef }) {
       gl.outputColorSpace = SRGBColorSpace
       gl.autoClear = true
 
-      // Drive the renderer to a bounded supersampled target size. High capture
-      // presets can exceed mobile/WebGL buffer limits, which makes the export
-      // distort or crop even though the live preview is correctly framed.
-      // Match the FOV to what's inside the ghost overlay so the captured
-      // image frames the model exactly as previewed within the aspect box.
-      if (aspectRatio && Number.isFinite(aspectRatio) && aspectRatio > 0) {
-        const liveW = gl.domElement.clientWidth || gl.domElement.width
-        const liveH = gl.domElement.clientHeight || gl.domElement.height
-        if (liveW > 0 && liveH > 0) {
-          const ghostW = Math.min(0.92 * liveW, 0.92 * liveH * aspectRatio)
-          const ghostH = ghostW / aspectRatio
-          const newFov = (2 * Math.atan(Math.tan((prevFov * Math.PI) / 360) * (ghostH / liveH)) * 180) / Math.PI
-          camera.fov = newFov
-        }
-      }
-
       gl.setPixelRatio(1)
       gl.setSize(ssWidth, ssHeight, false)
-      camera.aspect = outWidth / outHeight
+      gl.setViewport(0, 0, ssWidth, ssHeight)
+      gl.setScissor(0, 0, ssWidth, ssHeight)
+      gl.setScissorTest(false)
+      camera.aspect = ssWidth / ssHeight
       camera.updateProjectionMatrix()
 
+      gl.clear(true, true, true)
       gl.render(scene, camera)
       const dataUrl = gl.domElement.toDataURL('image/png')
 
@@ -177,6 +182,9 @@ function CaptureBridge({ controlsRef, captureRef }) {
       gl.autoClear = prevAutoClear
       gl.setPixelRatio(prevPixelRatio)
       gl.setSize(prevSize.x, prevSize.y, false)
+      gl.setViewport(prevViewport)
+      gl.setScissor(prevScissor)
+      gl.setScissorTest(prevScissorTest)
       camera.aspect = prevAspect
       camera.fov = prevFov
       camera.updateProjectionMatrix()
@@ -203,7 +211,7 @@ function CaptureBridge({ controlsRef, captureRef }) {
       const ctx = out.getContext('2d')
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
-      ctx.drawImage(img, 0, 0, outWidth, outHeight)
+      ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, outWidth, outHeight)
       const blob = await new Promise(resolve => out.toBlob(resolve, 'image/png'))
       return blob
     }
