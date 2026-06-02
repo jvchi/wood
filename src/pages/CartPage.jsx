@@ -7,8 +7,8 @@ import Button from '../components/ui/Button'
 import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumber'
 
 const SWIPE_ACTION_WIDTH = 88
-const FULL_SWIPE_VELOCITY = -850
-const OPEN_SWIPE_VELOCITY = -220
+const FULL_SWIPE_VELOCITY = -760
+const OPEN_SWIPE_VELOCITY = -180
 
 function useIsMobileCart() {
   const [isMobile, setIsMobile] = useState(() => {
@@ -49,9 +49,9 @@ function CartItem({ item, removeItem, updateQuantity }) {
 
     return animate(x, value, {
       type: 'spring',
-      stiffness: 520,
-      damping: 34,
-      mass: 0.82,
+      stiffness: 720,
+      damping: 54,
+      mass: 0.7,
       velocity: x.getVelocity(),
     })
   }
@@ -69,13 +69,18 @@ function CartItem({ item, removeItem, updateQuantity }) {
 
     animate(x, -rowWidth - SWIPE_ACTION_WIDTH, {
       type: 'spring',
-      stiffness: 600,
-      damping: 42,
-      mass: 0.76,
+      stiffness: 760,
+      damping: 58,
+      mass: 0.68,
       velocity: Math.min(x.getVelocity(), FULL_SWIPE_VELOCITY),
     })
 
-    window.setTimeout(() => removeItem(item.key), 220)
+    window.setTimeout(() => removeItem(item.key), 180)
+  }
+
+  const handleQuantityChange = (quantity) => {
+    springTo(0)
+    updateQuantity(item.key, quantity)
   }
 
   const handleDragEnd = (_, info) => {
@@ -122,10 +127,9 @@ function CartItem({ item, removeItem, updateQuantity }) {
         drag={isMobile && !isRemoving ? 'x' : false}
         dragDirectionLock
         dragConstraints={{ left: -1000, right: 0 }}
-        dragElastic={{ left: 0.18, right: 0.03 }}
+        dragElastic={{ left: 0.08, right: 0.02 }}
         dragMomentum={false}
         onDragEnd={handleDragEnd}
-        whileTap={isMobile ? { scale: 0.995 } : undefined}
       >
         <Link to={`/product/${item.product.id}`} className="cart-item-image" draggable="false">
           <img src={item.product.images[0]} alt={item.product.name} width="256" height="320" className="cart-item-thumb" loading="lazy" draggable="false" />
@@ -141,19 +145,19 @@ function CartItem({ item, removeItem, updateQuantity }) {
           </div>
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="cart-quantity">
+            <div className="cart-quantity" onPointerDownCapture={(event) => event.stopPropagation()}>
               <button
                 type="button"
-                onClick={() => updateQuantity(item.key, item.quantity - 1)}
-                className="pressable icon-button text-[var(--color-primary)]"
+                onClick={() => handleQuantityChange(item.quantity - 1)}
+                className="pressable icon-button cart-quantity-button text-[var(--color-primary)]"
                 aria-label="Decrease quantity">−</button>
               <span className="product-price w-9 text-center">
                 <AnimatedNumber value={item.quantity} aria-label={`${item.quantity} quantity`} />
               </span>
               <button
                 type="button"
-                onClick={() => updateQuantity(item.key, item.quantity + 1)}
-                className="pressable icon-button text-[var(--color-primary)]"
+                onClick={() => handleQuantityChange(item.quantity + 1)}
+                className="pressable icon-button cart-quantity-button text-[var(--color-primary)]"
                 aria-label="Increase quantity">+</button>
             </div>
             <button
