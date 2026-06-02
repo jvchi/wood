@@ -800,9 +800,9 @@ input {
   outline-style: none;
 
   background-image: linear-gradient(to right in oklab,
-      color-mix(in oklab, var(--color-white) 92%, #d8d8d8),
-      #a8a8a8,
-      #111);
+      color-mix(in oklab, var(--color-white) 96%, #ece8df),
+      var(--color-white),
+      color-mix(in oklab, var(--color-white) 96%, #ece8df));
 
   font-size: 0.9375rem;
   line-height: calc(1.25 / 0.9375);
@@ -1557,7 +1557,7 @@ input {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.35rem 0.75rem;
   align-items: baseline;
-  padding-top: 0.45rem;
+  padding-top: 0.2rem;
 }
 
 .product-card-masonry.is-tall .product-card-meta {
@@ -4323,11 +4323,75 @@ input {
 
   .shop-masonry {
     width: calc(100vw - 1.5rem);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem 0.75rem;
+    column-count: revert;
+    column-gap: revert;
+  }
+
+  .product-card-masonry .product-title {
+    font-size: 0.625rem;
+    text-align: center;
+  }
+
+  .product-card-masonry .product-card-meta {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .product-card-masonry.is-tall {
+    display: block;
+  }
+
+  .product-card-masonry.is-tall .product-media-masonry {
+    max-height: clamp(16rem, 36vh, 24rem);
+  }
+
+  .product-card-masonry.is-tall .product-card-meta {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1.15rem;
-    column-count: auto;
-    column-gap: 0;
+    max-width: none;
+    padding-top: 0.45rem;
+    text-align: center;
+    align-items: baseline;
+  }
+
+  .product-card-masonry {
+    flex: 1 1 calc(33.333% - 0.5rem);
+    min-width: calc(33.333% - 0.5rem);
+    max-width: 50%;
+    margin-bottom: 0;
+  }
+
+  .product-card-masonry.is-wide {
+    flex: 1 1 100%;
+    min-width: 100%;
+    max-width: 100%;
+    column-span: revert;
+  }
+
+  .product-card-masonry .product-media-masonry,
+  .product-card-masonry.is-tall .product-media-masonry {
+    height: auto;
+    max-height: clamp(14rem, 38vw, 22rem);
+  }
+
+  .product-card-masonry .product-media-masonry img,
+  .product-card-masonry.is-tall .product-media-masonry img {
+    height: auto;
+    width: 100%;
+    max-height: clamp(14rem, 38vw, 22rem);
+    object-fit: contain;
+  }
+
+  .product-card-masonry .product-card-meta {
+    padding-top: 0.25rem;
+  }
+
+  .product-card-masonry.is-wide .product-media-masonry,
+  .product-card-masonry.is-wide .product-media-masonry img {
+    max-height: clamp(20rem, 60vw, 32rem);
   }
 
   .product-card-masonry {
@@ -4335,6 +4399,22 @@ input {
     max-width: none;
     min-width: 0;
     margin-bottom: 1rem;
+  }
+
+  .product-card-masonry.is-tall {
+    display: block;
+  }
+
+  .product-card-masonry.is-tall .product-media-masonry {
+    max-height: clamp(16rem, 36vh, 24rem);
+  }
+
+  .product-card-masonry.is-tall .product-card-meta {
+    display: grid;
+    max-width: none;
+    align-items: baseline;
+    text-align: left;
+    padding-top: 0.2rem;
   }
 
   .product-media-masonry {

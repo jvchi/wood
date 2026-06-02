@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { motion as framerMotion } from 'framer-motion'
 import { useState, forwardRef, useEffect, useRef } from 'react'
-import { formatPrice } from '../../utils/formatPrice'
 import { useWishlist } from '../../context/WishlistContext'
 
 const MotionDiv = framerMotion.div
@@ -20,6 +19,7 @@ const sharedImageTransition = {
 const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false }, ref) => {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [isTall, setIsTall] = useState(false)
+  const [isWide, setIsWide] = useState(false)
   const { isInWishlist, toggleItem } = useWishlist()
   const wishlisted = isInWishlist(product.id)
   const isMasonry = variant === 'masonry'
@@ -37,13 +37,9 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
     const updateLayout = () => {
       if (!img.naturalWidth) return
       const ratio = img.naturalHeight / img.naturalWidth
-      // Evaluate if the card would exceed ~500px in height before applying flex-row
       const parentWidth = card.clientWidth
-      if (parentWidth * ratio >= 500 && ratio > 1.25) {
-        setIsTall(true)
-      } else {
-        setIsTall(false)
-      }
+      setIsTall(parentWidth * ratio >= 500 && ratio > 1.25)
+      setIsWide(ratio <= 0.85)
     }
 
     const observer = new ResizeObserver(() => {
@@ -57,7 +53,7 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
   return (
     <article
       ref={ref}
-      className={`product-card group ${isMasonry ? 'product-card-masonry' : ''} ${isTall ? 'is-tall' : ''}`}
+      className={`product-card group ${isMasonry ? 'product-card-masonry' : ''} ${isTall ? 'is-tall' : ''} ${isWide ? 'is-wide' : ''}`}
       style={isMasonry ? { '--masonry-index': index % 6 } : undefined}
     >
       <MotionDiv
@@ -142,9 +138,6 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
               {product.name}
             </h3>
           </Link>
-          <p className="product-price">
-            {product.stock_quantity <= 0 || product.stock <= 0 ? 'Out of stock' : formatPrice(product.price, product.currency)}
-          </p>
         </div>
       )}
     </article>
