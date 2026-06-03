@@ -4,14 +4,12 @@ import ProductModelPreview from './ProductModelPreview'
 import { formatCameraCsv } from '../../lib/modelCamera'
 import {
   PRODUCT_PLACEHOLDER_IMAGE,
-  compressUploadedModel,
   deleteProductModelAssets,
   normalizeProduct,
   saveTaxonomy,
   slugify,
   uploadAsset,
   uploadImageWithThumbnail,
-  uploadModelSource,
 } from '../../lib/productStore'
 
 function parseRotationCsv(value) {
@@ -27,29 +25,73 @@ function formatRotationCsv(values) {
   return values.map(v => Number(v.toFixed(3))).join(',')
 }
 
-function RotationSliders({ value, onChange }) {
+const ROTATION_DEGREES_MIN = -180
+const ROTATION_DEGREES_MAX = 180
+const ROTATION_DEGREES_STEP = 1
+const ZERO_ROTATION_EPSILON = 0.0001
+const MODEL_SCALE_MIN = 0.05
+const MODEL_SCALE_MAX = 5
+const MODEL_SCALE_STEP = 0.01
+
+function parseModelScale(value) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1
+}
+
+function formatModelScale(value) {
+  return Number(parseModelScale(value).toFixed(3))
+}
+
+function captureSupersampleForSize(size) {
+  const longest = Number(size) || 3000
+  if (longest >= 4000) return 1
+  if (longest >= 3000) return 1.35
+  if (longest >= 2000) return 1.6
+  return 2
+}
+
+function RotationSliders({ value, onChange, onCommit }) {
   const radians = parseRotationCsv(value)
+  const latestValueRef = useRef(value)
+
+  useEffect(() => {
+    latestValueRef.current = value
+  }, [value])
+
+  const setAxisDegrees = (index, nextDegrees) => {
+    const nextRadians = (nextDegrees * Math.PI) / 180
+    setAxis(index, Math.abs(nextRadians) < ZERO_ROTATION_EPSILON ? 0 : nextRadians)
+  }
   const setAxis = (index, next) => {
     const updated = [...radians]
     updated[index] = next
-    onChange(formatRotationCsv(updated))
+    const formatted = formatRotationCsv(updated)
+    latestValueRef.current = formatted
+    onChange(formatted)
   }
-  const reset = () => onChange('0,0,0')
+  const reset = () => {
+    latestValueRef.current = '0,0,0'
+    onChange('0,0,0')
+    onCommit?.('0,0,0')
+  }
   return (
     <div className="admin-rotation-sliders">
       {['X', 'Y', 'Z'].map((axis, index) => {
         const rad = radians[index]
         const deg = Math.round((rad * 180) / Math.PI)
+        const inputDeg = Math.abs(deg) === 0 ? 0 : deg
         return (
           <div key={axis} className="admin-rotation-row">
             <span className="admin-rotation-label">{axis}</span>
             <input
               type="range"
-              min={-Math.PI}
-              max={Math.PI}
-              step={0.01}
-              value={rad}
-              onChange={event => setAxis(index, Number(event.target.value))}
+              min={ROTATION_DEGREES_MIN}
+              max={ROTATION_DEGREES_MAX}
+              step={ROTATION_DEGREES_STEP}
+              value={inputDeg}
+              onChange={event => setAxisDegrees(index, Number(event.target.value))}
+              onPointerUp={() => onCommit?.(latestValueRef.current)}
+              onBlur={() => onCommit?.(latestValueRef.current)}
             />
             <span className="admin-rotation-value">{deg}°</span>
           </div>
@@ -60,15 +102,242 @@ function RotationSliders({ value, onChange }) {
   )
 }
 
-function PositionNudgeControls({ onNudge, onReset }) {
+function ScaleControl({ value, onChange, onCommit }) {
+  const latestValueRef = useRef(formatModelScale(value))
+  const scale = parseModelScale(value)
+
+  useEffect(() => {
+    latestValueRef.current = formatModelScale(value)
+  }, [value])
+
+  const setScale = next => {
+    const formatted = formatModelScale(next)
+    latestValueRef.current = formatted
+    onChange(formatted)
+  }
+  const commit = () => onCommit?.(latestValueRef.current)
+  const reset = () => {
+    latestValueRef.current = 1
+    onChange(1)
+    onCommit?.(1)
+  }
+
+  return (
+    <div className="admin-scale-control">
+      <input
+        type="range"
+        min={MODEL_SCALE_MIN}
+        max={MODEL_SCALE_MAX}
+        step={MODEL_SCALE_STEP}
+        value={Math.min(MODEL_SCALE_MAX, Math.max(MODEL_SCALE_MIN, scale))}
+        onChange={event => setScale(event.target.value)}
+        onPointerUp={commit}
+        onBlur={commit}
+        aria-label="Model scale"
+      />
+      <input
+        type="number"
+        min={MODEL_SCALE_MIN}
+        max={MODEL_SCALE_MAX}
+        step={MODEL_SCALE_STEP}
+        value={scale}
+        onChange={event => setScale(event.target.value)}
+        onBlur={commit}
+        aria-label="Precise model scale"
+      />
+      <button type="button" className="admin-rotation-reset" onClick={reset}>Reset</button>
+    </div>
+  )
+}
+
+function ModelPreviewEditor({
+  draft,
+  previewRef,
+  previewModelUrl,
+  previewModelStatus,
+  aspectRatio,
+  aspectRatioValue,
+  capturing,
+  captureSize,
+  captureTransparent,
+  captureStatus,
+  turntableCount,
+  savedViewThumb,
+  onRotationCommit,
+  onScaleCommit,
+  onSaveCamera,
+  onResetCamera,
+  onResetPosition,
+  onNudgeCamera,
+  onViewBack,
+  onViewFront,
+  onViewLeft,
+  onViewRight,
+  onViewTop,
+  onAspectRatioChange,
+  onCaptureSizeChange,
+  onCaptureTransparentChange,
+  onTurntableCountChange,
+  onCaptureSnapshot,
+  onCaptureTurntable,
+}) {
+  const initialRotation = draft.model_rotation || '0,0,0'
+  const initialScale = parseModelScale(draft.model_scale)
+  const [liveRotation, setLiveRotation] = useState(initialRotation)
+  const [liveScale, setLiveScale] = useState(initialScale)
+  const levelRotationHorizontally = () => {
+    const nextRotation = parseRotationCsv(liveRotation)
+    nextRotation[2] = 0
+    const formatted = formatRotationCsv(nextRotation)
+    setLiveRotation(formatted)
+    onRotationCommit(formatted)
+  }
+
+  return (
+    <div className="admin-model-preview-wrapper">
+      <p className="admin-helper">Drag to rotate · scroll/pinch to zoom · use Position to pan the frame · this frame matches the live product page. Click <strong>Save view</strong> to lock the camera shoppers see first.</p>
+      {previewModelStatus && <p className="admin-helper admin-model-preview-source">{previewModelStatus}</p>}
+      <ProductModelPreview
+        ref={previewRef}
+        modelUrl={previewModelUrl}
+        fallbackImage={draft.model_poster_url || draft.fallback_image_url || draft.images[0]}
+        scale={liveScale}
+        rotation={liveRotation}
+        camera={draft.model_camera}
+        aspectRatio={aspectRatioValue}
+        aspectLabel={aspectRatio}
+        showAspectGhost={!capturing}
+      />
+      {previewModelUrl && (
+        <>
+          <div className="admin-model-preview-rotation">
+            <span className="admin-model-preview-rotation-label">Rotation</span>
+            <RotationSliders value={liveRotation} onChange={setLiveRotation} onCommit={onRotationCommit} />
+          </div>
+          <div className="admin-model-preview-rotation admin-model-preview-scale">
+            <span className="admin-model-preview-rotation-label">Scale</span>
+            <ScaleControl value={liveScale} onChange={setLiveScale} onCommit={onScaleCommit} />
+          </div>
+          <div className="admin-model-preview-rotation admin-model-preview-position">
+            <span className="admin-model-preview-rotation-label">Position</span>
+            <PositionNudgeControls
+              onNudge={onNudgeCamera}
+              onReset={onResetPosition}
+              onBalanceHorizontal={levelRotationHorizontally}
+              onViewBack={onViewBack}
+              onViewFront={onViewFront}
+              onViewLeft={onViewLeft}
+              onViewRight={onViewRight}
+              onViewTop={onViewTop}
+            />
+          </div>
+          <div className="admin-model-preview-toolbar">
+            <button type="button" className="pressable admin-model-preview-action" onClick={onSaveCamera}>
+              Save view
+            </button>
+            <button type="button" className="pressable admin-model-preview-action admin-model-preview-action-secondary" onClick={onResetCamera}>
+              Reset view
+            </button>
+            {draft.model_camera && (
+              <span className="admin-helper admin-model-preview-status">View saved</span>
+            )}
+            {savedViewThumb && (
+              <figure className="admin-saved-view-thumb">
+                <img src={savedViewThumb} alt="Saved view preview" />
+                <figcaption>Saved frame</figcaption>
+              </figure>
+            )}
+          </div>
+          <div className="admin-model-preview-toolbar">
+            <select
+              value={aspectRatio}
+              onChange={event => onAspectRatioChange(event.target.value)}
+              disabled={capturing}
+              aria-label="Aspect ratio"
+            >
+              {ASPECT_RATIO_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <select
+              value={captureSize}
+              onChange={event => onCaptureSizeChange(Number(event.target.value))}
+              disabled={capturing}
+              aria-label="Capture size"
+            >
+              <option value={1500}>1.5K</option>
+              <option value={2000}>2K</option>
+              <option value={3000}>3K</option>
+              <option value={4000}>4K</option>
+              <option value={6000}>6K</option>
+            </select>
+            <label className="admin-toggle" style={{ margin: 0 }}>
+              <input
+                type="checkbox"
+                checked={captureTransparent}
+                onChange={event => onCaptureTransparentChange(event.target.checked)}
+                disabled={capturing}
+              />
+              <span>Transparent BG</span>
+            </label>
+            <button
+              type="button"
+              className={`pressable admin-model-preview-action admin-capture-button${capturing ? ' is-capturing' : ''}`}
+              onClick={onCaptureSnapshot}
+              disabled={capturing}
+              aria-busy={capturing}
+            >
+              <span className="admin-capture-button-content">
+                {capturing && <span className="admin-capture-spinner" aria-hidden="true" />}
+                <span>{capturing ? 'Capturing image' : 'Capture HD image'}</span>
+              </span>
+            </button>
+            <input
+              type="number"
+              min="2"
+              max="36"
+              value={turntableCount}
+              onChange={event => onTurntableCountChange(event.target.value)}
+              disabled={capturing}
+              style={{ width: '4.5rem' }}
+              aria-label="Turntable angle count"
+            />
+            <button
+              type="button"
+              className="pressable admin-model-preview-action admin-model-preview-action-secondary"
+              onClick={onCaptureTurntable}
+              disabled={capturing}
+            >
+              Capture turntable
+            </button>
+            {captureStatus && (
+              <span className={`admin-helper admin-model-preview-status admin-capture-status${capturing ? ' is-active' : ''}`} role="status" aria-live="polite">
+                {capturing && <span className="admin-capture-status-bar" aria-hidden="true" />}
+                <span>{captureStatus}</span>
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function PositionNudgeControls({ onNudge, onReset, onBalanceHorizontal, onViewBack, onViewFront, onViewLeft, onViewRight, onViewTop }) {
   const step = 0.18
   return (
     <div className="admin-position-nudge" aria-label="Position framing controls">
       <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(0, -step)} aria-label="Move frame up">↑</button>
       <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(step, 0)} aria-label="Move frame left">←</button>
+      <button type="button" className="admin-position-nudge-button" onClick={onBalanceHorizontal} aria-label="Level model horizontally">−</button>
       <button type="button" className="admin-position-nudge-button" onClick={onReset} aria-label="Reset position">•</button>
       <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(-step, 0)} aria-label="Move frame right">→</button>
       <button type="button" className="admin-position-nudge-button" onClick={() => onNudge(0, step)} aria-label="Move frame down">↓</button>
+      <button type="button" className="admin-position-nudge-button admin-position-view-button" onClick={onViewBack} aria-label="View model back">Back</button>
+      <button type="button" className="admin-position-nudge-button admin-position-view-button" onClick={onViewFront} aria-label="View model front">Front</button>
+      <button type="button" className="admin-position-nudge-button admin-position-view-button" onClick={onViewLeft} aria-label="View model left side">Left</button>
+      <button type="button" className="admin-position-nudge-button admin-position-view-button" onClick={onViewRight} aria-label="View model right side">Right</button>
+      <button type="button" className="admin-position-nudge-button admin-position-view-button" onClick={onViewTop} aria-label="View model top">Top</button>
     </div>
   )
 }
@@ -305,6 +574,27 @@ const ASPECT_RATIO_MAP = {
   '9:16': [9, 16],
 }
 
+const MODEL_UPLOAD_MAX_BYTES = 150 * 1024 * 1024
+const CLIENT_MODEL_UPLOAD_TARGET_BYTES = 45 * 1024 * 1024
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return '0 MB'
+  return `${(bytes / 1024 / 1024).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`
+}
+
+function modelUploadSizeError(file) {
+  if (!file || file.size <= MODEL_UPLOAD_MAX_BYTES) return ''
+  return `Model is ${formatBytes(file.size)}. Upload models must be ${formatBytes(MODEL_UPLOAD_MAX_BYTES)} or smaller before compression.`
+}
+
+function storageLimitMessage(error, fallback) {
+  const message = error?.message || fallback
+  if (/maximum allowed size|exceeded.*size|object.*size/i.test(message)) {
+    return `Storage rejected this model because Supabase still has an upload size limit below this file. Set the Storage global file size limit to at least ${formatBytes(MODEL_UPLOAD_MAX_BYTES)} and keep the product-models bucket limit at ${formatBytes(MODEL_UPLOAD_MAX_BYTES)}, then upload again.`
+  }
+  return message
+}
+
 const DRAFT_STORAGE_PREFIX = 'wood:product-draft:'
 
 function draftStorageKey(product) {
@@ -375,12 +665,34 @@ export default function ProductFormPanel({ product, categories, collections, pro
   const [captureTransparent, setCaptureTransparent] = useState(true)
   const [savedViewThumb, setSavedViewThumb] = useState(null)
   const [imageAspects, setImageAspects] = useState({})
+  const [localSourceModel, setLocalSourceModel] = useState(null)
+  const localSourceModelUrlRef = useRef('')
   const isEditing = Boolean(product?.id)
   const [skuManuallyEdited, setSkuManuallyEdited] = useState(() => Boolean(product?.sku || loadStoredDraft(product)?.sku))
   const lastAutoSkuRef = useRef('')
   const draftId = draft.id
   const draftName = draft.name
   const draftCategoryId = draft.category_id
+  const previewModelUrl = localSourceModel?.url || draft.model_url
+  const previewModelStatus = localSourceModel
+    ? `Previewing original full-detail model locally for captures · ${formatBytes(localSourceModel.size)}. Saved 3D view uses the compressed Supabase model.`
+    : ''
+
+  function clearLocalSourceModel() {
+    if (localSourceModelUrlRef.current) {
+      URL.revokeObjectURL(localSourceModelUrlRef.current)
+      localSourceModelUrlRef.current = ''
+    }
+    setLocalSourceModel(null)
+  }
+
+  function previewOriginalSourceModel(file) {
+    if (!file || typeof URL === 'undefined') return
+    if (localSourceModelUrlRef.current) URL.revokeObjectURL(localSourceModelUrlRef.current)
+    const url = URL.createObjectURL(file)
+    localSourceModelUrlRef.current = url
+    setLocalSourceModel({ url, name: file.name, size: file.size })
+  }
 
   function handleImageMeta(image, event) {
     const { naturalWidth, naturalHeight } = event.currentTarget
@@ -391,7 +703,16 @@ export default function ProductFormPanel({ product, categories, collections, pro
     })
   }
 
+  useEffect(() => () => {
+    if (localSourceModelUrlRef.current) URL.revokeObjectURL(localSourceModelUrlRef.current)
+  }, [])
+
   useEffect(() => {
+    if (localSourceModelUrlRef.current) {
+      URL.revokeObjectURL(localSourceModelUrlRef.current)
+      localSourceModelUrlRef.current = ''
+    }
+    setLocalSourceModel(null)
     const stored = loadStoredDraft(product)
     if (stored) {
       setDraft(stored)
@@ -468,6 +789,7 @@ export default function ProductFormPanel({ product, categories, collections, pro
 
   function update(key, value) {
     setDraft(current => {
+      if (current[key] === value) return current
       const next = { ...current, [key]: value }
       if (key === 'name' && !isEditing) next.slug = slugify(value)
       if (key === 'short_description') next.description = value
@@ -514,9 +836,16 @@ export default function ProductFormPanel({ product, categories, collections, pro
   async function handleModelUpload(event, variant = 'full') {
     const file = event.target.files?.[0]
     if (!file) return
+    const sizeError = modelUploadSizeError(file)
+    if (sizeError) {
+      setError(sizeError)
+      event.target.value = ''
+      return
+    }
     setUploading(true)
     setError('')
     try {
+      if (variant !== 'lite') previewOriginalSourceModel(file)
       const url = await uploadAsset(file, 'product-models', draft.id, variant === 'lite' ? 'lite_model' : 'model')
       setDraft(current => {
         const next = {
@@ -533,7 +862,7 @@ export default function ProductFormPanel({ product, categories, collections, pro
         return next
       })
     } catch (err) {
-      setError(err.message || 'Model upload failed')
+      setError(storageLimitMessage(err, 'Model upload failed'))
     } finally {
       setUploading(false)
       event.target.value = ''
@@ -543,35 +872,50 @@ export default function ProductFormPanel({ product, categories, collections, pro
   async function handleAutoCompressUpload(event) {
     const file = event.target.files?.[0]
     if (!file) return
+    const sizeError = modelUploadSizeError(file)
+    if (sizeError) {
+      setError(sizeError)
+      setCompressionStatus('')
+      event.target.value = ''
+      return
+    }
     setUploading(true)
     setError('')
-    setCompressionStatus('Uploading source...')
+    setCompressionStatus('Optimizing model locally before upload...')
     try {
-      const sourcePath = await uploadModelSource(file, draft.id)
-      setCompressionStatus('Compressing — this can take 30–90s for large models...')
-      const result = await compressUploadedModel({
-        sourcePath,
-        productId: draft.id,
-        sourceFileName: file.name,
-        sourceContentType: file.type || 'model/gltf-binary',
+      previewOriginalSourceModel(file)
+      const { optimizeModelVariantsForUpload } = await import('../../lib/modelOptimizer')
+      const { full, lite } = await optimizeModelVariantsForUpload(file, {
+        onProgress: status => setCompressionStatus(status),
       })
+      if (!full) throw new Error('Model optimization returned no full model')
+      if (!lite) throw new Error('Model optimization returned no lite model')
+      if (full.size > CLIENT_MODEL_UPLOAD_TARGET_BYTES) {
+        throw new Error(`Optimized model is still ${formatBytes(full.size)}. Reduce textures or geometry until it is under ${formatBytes(CLIENT_MODEL_UPLOAD_TARGET_BYTES)} for upload.`)
+      }
+      if (lite.size > CLIENT_MODEL_UPLOAD_TARGET_BYTES) {
+        throw new Error(`Lite model is still ${formatBytes(lite.size)}. Reduce textures or geometry until it is under ${formatBytes(CLIENT_MODEL_UPLOAD_TARGET_BYTES)} for upload.`)
+      }
+
+      setCompressionStatus(`Uploading optimized models · original ${formatBytes(file.size)} → full ${formatBytes(full.size)} · lite ${formatBytes(lite.size)}...`)
+      const [fullUrl, liteUrl] = await Promise.all([
+        uploadAsset(full, 'product-models', draft.id, 'full_model'),
+        uploadAsset(lite, 'product-models', draft.id, 'lite_model'),
+      ])
+      const version = String(Date.now())
       setDraft(current => ({
         ...current,
-        model_url: result.fullUrl,
-        model_lite_url: result.liteUrl,
+        model_url: fullUrl,
+        model_lite_url: liteUrl,
         model_format: 'glb',
-        model_file_size: result.fullSize,
-        model_version: result.version || String(Date.now()),
+        model_file_size: full.size,
+        model_version: version,
       }))
 
       const fmt = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`
-      setCompressionStatus(
-        result.skippedCompression
-          ? `Done · ${fmt(result.sourceSize)} (under 5MB, compression skipped)`
-          : `Done · source ${fmt(result.sourceSize)} → full ${fmt(result.fullSize)} · lite ${fmt(result.liteSize)}`,
-      )
+      setCompressionStatus(`Done · original ${fmt(file.size)} → full ${fmt(full.size)} · lite ${fmt(lite.size)}. Preview still uses original locally for captures.`)
     } catch (err) {
-      setError(err.message || 'Auto-compression failed')
+      setError(storageLimitMessage(err, 'Auto-compression failed'))
       setCompressionStatus('')
     } finally {
       setUploading(false)
@@ -622,6 +966,31 @@ export default function ProductFormPanel({ product, categories, collections, pro
     if (nextState) update('model_camera', formatCameraCsv(nextState))
   }
 
+  function handleViewBack() {
+    const nextState = previewRef.current?.viewFromBack?.()
+    if (nextState) update('model_camera', formatCameraCsv(nextState))
+  }
+
+  function handleViewFront() {
+    const nextState = previewRef.current?.viewFromFront?.()
+    if (nextState) update('model_camera', formatCameraCsv(nextState))
+  }
+
+  function handleViewLeft() {
+    const nextState = previewRef.current?.viewFromLeft?.()
+    if (nextState) update('model_camera', formatCameraCsv(nextState))
+  }
+
+  function handleViewRight() {
+    const nextState = previewRef.current?.viewFromRight?.()
+    if (nextState) update('model_camera', formatCameraCsv(nextState))
+  }
+
+  function handleViewTop() {
+    const nextState = previewRef.current?.viewFromTop?.()
+    if (nextState) update('model_camera', formatCameraCsv(nextState))
+  }
+
   function computeResolution() {
     const [rw, rh] = ASPECT_RATIO_MAP[aspectRatio] || [1, 1]
     const longest = Math.max(1000, Math.min(6000, Number(captureSize) || 3000))
@@ -650,18 +1019,20 @@ export default function ProductFormPanel({ product, categories, collections, pro
     }
     setCapturing(true)
     setError('')
-    setCaptureStatus('Rendering HD snapshot...')
+    setCaptureStatus('Preparing high-detail frame')
     try {
       const { width, height } = computeResolution()
+      await new Promise(resolve => requestAnimationFrame(resolve))
+      setCaptureStatus(`Rendering ${width}×${height}`)
       const blob = await previewRef.current.captureSnapshot({
         width,
         height,
-        supersample: 2,
+        supersample: captureSupersampleForSize(captureSize),
         transparent: captureTransparent,
         aspectRatio: aspectRatioValue,
       })
       if (!blob) throw new Error('Capture returned no image')
-      setCaptureStatus('Uploading...')
+      setCaptureStatus('Uploading final PNG')
       const uploaded = await uploadCaptureBlob(blob, 'hero')
       setDraft(current => {
         const currentImages = (current.images || []).filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
@@ -690,24 +1061,25 @@ export default function ProductFormPanel({ product, categories, collections, pro
     const count = Math.max(2, Math.min(36, Number(turntableCount) || 8))
     setCapturing(true)
     setError('')
-    setCaptureStatus(`Rendering ${count} angles...`)
+    setCaptureStatus(`Preparing ${count} turntable frames`)
     try {
       const { width, height } = computeResolution()
+      await new Promise(resolve => requestAnimationFrame(resolve))
       const blobs = await previewRef.current.captureTurntable(count, {
         width,
         height,
-        supersample: 2,
+        supersample: captureSupersampleForSize(captureSize),
         transparent: captureTransparent,
         aspectRatio: aspectRatioValue,
-        onProgress: (done, total) => setCaptureStatus(`Rendering ${done}/${total}...`),
+        onProgress: (done, total) => setCaptureStatus(`Rendering ${done}/${total} · ${width}×${height}`),
       })
       if (!blobs?.length) throw new Error('No frames captured')
-      setCaptureStatus(`Uploading ${blobs.length} images...`)
+      setCaptureStatus(`Uploading ${blobs.length} PNGs`)
       const uploaded = []
       for (let i = 0; i < blobs.length; i += 1) {
         const image = await uploadCaptureBlob(blobs[i], `angle-${String(i + 1).padStart(2, '0')}`)
         uploaded.push(image)
-        setCaptureStatus(`Uploading ${i + 1}/${blobs.length}...`)
+        setCaptureStatus(`Uploading ${i + 1}/${blobs.length}`)
       }
       setDraft(current => {
         const currentImages = (current.images || []).filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
@@ -743,6 +1115,7 @@ export default function ProductFormPanel({ product, categories, collections, pro
       model_file_size: '',
       fallback_image_url: '',
     }))
+    clearLocalSourceModel()
     setCompressionStatus('')
     setError('')
     try {
@@ -993,111 +1366,38 @@ export default function ProductFormPanel({ product, categories, collections, pro
               <span className={draft.model_version ? 'is-ready' : ''}>Versioned</span>
             </div>
             <p className="admin-helper">Production models should be published as full, lite, and poster assets. Use Draco or Meshopt compression before adding the final URLs here.</p>
-            <div className="admin-model-preview-wrapper">
-              <p className="admin-helper">Drag to rotate · scroll/pinch to zoom · use Position to pan the frame · this frame matches the live product page. Click <strong>Save view</strong> to lock the camera shoppers see first.</p>
-              <ProductModelPreview
-                ref={previewRef}
-                modelUrl={draft.model_url}
-                fallbackImage={draft.model_poster_url || draft.fallback_image_url || draft.images[0]}
-                scale={draft.model_scale}
-                rotation={draft.model_rotation}
-                camera={draft.model_camera}
-                aspectRatio={aspectRatioValue}
-                aspectLabel={aspectRatio}
-                showAspectGhost={!capturing}
-              />
-              {draft.model_url && (
-                <>
-                  <div className="admin-model-preview-rotation">
-                    <span className="admin-model-preview-rotation-label">Rotation</span>
-                    <RotationSliders value={draft.model_rotation || '0,0,0'} onChange={value => update('model_rotation', value)} />
-                  </div>
-                  <div className="admin-model-preview-rotation admin-model-preview-position">
-                    <span className="admin-model-preview-rotation-label">Position</span>
-                    <PositionNudgeControls onNudge={handleNudgeCamera} onReset={handleResetPosition} />
-                  </div>
-                  <div className="admin-model-preview-toolbar">
-                    <button type="button" className="pressable admin-model-preview-action" onClick={handleSaveCamera}>
-                      Save view
-                    </button>
-                    <button type="button" className="pressable admin-model-preview-action admin-model-preview-action-secondary" onClick={handleResetCamera}>
-                      Reset view
-                    </button>
-                    {draft.model_camera && (
-                      <span className="admin-helper admin-model-preview-status">View saved</span>
-                    )}
-                    {savedViewThumb && (
-                      <figure className="admin-saved-view-thumb">
-                        <img src={savedViewThumb} alt="Saved view preview" />
-                        <figcaption>Saved framing</figcaption>
-                      </figure>
-                    )}
-                  </div>
-                  <div className="admin-model-preview-toolbar">
-                    <select
-                      value={aspectRatio}
-                      onChange={event => setAspectRatio(event.target.value)}
-                      disabled={capturing}
-                      aria-label="Aspect ratio"
-                    >
-                      {ASPECT_RATIO_OPTIONS.map(option => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={captureSize}
-                      onChange={event => setCaptureSize(Number(event.target.value))}
-                      disabled={capturing}
-                      aria-label="Capture size"
-                    >
-                      <option value={1500}>1.5K</option>
-                      <option value={2000}>2K</option>
-                      <option value={3000}>3K</option>
-                      <option value={4000}>4K</option>
-                      <option value={6000}>6K</option>
-                    </select>
-                    <label className="admin-toggle" style={{ margin: 0 }}>
-                      <input
-                        type="checkbox"
-                        checked={captureTransparent}
-                        onChange={event => setCaptureTransparent(event.target.checked)}
-                        disabled={capturing}
-                      />
-                      <span>Transparent BG</span>
-                    </label>
-                    <button
-                      type="button"
-                      className="pressable admin-model-preview-action"
-                      onClick={handleCaptureSnapshot}
-                      disabled={capturing}
-                    >
-                      {capturing ? 'Working…' : 'Capture HD image'}
-                    </button>
-                    <input
-                      type="number"
-                      min="2"
-                      max="36"
-                      value={turntableCount}
-                      onChange={event => setTurntableCount(event.target.value)}
-                      disabled={capturing}
-                      style={{ width: '4.5rem' }}
-                      aria-label="Turntable angle count"
-                    />
-                    <button
-                      type="button"
-                      className="pressable admin-model-preview-action admin-model-preview-action-secondary"
-                      onClick={handleCaptureTurntable}
-                      disabled={capturing}
-                    >
-                      Capture turntable
-                    </button>
-                    {captureStatus && (
-                      <span className="admin-helper admin-model-preview-status">{captureStatus}</span>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+            <ModelPreviewEditor
+              key={`${draft.id || 'new'}-${previewModelUrl || ''}-${draft.model_rotation || '0,0,0'}-${parseModelScale(draft.model_scale)}`}
+              draft={draft}
+              previewRef={previewRef}
+              previewModelUrl={previewModelUrl}
+              previewModelStatus={previewModelStatus}
+              aspectRatio={aspectRatio}
+              aspectRatioValue={aspectRatioValue}
+              capturing={capturing}
+              captureSize={captureSize}
+              captureTransparent={captureTransparent}
+              captureStatus={captureStatus}
+              turntableCount={turntableCount}
+              savedViewThumb={savedViewThumb}
+              onRotationCommit={value => update('model_rotation', value)}
+              onScaleCommit={value => update('model_scale', value)}
+              onSaveCamera={handleSaveCamera}
+              onResetCamera={handleResetCamera}
+              onResetPosition={handleResetPosition}
+              onNudgeCamera={handleNudgeCamera}
+              onViewBack={handleViewBack}
+              onViewFront={handleViewFront}
+              onViewLeft={handleViewLeft}
+              onViewRight={handleViewRight}
+              onViewTop={handleViewTop}
+              onAspectRatioChange={setAspectRatio}
+              onCaptureSizeChange={setCaptureSize}
+              onCaptureTransparentChange={setCaptureTransparent}
+              onTurntableCountChange={setTurntableCount}
+              onCaptureSnapshot={handleCaptureSnapshot}
+              onCaptureTurntable={handleCaptureTurntable}
+            />
           </section>
 
           <section className="admin-form-section">

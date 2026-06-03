@@ -1,4 +1,5 @@
 import { supabase, hasSupabaseConfig, supabaseUrlPublic, supabaseAnonKeyPublic } from './supabase'
+import { Upload } from 'tus-js-client'
 
 export const PRODUCT_EVENT = 'wood:products-updated'
 
@@ -7,7 +8,7 @@ const CATEGORIES_KEY = 'wood.admin.categories'
 const COLLECTIONS_KEY = 'wood.admin.collections'
 const PRODUCT_CACHE_PUBLIC = 'published'
 const PRODUCT_CACHE_ALL = 'include-unpublished'
-const PRODUCT_QUERY_TIMEOUT_MS = 2500
+const PRODUCT_QUERY_TIMEOUT_MS = 10000
 const SUPABASE_REACHABILITY_TIMEOUT_MS = 1500
 const productListCache = new Map()
 const productListRequests = new Map()
@@ -29,201 +30,15 @@ export const defaultCollections = [
   { id: 'work-lounge', name: 'Work Lounge', slug: 'work-lounge', description: 'Pieces for studios, offices, and reading corners.' },
 ]
 
-export const fallbackProducts = [
-  {
-    id: '1',
-    name: 'Maren Sofa',
-    slug: 'maren-sofa',
-    category: 'sofas',
-    category_id: 'sofas',
-    collection: 'quiet-room',
-    collection_id: 'quiet-room',
-    price: 2490,
-    regular_price: 2490,
-    sale_price: '',
-    compare_at_price: '',
-    currency: 'USD',
-    images: [
-      'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1200&q=82',
-      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=1200&q=82',
-      'https://images.unsplash.com/photo-1550254478-ead40cc54513?w=1200&q=82',
-    ],
-    description: 'A sculptural silhouette defined by gentle curves and deep cushioning. The Maren brings warmth to any space with its linen-blend upholstery and solid oak frame.',
-    short_description: 'Curved linen sofa with a calm oak frame.',
-    full_description: 'A sculptural silhouette defined by gentle curves and deep cushioning. The Maren brings warmth to any space with its linen-blend upholstery and solid oak frame.',
-    dimensions: { width: 220, depth: 95, height: 78 },
-    dimension_text: '220W x 95D x 78H cm',
-    weight: '68 kg',
-    materials: ['Linen blend', 'Solid oak', 'High-density foam'],
-    material: 'Linen blend, solid oak, high-density foam',
-    color: 'Sand',
-    brand: 'Wood Studio',
-    room_type: 'Living room',
-    stock: 12,
-    stock_quantity: 12,
-    low_stock_threshold: 3,
-    stock_status: 'in_stock',
-    sku: 'WOOD-MAREN-SAND',
-    tags: ['sofa', 'linen', 'oak'],
-    variants: ['Sand', 'Charcoal', 'Oat'],
-    published: true,
-    featured: true,
-    new_arrival: true,
-    best_seller: false,
-    show_on_homepage: true,
-    show_in_collection: true,
-    delivery_estimate: '2-4 weeks',
-    assembly_required: false,
-    care_instructions: 'Vacuum weekly. Spot clean with a damp cloth.',
-    warranty_info: '3 year frame warranty.',
-    return_eligible: true,
-    seo_title: 'Maren Sofa | Wood',
-    seo_description: 'A curved linen sofa with a solid oak frame and deep cushioning.',
-    updated_at: '2026-04-20T10:00:00.000Z',
-    created_at: '2026-04-20T10:00:00.000Z',
-  },
-  {
-    id: '2',
-    name: 'Elda Sectional',
-    slug: 'elda-sectional',
-    category: 'sectionals',
-    category_id: 'sectionals',
-    collection: 'soft-forms',
-    collection_id: 'soft-forms',
-    price: 4200,
-    regular_price: 4200,
-    currency: 'USD',
-    images: [
-      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1200&q=82',
-      'https://images.unsplash.com/photo-1567016432779-094069958ea5?w=1200&q=82',
-      'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?w=1200&q=82',
-    ],
-    description: 'Modular by design, the Elda adapts to your space. Each section connects seamlessly, wrapped in boucle fabric with a refined low-profile stance.',
-    short_description: 'Low modular sectional wrapped in bouclé.',
-    full_description: 'Modular by design, the Elda adapts to your space. Each section connects seamlessly, wrapped in bouclé fabric with a refined low-profile stance.',
-    dimensions: { width: 310, depth: 170, height: 72 },
-    dimension_text: '310W x 170D x 72H cm',
-    materials: ['Boucle fabric', 'Steel frame', 'Memory foam'],
-    material: 'Boucle fabric, steel frame, memory foam',
-    color: 'Ivory',
-    brand: 'Wood Studio',
-    room_type: 'Living room',
-    stock: 5,
-    stock_quantity: 5,
-    low_stock_threshold: 3,
-    stock_status: 'in_stock',
-    sku: 'WOOD-ELDA-IVORY',
-    tags: ['sectional', 'modular', 'boucle'],
-    variants: ['Ivory', 'Slate', 'Moss'],
-    published: true,
-    featured: true,
-    new_arrival: false,
-    best_seller: true,
-    show_on_homepage: true,
-    show_in_collection: true,
-    delivery_estimate: '3-5 weeks',
-    assembly_required: true,
-    care_instructions: 'Brush fabric lightly and spot clean.',
-    warranty_info: '3 year frame warranty.',
-    return_eligible: true,
-    updated_at: '2026-04-18T10:00:00.000Z',
-    created_at: '2026-04-18T10:00:00.000Z',
-  },
-  {
-    id: '3',
-    name: 'Kai Armchair',
-    slug: 'kai-armchair',
-    category: 'chairs',
-    category_id: 'chairs',
-    collection: 'work-lounge',
-    collection_id: 'work-lounge',
-    price: 1350,
-    regular_price: 1350,
-    currency: 'USD',
-    images: [
-      'https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=1200&q=82',
-      'https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=1200&q=82',
-      'https://images.unsplash.com/photo-1580480055273-228ff5388ef8?w=1200&q=82',
-    ],
-    description: 'Compact yet commanding, the Kai armchair features a cantilevered walnut base and enveloping upholstered shell.',
-    short_description: 'Cantilevered walnut lounge chair.',
-    full_description: 'Compact yet commanding, the Kai armchair features a cantilevered walnut base and enveloping upholstered shell.',
-    dimensions: { width: 78, depth: 82, height: 76 },
-    dimension_text: '78W x 82D x 76H cm',
-    materials: ['Velvet', 'Walnut veneer', 'Plywood shell'],
-    material: 'Velvet, walnut veneer, plywood shell',
-    color: 'Terracotta',
-    brand: 'Wood Studio',
-    room_type: 'Office',
-    stock: 2,
-    stock_quantity: 2,
-    low_stock_threshold: 3,
-    stock_status: 'low_stock',
-    sku: 'WOOD-KAI-TERRA',
-    tags: ['chair', 'walnut', 'office'],
-    variants: ['Terracotta', 'Navy', 'Cream'],
-    published: true,
-    featured: false,
-    new_arrival: true,
-    best_seller: false,
-    show_on_homepage: false,
-    show_in_collection: true,
-    delivery_estimate: '1-3 weeks',
-    assembly_required: false,
-    care_instructions: 'Professional upholstery clean recommended.',
-    warranty_info: '2 year warranty.',
-    return_eligible: true,
-    updated_at: '2026-04-16T10:00:00.000Z',
-    created_at: '2026-04-16T10:00:00.000Z',
-  },
-  {
-    id: '4',
-    name: 'Lune Daybed',
-    slug: 'lune-daybed',
-    category: 'daybeds',
-    category_id: 'daybeds',
-    collection: 'quiet-room',
-    collection_id: 'quiet-room',
-    price: 3100,
-    regular_price: 3100,
-    currency: 'USD',
-    images: [
-      'https://images.unsplash.com/photo-1540574163026-643ea20ade25?w=1200&q=82',
-      'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=1200&q=82',
-      'https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?w=1200&q=82',
-    ],
-    description: 'Inspired by Scandinavian minimalism, the Lune daybed blurs the line between furniture and architecture.',
-    short_description: 'Architectural daybed for reading and rest.',
-    full_description: 'Inspired by Scandinavian minimalism, the Lune daybed blurs the line between furniture and architecture.',
-    dimensions: { width: 200, depth: 90, height: 65 },
-    dimension_text: '200W x 90D x 65H cm',
-    materials: ['Cotton canvas', 'Ash wood', 'Natural latex'],
-    material: 'Cotton canvas, ash wood, natural latex',
-    color: 'Natural',
-    brand: 'Wood Studio',
-    room_type: 'Bedroom',
-    stock: 0,
-    stock_quantity: 0,
-    low_stock_threshold: 2,
-    stock_status: 'out_of_stock',
-    sku: 'WOOD-LUNE-NAT',
-    tags: ['daybed', 'ash', 'canvas'],
-    variants: ['Natural', 'Graphite', 'Sage'],
-    published: true,
-    featured: false,
-    new_arrival: false,
-    best_seller: false,
-    show_on_homepage: false,
-    show_in_collection: true,
-    delivery_estimate: '4-6 weeks',
-    assembly_required: true,
-    care_instructions: 'Remove covers for dry cleaning only.',
-    warranty_info: '3 year frame warranty.',
-    return_eligible: true,
-    updated_at: '2026-04-14T10:00:00.000Z',
-    created_at: '2026-04-14T10:00:00.000Z',
-  },
-]
+export const fallbackProducts = []
+
+const LEGACY_SEED_PRODUCT_SLUGS = new Set([
+  'maren-sofa',
+  'elda-sectional',
+  'kai-armchair',
+  'lune-daybed',
+  'linear-oak-media-console',
+])
 
 function readLocal(key, fallback) {
   if (typeof window === 'undefined') return fallback
@@ -240,6 +55,19 @@ function writeLocal(key, value) {
   window.localStorage.setItem(key, JSON.stringify(value))
   if (key === PRODUCTS_KEY) clearProductListCache()
   window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
+}
+
+function isLegacySeedProduct(product) {
+  return LEGACY_SEED_PRODUCT_SLUGS.has(String(product?.slug || '').trim().toLowerCase())
+}
+
+function readLocalProducts() {
+  const products = readLocal(PRODUCTS_KEY, [])
+  const cleaned = products.filter(product => !isLegacySeedProduct(product))
+  if (typeof window !== 'undefined' && cleaned.length !== products.length) {
+    window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify(cleaned))
+  }
+  return cleaned
 }
 
 function isSupabaseUnavailableError(error) {
@@ -278,7 +106,7 @@ async function canReachSupabase() {
 }
 
 function saveProductLocal(normalized) {
-  const products = readLocal(PRODUCTS_KEY, fallbackProducts).map(normalizeProduct)
+  const products = readLocalProducts().map(normalizeProduct)
   const index = products.findIndex(item => item.id === normalized.id)
   const next = index >= 0
     ? products.map(item => (item.id === normalized.id ? normalized : item))
@@ -288,7 +116,7 @@ function saveProductLocal(normalized) {
 }
 
 function deleteProductLocal(productId) {
-  writeLocal(PRODUCTS_KEY, readLocal(PRODUCTS_KEY, fallbackProducts).filter(product => product.id !== productId))
+  writeLocal(PRODUCTS_KEY, readLocalProducts().filter(product => product.id !== productId))
 }
 
 function fileToDataUrl(file) {
@@ -557,11 +385,11 @@ async function fetchProductsFromSource({ includeUnpublished }) {
 
     // Supabase is the source of truth — don't fall back to seed fixtures on
     // transient failure, or stale test products start appearing on /shop.
-    const local = readLocal(PRODUCTS_KEY, [])
+    const local = includeUnpublished ? readLocalProducts() : []
     return local.map(normalizeProduct).filter(product => includeUnpublished || (product.published && !product.archived))
   }
 
-  const local = readLocal(PRODUCTS_KEY, fallbackProducts)
+  const local = readLocalProducts()
   return local.map(normalizeProduct).filter(product => includeUnpublished || (product.published && !product.archived))
 }
 
@@ -916,11 +744,19 @@ export async function uploadAsset(file, bucket, productId, assetKind) {
     try {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
       const path = `${productId || 'draft'}/${Date.now()}-${safeName}`
-      const { error } = await supabase.storage.from(bucket).upload(path, file, {
-        cacheControl: '31536000',
-        upsert: true,
-      })
-      if (error) throw error
+      if (bucket === 'product-models') {
+        await uploadStorageResumable(file, bucket, path, {
+          contentType: modelContentType(file),
+          cacheControl: '31536000',
+          upsert: true,
+        })
+      } else {
+        const { error } = await supabase.storage.from(bucket).upload(path, file, {
+          cacheControl: '31536000',
+          upsert: true,
+        })
+        if (error) throw error
+      }
       const { data } = supabase.storage.from(bucket).getPublicUrl(path)
       await trackUpload({ file, bucket, productId, path, publicUrl: data.publicUrl, assetKind })
       return data.publicUrl
@@ -929,6 +765,65 @@ export async function uploadAsset(file, bucket, productId, assetKind) {
     }
   }
   return fileToDataUrl(file)
+}
+
+function projectStorageUrl() {
+  if (!supabaseUrlPublic) return ''
+  return supabaseUrlPublic.replace('https://', 'https://').replace('.supabase.co', '.storage.supabase.co')
+}
+
+function modelContentType(file) {
+  const name = file?.name?.toLowerCase?.() || ''
+  if (name.endsWith('.gltf')) return 'model/gltf+json'
+  return 'model/gltf-binary'
+}
+
+async function getStorageAccessToken() {
+  const { data } = await supabase.auth.getSession()
+  return data?.session?.access_token || supabaseAnonKeyPublic
+}
+
+export async function uploadStorageResumable(file, bucket, path, {
+  contentType = file?.type || 'application/octet-stream',
+  cacheControl = '3600',
+  upsert = true,
+  onProgress,
+} = {}) {
+  if (!hasSupabaseConfig) throw new Error('Supabase storage is required for resumable uploads')
+  const token = await getStorageAccessToken()
+  const endpoint = `${projectStorageUrl()}/storage/v1/upload/resumable`
+
+  await new Promise((resolve, reject) => {
+    const upload = new Upload(file, {
+      endpoint,
+      retryDelays: [0, 3000, 5000, 10000, 20000],
+      chunkSize: 6 * 1024 * 1024,
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      headers: {
+        authorization: `Bearer ${token}`,
+        'x-upsert': upsert ? 'true' : 'false',
+      },
+      metadata: {
+        bucketName: bucket,
+        objectName: path,
+        contentType,
+        cacheControl,
+      },
+      onError: reject,
+      onProgress: (bytesUploaded, bytesTotal) => {
+        onProgress?.({ bytesUploaded, bytesTotal, percent: bytesTotal ? (bytesUploaded / bytesTotal) * 100 : 0 })
+      },
+      onSuccess: resolve,
+    })
+
+    upload.findPreviousUploads()
+      .then(previousUploads => {
+        if (previousUploads.length) upload.resumeFromPreviousUpload(previousUploads[0])
+        upload.start()
+      })
+      .catch(reject)
+  })
 }
 
 export async function uploadImageWithThumbnail(file, productId, assetKind = 'image') {
@@ -972,11 +867,11 @@ export async function uploadModelSource(file, productId) {
   if (!hasSupabaseConfig) throw new Error('Supabase storage is required for auto-compression')
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
   const path = `source/${productId || 'draft'}/${Date.now()}-${safeName}`
-  const { error } = await supabase.storage.from('product-models').upload(path, file, {
+  await uploadStorageResumable(file, 'product-models', path, {
+    contentType: modelContentType(file),
     cacheControl: '3600',
     upsert: true,
   })
-  if (error) throw error
   return path
 }
 

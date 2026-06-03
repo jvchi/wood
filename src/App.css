@@ -2847,11 +2847,17 @@ input {
   padding: 0.45rem;
 }
 
-.admin-list-row img,
-.admin-product-row img {
+.admin-list-row img {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
+}
+
+.admin-product-row img {
+  width: 100%;
+  aspect-ratio: 1;
+  background: #fff;
+  object-fit: contain;
 }
 
 .admin-list-row strong,
@@ -3473,10 +3479,8 @@ input {
   inset: 10%;
   border: 1px dashed rgba(255, 255, 255, 0.92);
   outline: 1px solid rgba(0, 0, 0, 0.28);
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.18)) padding-box,
-    linear-gradient(rgba(180, 206, 236, 0.24), rgba(180, 206, 236, 0.24)) border-box;
-  box-shadow: 0 0 0 9999px rgba(36, 75, 118, 0.1);
+  background: transparent;
+  box-shadow: none;
 }
 
 .admin-model-safe-area::before,
@@ -3585,13 +3589,43 @@ input {
   margin-top: 0.5rem;
 }
 
+.admin-model-preview-scale {
+  margin-top: 0.5rem;
+}
+
 .admin-model-preview-position .admin-model-preview-rotation-label {
   min-width: 4.75rem;
 }
 
+.admin-model-preview-scale .admin-model-preview-rotation-label {
+  min-width: 4.75rem;
+}
+
+.admin-scale-control {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) 5rem auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-scale-control input[type='range'] {
+  width: 100%;
+  accent-color: #111;
+}
+
+.admin-scale-control input[type='number'] {
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .admin-position-nudge {
   display: grid;
-  grid-template-columns: repeat(5, 2.25rem);
+  grid-template-columns: repeat(6, 2.25rem) repeat(5, 3.75rem);
   gap: 0.4rem;
   align-items: center;
 }
@@ -3607,6 +3641,12 @@ input {
   line-height: 1;
   cursor: pointer;
   transition: background 160ms var(--ease-out), transform 160ms var(--ease-out);
+}
+
+.admin-position-view-button {
+  width: 3.75rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
 }
 
 .admin-position-nudge-button:hover {
@@ -3633,6 +3673,7 @@ input {
   font-weight: 800;
   text-transform: uppercase;
   cursor: pointer;
+  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out), background 160ms var(--ease-out);
 }
 
 .admin-model-preview-action-secondary {
@@ -3640,10 +3681,120 @@ input {
   color: var(--color-primary, #111);
 }
 
+.admin-model-preview-action:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.admin-model-preview-action:disabled {
+  cursor: wait;
+  opacity: 0.82;
+}
+
 .admin-model-preview-status {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.admin-capture-button {
+  position: relative;
+  overflow: hidden;
+  min-width: 10.2rem;
+}
+
+.admin-capture-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0 30%, rgba(255, 255, 255, 0.18) 45%, transparent 62% 100%);
+  opacity: 0;
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+
+.admin-capture-button.is-capturing::after {
+  opacity: 1;
+  animation: admin-capture-sheen 1.1s linear infinite;
+}
+
+.admin-capture-button-content {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.admin-capture-spinner {
+  width: 0.82rem;
+  height: 0.82rem;
+  border: 2px solid rgba(255, 255, 255, 0.32);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: admin-capture-spin 620ms linear infinite;
+}
+
+.admin-capture-status {
+  position: relative;
+  display: inline-flex;
+  overflow: hidden;
+  min-height: 2rem;
+  align-items: center;
+  padding: 0.45rem 0.65rem;
+  background: rgba(0, 0, 0, 0.045);
+  color: var(--color-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-capture-status.is-active {
+  color: var(--color-primary);
+}
+
+.admin-capture-status-bar {
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: var(--color-primary);
+  transform-origin: left center;
+  animation: admin-capture-progress 1.15s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+
+.admin-capture-status span:last-child {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes admin-capture-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes admin-capture-sheen {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes admin-capture-progress {
+  0% {
+    transform: scaleX(0.18);
+  }
+  45% {
+    transform: scaleX(0.72);
+  }
+  100% {
+    transform: scaleX(0.18) translateX(460%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-capture-button.is-capturing::after,
+  .admin-capture-spinner,
+  .admin-capture-status-bar {
+    animation: none;
+  }
 }
 
 .admin-saved-view-thumb {
@@ -4115,6 +4266,7 @@ input {
   .admin-product-row>img {
     grid-column: 1;
     width: 3rem;
+    object-fit: contain;
   }
 
   .admin-product-primary {

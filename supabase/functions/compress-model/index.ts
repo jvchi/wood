@@ -69,7 +69,7 @@ async function buildIO(deps: Awaited<ReturnType<typeof loadDeps>>) {
 // Skip pre-decode if the encoded image is too big — Edge Functions have a
 // ~256MB memory ceiling and imagescript decodes to RGBA (4 bytes/pixel).
 // A 3MB encoded JPEG can easily expand to 100MB+ RGBA.
-const MAX_TEXTURE_DECODE_BYTES = 3 * 1024 * 1024
+const MAX_TEXTURE_DECODE_BYTES = 8 * 1024 * 1024
 
 async function resizeTextures(doc: any, maxSize: number, imagescript: any, stats: TextureStats) {
   for (const tex of doc.getRoot().listTextures()) {
@@ -121,12 +121,34 @@ function newTextureStats(): TextureStats {
   return { resized: 0, alreadySmall: 0, skippedTooLarge: 0, unsupportedMime: 0, missing: 0, errored: 0 }
 }
 
-async function compressFull(io: any, fns: any, imagescript: any, bytes: Uint8Array) {
+async function compressFull(io: any, fns: any, encoder: any, imagescript: any, bytes: Uint8Array) {
   const stats = newTextureStats()
   const doc = await io.readBinary(bytes)
-  await doc.transform(fns.dedup(), fns.prune(), fns.weld())
+  await doc.transform(
+    fns.dedup(),
+    fns.prune(),
+    fns.resample(),
+    fns.weld({ tolerance: 0.0001 }),
+    fns.quantize({
+      quantizePosition: 14,
+      quantizeNormal: 10,
+      quantizeTexcoord: 12,
+      quantizeColor: 8,
+      quantizeGeneric: 12,
+    }),
+    fns.reorder({ encoder }),
+  )
   await resizeTextures(doc, 2048, imagescript, stats)
-  await doc.transform(fns.draco({ method: 'edgebreaker' }))
+  await doc.transform(fns.draco({
+    method: 'edgebreaker',
+    encodeSpeed: 4,
+    decodeSpeed: 5,
+    quantizePosition: 14,
+    quantizeNormal: 10,
+    quantizeTexcoord: 12,
+    quantizeColor: 8,
+    quantizeGeneric: 12,
+  }))
   const out = await io.writeBinary(doc)
   return { bytes: out, stats }
 }
@@ -137,8 +159,17 @@ async function compressLite(io: any, fns: any, simplifier: any, encoder: any, im
   await doc.transform(
     fns.dedup(),
     fns.prune(),
-    fns.weld(),
+    fns.resample(),
+    fns.weld({ tolerance: 0.0001 }),
     fns.simplify({ simplifier, ratio: 0.75, error: 0.001, lockBorder: true }),
+    fns.quantize({
+      quantizePosition: 13,
+      quantizeNormal: 10,
+      quantizeTexcoord: 12,
+      quantizeColor: 8,
+      quantizeGeneric: 12,
+    }),
+    fns.reorder({ encoder }),
   )
   await resizeTextures(doc, 1024, imagescript, stats)
   await doc.transform(fns.meshopt({ encoder, level: 'medium' }))
@@ -184,7 +215,7 @@ Deno.serve(async (req) => {
         stage = 'build-io'
         const io = await buildIO(deps)
         stage = 'compress-full'
-        const full = await compressFull(io, deps.fns, deps.imagescript, bytes)
+        const full = await compressFull(io, deps.fns, deps.meshoptmod.MeshoptEncoder, deps.imagescript, bytes)
         fullBytes = full.bytes
         fullStats = full.stats
         stage = 'compress-lite'

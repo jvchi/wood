@@ -14,6 +14,12 @@ const sorters = {
   stock: (a, b) => Number(b.stock_quantity) - Number(a.stock_quantity),
 }
 
+function adminProductThumb(product) {
+  const firstImageIndex = product.images?.findIndex(image => image && image !== PRODUCT_PLACEHOLDER_IMAGE) ?? -1
+  const index = firstImageIndex >= 0 ? firstImageIndex : 0
+  return product.image_thumbnails?.[index] || product.images?.[index] || product.fallback_image_url || PRODUCT_PLACEHOLDER_IMAGE
+}
+
 export default function AdminProductsPage() {
   const { products, loading } = useProducts({ includeUnpublished: true })
   const { addToast } = useToast()
@@ -139,7 +145,7 @@ export default function AdminProductsPage() {
                   const hasProductImage = product.images?.some(image => image && image !== PRODUCT_PLACEHOLDER_IMAGE)
                   return (
                     <>
-                      <img src={product.images[0] || product.fallback_image_url} alt="" width="72" height="72" />
+                      <img src={adminProductThumb(product)} alt="" width="72" height="72" loading="lazy" decoding="async" />
                 <div className="admin-product-primary">
                   <strong>{product.name}</strong>
                   <span>{product.category} · {product.sku || 'No SKU'}</span>

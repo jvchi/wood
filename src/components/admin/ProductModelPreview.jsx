@@ -1,7 +1,7 @@
-import { Suspense, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react'
+import { Suspense, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
-import { ACESFilmicToneMapping, SRGBColorSpace, Vector2, Vector3, Vector4, PMREMGenerator } from 'three'
+import { ACESFilmicToneMapping, Euler, SRGBColorSpace, Vector2, Vector3, Vector4, PMREMGenerator } from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import ThreeModelPlaceholder from '../three/ThreeModelPlaceholder'
 import LoadingSpinner from '../ui/LoadingSpinner'
@@ -14,6 +14,23 @@ import { DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_TARGET, DEFAULT_FOV, parseCamer
 // exceed 10s, and admin previews shouldn't bail early. Retry button below
 // lets the admin recover without reloading the page.
 const MODEL_LOAD_TIMEOUT_MS = 45000
+
+function parseRotation(rotation) {
+  const values = String(rotation || '0,0,0').split(',').map(value => Number(value.trim()))
+  return [
+    Number.isFinite(values[0]) ? values[0] : 0,
+    Number.isFinite(values[1]) ? values[1] : 0,
+    Number.isFinite(values[2]) ? values[2] : 0,
+  ]
+}
+
+function cameraState(camera, controls) {
+  return {
+    position: [camera.position.x, camera.position.y, camera.position.z],
+    target: [controls.target.x, controls.target.y, controls.target.z],
+    fov: camera.fov,
+  }
+}
 
 function ModelLoadFallback({ onError }) {
   useEffect(() => {
@@ -93,13 +110,6 @@ function CaptureBridge({ controlsRef, captureRef }) {
     } = {}) {
       const outWidth = Math.max(1, Math.round(width))
       const outHeight = Math.max(1, Math.round(height))
-      const liveW = gl.domElement.clientWidth || gl.domElement.width || outWidth
-      const liveH = gl.domElement.clientHeight || gl.domElement.height || outHeight
-      const cropAspect = aspectRatio && Number.isFinite(aspectRatio) && aspectRatio > 0 ? aspectRatio : null
-      const cropCssW = cropAspect ? Math.min(0.92 * liveW, 0.92 * liveH * cropAspect) : liveW
-      const cropCssH = cropAspect ? cropCssW / cropAspect : liveH
-      const cropCssX = cropAspect ? (liveW - cropCssW) / 2 : 0
-      const cropCssY = cropAspect ? (liveH - cropCssH) / 2 : 0
       const context = gl.getContext()
       const viewportDims = context.getParameter(context.MAX_VIEWPORT_DIMS)
       const maxRenderbufferSize = context.getParameter(context.MAX_RENDERBUFFER_SIZE)
@@ -113,17 +123,14 @@ function CaptureBridge({ controlsRef, captureRef }) {
         ),
       )
       const requestedScale = Math.max(1, Number(supersample) || 1)
-      const targetCropScale = Math.max(outWidth / cropCssW, outHeight / cropCssH) * requestedScale
-      const renderScale = Math.max(
-        0.25,
-        Math.min(targetCropScale, maxRenderSize / liveW, maxRenderSize / liveH),
-      )
-      const ssWidth = Math.max(1, Math.min(maxRenderSize, Math.round(liveW * renderScale)))
-      const ssHeight = Math.max(1, Math.min(maxRenderSize, Math.round(liveH * renderScale)))
-      const cropX = Math.max(0, Math.round(cropCssX * renderScale))
-      const cropY = Math.max(0, Math.round(cropCssY * renderScale))
-      const cropW = Math.max(1, Math.min(ssWidth - cropX, Math.round(cropCssW * renderScale)))
-      const cropH = Math.max(1, Math.min(ssHeight - cropY, Math.round(cropCssH * renderScale)))
+      const captureAspect = aspectRatio && Number.isFinite(aspectRatio) && aspectRatio > 0
+        ? aspectRatio
+        : outWidth / outHeight
+      const requestedWidth = Math.round(outWidth * requestedScale)
+      const requestedHeight = Math.round(outHeight * requestedScale)
+      const renderLimitScale = Math.min(1, maxRenderSize / requestedWidth, maxRenderSize / requestedHeight)
+      const ssWidth = Math.max(1, Math.round(requestedWidth * renderLimitScale))
+      const ssHeight = Math.max(1, Math.round(requestedHeight * renderLimitScale))
 
       // Snapshot renderer + scene + camera state so we can restore exactly.
       const prevSize = new Vector2()
@@ -164,7 +171,7 @@ function CaptureBridge({ controlsRef, captureRef }) {
       gl.setViewport(0, 0, ssWidth, ssHeight)
       gl.setScissor(0, 0, ssWidth, ssHeight)
       gl.setScissorTest(false)
-      camera.aspect = ssWidth / ssHeight
+      camera.aspect = captureAspect
       camera.updateProjectionMatrix()
 
       gl.clear(true, true, true)
@@ -198,6 +205,10 @@ function CaptureBridge({ controlsRef, captureRef }) {
         }
       })
 
+      if (ssWidth === outWidth && ssHeight === outHeight) {
+        return fetch(dataUrl).then(response => response.blob())
+      }
+
       // Downscale the supersampled image for clean antialiasing.
       const img = new Image()
       img.src = dataUrl
@@ -211,7 +222,7 @@ function CaptureBridge({ controlsRef, captureRef }) {
       const ctx = out.getContext('2d')
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
-      ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, outWidth, outHeight)
+      ctx.drawImage(img, 0, 0, ssWidth, ssHeight, 0, 0, outWidth, outHeight)
       const blob = await new Promise(resolve => out.toBlob(resolve, 'image/png'))
       return blob
     }
@@ -284,6 +295,38 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
   const controlsRef = useRef(null)
   const cameraStateRef = useRef({ ...parsedCamera })
   const captureRef = useRef(null)
+  const modelCenterRef = useRef(new Vector3(...DEFAULT_CAMERA_TARGET))
+  const handleModelBoundsChange = useCallback(bounds => {
+    const center = bounds?.center
+    if (!Array.isArray(center) || center.length < 3) return
+    modelCenterRef.current.set(center[0], center[1], center[2])
+  }, [])
+  const modelAxes = useMemo(() => {
+    const [x, y, z] = parseRotation(rotation)
+    const euler = new Euler(x, y, z)
+    return {
+      right: new Vector3(1, 0, 0).applyEuler(euler).normalize(),
+      up: new Vector3(0, 1, 0).applyEuler(euler).normalize(),
+      front: new Vector3(0, 0, 1).applyEuler(euler).normalize(),
+    }
+  }, [rotation])
+  const viewFromAxis = useCallback((viewAxis, upAxis) => {
+    const controls = controlsRef.current
+    if (!controls) return null
+    const camera = controls.object
+    const target = controls.target.clone()
+    const distance = Math.max(0.1, camera.position.distanceTo(controls.target))
+    const viewDirection = viewAxis.clone().normalize()
+    const upDirection = upAxis.clone().normalize()
+
+    camera.up.copy(upDirection)
+    camera.position.copy(target).add(viewDirection.multiplyScalar(distance))
+    controls.target.copy(target)
+    camera.lookAt(target)
+    controls.update()
+
+    return cameraState(camera, controls)
+  }, [])
 
   useImperativeHandle(ref, () => ({
     getCameraState() {
@@ -292,15 +335,21 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
     resetCamera() {
       const controls = controlsRef.current
       if (!controls) return
-      controls.object.position.set(...DEFAULT_CAMERA_POSITION)
-      controls.target.set(...DEFAULT_CAMERA_TARGET)
+      const target = modelCenterRef.current
+      controls.object.position.set(
+        target.x + DEFAULT_CAMERA_POSITION[0],
+        target.y + DEFAULT_CAMERA_POSITION[1],
+        target.z + DEFAULT_CAMERA_POSITION[2],
+      )
+      controls.target.copy(target)
+      controls.object.lookAt(target)
       controls.update()
     },
     resetPosition() {
       const controls = controlsRef.current
       if (!controls) return null
       const camera = controls.object
-      const target = new Vector3(...DEFAULT_CAMERA_TARGET)
+      const target = modelCenterRef.current.clone()
       const distance = camera.position.distanceTo(controls.target)
       const direction = new Vector3()
       camera.getWorldDirection(direction)
@@ -309,11 +358,7 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
       controls.target.copy(target)
       controls.update()
 
-      return {
-        position: [camera.position.x, camera.position.y, camera.position.z],
-        target: [controls.target.x, controls.target.y, controls.target.z],
-        fov: camera.fov,
-      }
+      return cameraState(camera, controls)
     },
     panBy(deltaX = 0, deltaY = 0) {
       const controls = controlsRef.current
@@ -331,11 +376,22 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
       camera.position.add(offset)
       controls.target.add(offset)
       controls.update()
-      return {
-        position: [camera.position.x, camera.position.y, camera.position.z],
-        target: [controls.target.x, controls.target.y, controls.target.z],
-        fov: camera.fov,
-      }
+      return cameraState(camera, controls)
+    },
+    viewFromBack() {
+      return viewFromAxis(modelAxes.front.clone().negate(), modelAxes.up)
+    },
+    viewFromFront() {
+      return viewFromAxis(modelAxes.front, modelAxes.up)
+    },
+    viewFromLeft() {
+      return viewFromAxis(modelAxes.right.clone().negate(), modelAxes.up)
+    },
+    viewFromRight() {
+      return viewFromAxis(modelAxes.right, modelAxes.up)
+    },
+    viewFromTop() {
+      return viewFromAxis(modelAxes.up, modelAxes.front.clone().negate())
     },
     isReady() {
       return Boolean(captureRef.current && modelReady)
@@ -352,7 +408,7 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
       setFailedModelUrl(null)
       setLoadedModelUrl(null)
     },
-  }), [modelReady])
+  }), [modelAxes, modelReady, viewFromAxis])
 
   useEffect(() => {
     if (!resolvedModelSrc || modelReady || failed) return undefined
@@ -424,6 +480,7 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
               scale={scale}
               rotation={rotation}
               onReady={() => setLoadedModelUrl(resolvedModelSrc)}
+              onBoundsChange={handleModelBoundsChange}
             />
           </Suspense>
         </ErrorBoundary>

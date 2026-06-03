@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useLayoutEffect, useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { Box3, Vector3 } from 'three'
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js'
@@ -14,16 +14,14 @@ function parseRotation(rotation) {
   ]
 }
 
-export default function UploadedProductModel({ url, scale = 1, rotation = '0,0,0', onReady }) {
+export default function UploadedProductModel({ url, scale = 1, rotation = '0,0,0', onReady, onBoundsChange }) {
   const { scene } = useGLTF(url)
+  const [x, y, z] = parseRotation(rotation)
+  const nextScale = Number(scale) || 1
 
   const model = useMemo(() => {
     const nextModel = clone(scene)
-    const [x, y, z] = parseRotation(rotation)
-    const nextScale = Number(scale) || 1
 
-    nextModel.rotation.set(x, y, z)
-    nextModel.scale.setScalar(nextScale)
     nextModel.updateMatrixWorld(true)
 
     const bounds = new Box3().setFromObject(nextModel)
@@ -32,7 +30,23 @@ export default function UploadedProductModel({ url, scale = 1, rotation = '0,0,0
     nextModel.updateMatrixWorld(true)
 
     return nextModel
-  }, [rotation, scale, scene])
+  }, [scene])
+
+  useLayoutEffect(() => {
+    model.rotation.set(x, y, z)
+    model.scale.setScalar(nextScale)
+    model.updateMatrixWorld(true)
+
+    const bounds = new Box3().setFromObject(model)
+    if (bounds.isEmpty()) return
+
+    const center = bounds.getCenter(new Vector3())
+    const size = bounds.getSize(new Vector3())
+    onBoundsChange?.({
+      center: [center.x, center.y, center.z],
+      size: [size.x, size.y, size.z],
+    })
+  }, [model, nextScale, onBoundsChange, x, y, z])
 
   useEffect(() => {
     onReady?.()
