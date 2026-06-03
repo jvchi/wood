@@ -3,13 +3,11 @@ import { Upload } from 'tus-js-client'
 
 export const PRODUCT_EVENT = 'wood:products-updated'
 
-const PRODUCTS_KEY = 'wood.admin.products'
 const CATEGORIES_KEY = 'wood.admin.categories'
 const COLLECTIONS_KEY = 'wood.admin.collections'
 const PRODUCT_CACHE_PUBLIC = 'published'
 const PRODUCT_CACHE_ALL = 'include-unpublished'
 const PRODUCT_QUERY_TIMEOUT_MS = 10000
-const SUPABASE_REACHABILITY_TIMEOUT_MS = 1500
 const productListCache = new Map()
 const productListRequests = new Map()
 let productListCacheVersion = 0
@@ -30,16 +28,6 @@ export const defaultCollections = [
   { id: 'work-lounge', name: 'Work Lounge', slug: 'work-lounge', description: 'Pieces for studios, offices, and reading corners.' },
 ]
 
-export const fallbackProducts = []
-
-const LEGACY_SEED_PRODUCT_SLUGS = new Set([
-  'maren-sofa',
-  'elda-sectional',
-  'kai-armchair',
-  'lune-daybed',
-  'linear-oak-media-console',
-])
-
 function readLocal(key, fallback) {
   if (typeof window === 'undefined') return fallback
   try {
@@ -53,79 +41,7 @@ function readLocal(key, fallback) {
 function writeLocal(key, value) {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(key, JSON.stringify(value))
-  if (key === PRODUCTS_KEY) clearProductListCache()
   window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
-}
-
-function isLegacySeedProduct(product) {
-  return LEGACY_SEED_PRODUCT_SLUGS.has(String(product?.slug || '').trim().toLowerCase())
-}
-
-function readLocalProducts() {
-  const products = readLocal(PRODUCTS_KEY, [])
-  const cleaned = products.filter(product => !isLegacySeedProduct(product))
-  if (typeof window !== 'undefined' && cleaned.length !== products.length) {
-    window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify(cleaned))
-  }
-  return cleaned
-}
-
-function isSupabaseUnavailableError(error) {
-  const message = String(error?.message || error || '').toLowerCase()
-  return (
-    error?.name === 'AbortError' ||
-    message.includes('failed to fetch') ||
-    message.includes('fetch failed') ||
-    message.includes('network') ||
-    message.includes('timed out')
-  )
-}
-
-async function canReachSupabase() {
-  if (!hasSupabaseConfig || typeof fetch !== 'function') return hasSupabaseConfig
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
-  const timer = controller
-    ? setTimeout(() => controller.abort(), SUPABASE_REACHABILITY_TIMEOUT_MS)
-    : null
-
-  try {
-    await fetch(`${supabaseUrlPublic}/rest/v1/`, {
-      method: 'GET',
-      headers: {
-        apikey: supabaseAnonKeyPublic,
-        authorization: `Bearer ${supabaseAnonKeyPublic}`,
-      },
-      signal: controller?.signal,
-    })
-    return true
-  } catch {
-    return false
-  } finally {
-    if (timer) clearTimeout(timer)
-  }
-}
-
-function saveProductLocal(normalized) {
-  const products = readLocalProducts().map(normalizeProduct)
-  const index = products.findIndex(item => item.id === normalized.id)
-  const next = index >= 0
-    ? products.map(item => (item.id === normalized.id ? normalized : item))
-    : [normalized, ...products]
-  writeLocal(PRODUCTS_KEY, next)
-  return normalized
-}
-
-function deleteProductLocal(productId) {
-  writeLocal(PRODUCTS_KEY, readLocalProducts().filter(product => product.id !== productId))
-}
-
-function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result)
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
 }
 
 async function createImageThumbnailFile(file, { width = 180, quality = 0.58 } = {}) {
@@ -153,41 +69,21 @@ async function createImageThumbnailFile(file, { width = 180, quality = 0.58 } = 
     if (!sourceContext) return null
     sourceContext.drawImage(bitmap, 0, 0)
 
-    const pixels = sourceContext.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height).data
-    let minX = sourceCanvas.width
-    let minY = sourceCanvas.height
-    let maxX = -1
-    let maxY = -1
-    for (let y = 0; y < sourceCanvas.height; y += 1) {
-      for (let x = 0; x < sourceCanvas.width; x += 1) {
-        if (pixels[(y * sourceCanvas.width + x) * 4 + 3] <= 8) continue
-        minX = Math.min(minX, x)
-        minY = Math.min(minY, y)
-        maxX = Math.max(maxX, x)
-        maxY = Math.max(maxY, y)
-      }
-    }
-
-    const cropX = maxX >= 0 ? minX : 0
-    const cropY = maxY >= 0 ? minY : 0
-    const cropWidth = maxX >= 0 ? maxX - minX + 1 : sourceCanvas.width
-    const cropHeight = maxY >= 0 ? maxY - minY + 1 : sourceCanvas.height
     const padding = Math.round(width * 0.08)
-    const horizonInset = Math.round(width * 0.08)
     const availableWidth = width - padding * 2
-    const availableHeight = width - padding - horizonInset
-    const scale = Math.min(availableWidth / cropWidth, availableHeight / cropHeight, 1)
-    const drawWidth = Math.max(1, Math.round(cropWidth * scale))
-    const drawHeight = Math.max(1, Math.round(cropHeight * scale))
+    const availableHeight = width - padding * 2
+    const scale = Math.min(availableWidth / sourceCanvas.width, availableHeight / sourceCanvas.height, 1)
+    const drawWidth = Math.max(1, Math.round(sourceCanvas.width * scale))
+    const drawHeight = Math.max(1, Math.round(sourceCanvas.height * scale))
     const drawX = Math.round((width - drawWidth) / 2)
-    const drawY = width - horizonInset - drawHeight
+    const drawY = Math.round((width - drawHeight) / 2)
 
     const canvas = document.createElement('canvas')
     canvas.width = width
     canvas.height = width
     const context = canvas.getContext('2d')
     if (!context) return null
-    context.drawImage(sourceCanvas, cropX, cropY, cropWidth, cropHeight, drawX, drawY, drawWidth, drawHeight)
+    context.drawImage(sourceCanvas, 0, 0, sourceCanvas.width, sourceCanvas.height, drawX, drawY, drawWidth, drawHeight)
 
     const blob = await new Promise(resolve => {
       canvas.toBlob(resolve, 'image/webp', quality)
@@ -372,25 +268,77 @@ function mapSupabaseProduct(row) {
   })
 }
 
-async function fetchProductsFromSource({ includeUnpublished }) {
-  if (hasSupabaseConfig) {
-    const query = supabase
-      .from('products')
-      .select('*, categories(slug,name), collections(slug,name), product_images(*), product_models(*)')
-      .order('updated_at', { ascending: false })
-
-    if (!includeUnpublished) query.eq('published', true).eq('archived', false)
-    const { data, error } = await runSupabaseProductQuery(query)
-    if (!error && Array.isArray(data)) return data.map(mapSupabaseProduct)
-
-    // Supabase is the source of truth — don't fall back to seed fixtures on
-    // transient failure, or stale test products start appearing on /shop.
-    const local = includeUnpublished ? readLocalProducts() : []
-    return local.map(normalizeProduct).filter(product => includeUnpublished || (product.published && !product.archived))
+function requireSupabaseConfig() {
+  if (!hasSupabaseConfig || !supabase) {
+    throw new Error('Supabase configuration is required to load products.')
   }
+}
 
-  const local = readLocalProducts()
-  return local.map(normalizeProduct).filter(product => includeUnpublished || (product.published && !product.archived))
+const PRODUCT_SELECT = `
+  id,
+  name,
+  slug,
+  short_description,
+  full_description,
+  description,
+  category_id,
+  collection_id,
+  tags,
+  material,
+  color,
+  dimensions,
+  dimension_text,
+  weight,
+  brand,
+  room_type,
+  regular_price,
+  sale_price,
+  currency,
+  discount_percentage,
+  cost_price,
+  compare_at_price,
+  stock_quantity,
+  sku,
+  low_stock_threshold,
+  stock_status,
+  main_image_url,
+  fallback_image_url,
+  published,
+  archived,
+  featured,
+  new_arrival,
+  best_seller,
+  show_on_homepage,
+  show_in_collection,
+  delivery_estimate,
+  assembly_required,
+  care_instructions,
+  warranty_info,
+  return_eligible,
+  seo_title,
+  seo_description,
+  og_image_url,
+  created_at,
+  updated_at,
+  categories(slug,name),
+  collections(slug,name),
+  product_images(url,thumbnail_url,sort_order,is_main),
+  product_models(url,lite_url,poster_url,version,fallback_image_url,scale,rotation,format,file_size,camera)
+`
+
+async function fetchProductsFromSource({ includeUnpublished }) {
+  requireSupabaseConfig()
+
+  const query = supabase
+    .from('products')
+    .select(PRODUCT_SELECT)
+    .order('updated_at', { ascending: false })
+
+  if (!includeUnpublished) query.eq('published', true).eq('archived', false)
+  const { data, error } = await runSupabaseProductQuery(query)
+  if (error) throw error
+  if (!Array.isArray(data)) throw new Error('Supabase returned an invalid products response.')
+  return data.map(mapSupabaseProduct)
 }
 
 export async function listProducts({ includeUnpublished = false, force = false } = {}) {
@@ -450,58 +398,36 @@ export async function listCollections() {
 
 export async function saveProduct(product) {
   const normalized = normalizeProduct({ ...product, updated_at: new Date().toISOString() })
-  if (hasSupabaseConfig) {
-    try {
-      if (!(await canReachSupabase())) return saveProductLocal(normalized)
-      await ensureTaxonomyReference('category', normalized.category_id)
-      if (normalized.collection_id) await ensureTaxonomyReference('collection', normalized.collection_id)
-      const payload = toSupabaseProduct(normalized)
-      const { error } = await supabase.from('products').upsert(payload)
-      if (error) {
-        if (error.code === '23505' && /products_sku_key/.test(error.message || '')) {
-          throw new Error(
-            payload.sku
-              ? `SKU "${payload.sku}" is already used by another product.`
-              : 'Existing rows have empty-string SKUs from a previous version. Run: update products set sku = null where sku = \'\'; in the Supabase SQL editor, then save again.',
-          )
-        }
-        throw error
-      }
-      await replaceProductImages(normalized)
-      await replaceProductModel(normalized)
-      await logInventory(normalized, product.previous_stock_quantity)
-      clearProductListCache()
-      window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
-      return normalized
-    } catch (error) {
-      if (!isSupabaseUnavailableError(error)) throw error
-      return saveProductLocal(normalized)
+  requireSupabaseConfig()
+  await ensureTaxonomyReference('category', normalized.category_id)
+  if (normalized.collection_id) await ensureTaxonomyReference('collection', normalized.collection_id)
+  const payload = toSupabaseProduct(normalized)
+  const { error } = await supabase.from('products').upsert(payload)
+  if (error) {
+    if (error.code === '23505' && /products_sku_key/.test(error.message || '')) {
+      throw new Error(
+        payload.sku
+          ? `SKU "${payload.sku}" is already used by another product.`
+          : 'Existing rows have empty-string SKUs from a previous version. Run: update products set sku = null where sku = \'\'; in the Supabase SQL editor, then save again.',
+      )
     }
+    throw error
   }
-
-  return saveProductLocal(normalized)
+  await replaceProductImages(normalized)
+  await replaceProductModel(normalized)
+  await logInventory(normalized, product.previous_stock_quantity)
+  clearProductListCache()
+  window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
+  return normalized
 }
 
 export async function deleteProduct(productId) {
-  if (hasSupabaseConfig) {
-    try {
-      if (!(await canReachSupabase())) {
-        deleteProductLocal(productId)
-        return
-      }
-      await purgeProductStorage(productId)
-      const { error } = await supabase.from('products').delete().eq('id', productId)
-      if (error) throw error
-      clearProductListCache()
-      window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
-      return
-    } catch (error) {
-      if (!isSupabaseUnavailableError(error)) throw error
-      deleteProductLocal(productId)
-      return
-    }
-  }
-  deleteProductLocal(productId)
+  requireSupabaseConfig()
+  await purgeProductStorage(productId)
+  const { error } = await supabase.from('products').delete().eq('id', productId)
+  if (error) throw error
+  clearProductListCache()
+  window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
 }
 
 function taxonomyConfig(type) {
@@ -740,31 +666,25 @@ async function logInventory(product, previousQuantity) {
 
 export async function uploadAsset(file, bucket, productId, assetKind) {
   if (!file) return ''
-  if (hasSupabaseConfig) {
-    try {
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
-      const path = `${productId || 'draft'}/${Date.now()}-${safeName}`
-      if (bucket === 'product-models') {
-        await uploadStorageResumable(file, bucket, path, {
-          contentType: modelContentType(file),
-          cacheControl: '31536000',
-          upsert: true,
-        })
-      } else {
-        const { error } = await supabase.storage.from(bucket).upload(path, file, {
-          cacheControl: '31536000',
-          upsert: true,
-        })
-        if (error) throw error
-      }
-      const { data } = supabase.storage.from(bucket).getPublicUrl(path)
-      await trackUpload({ file, bucket, productId, path, publicUrl: data.publicUrl, assetKind })
-      return data.publicUrl
-    } catch (error) {
-      if (!isSupabaseUnavailableError(error)) throw error
-    }
+  requireSupabaseConfig()
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+  const path = `${productId || 'draft'}/${Date.now()}-${safeName}`
+  if (bucket === 'product-models') {
+    await uploadStorageResumable(file, bucket, path, {
+      contentType: modelContentType(file),
+      cacheControl: '31536000',
+      upsert: true,
+    })
+  } else {
+    const { error } = await supabase.storage.from(bucket).upload(path, file, {
+      cacheControl: '31536000',
+      upsert: true,
+    })
+    if (error) throw error
   }
-  return fileToDataUrl(file)
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path)
+  await trackUpload({ file, bucket, productId, path, publicUrl: data.publicUrl, assetKind })
+  return data.publicUrl
 }
 
 function projectStorageUrl() {
@@ -828,39 +748,32 @@ export async function uploadStorageResumable(file, bucket, path, {
 
 export async function uploadImageWithThumbnail(file, productId, assetKind = 'image') {
   if (!file) return { url: '', thumbnailUrl: '' }
+  requireSupabaseConfig()
   const thumbnailFile = await createImageThumbnailFile(file)
 
-  if (hasSupabaseConfig) {
-    const url = await uploadAsset(file, 'product-images', productId, assetKind)
-    let thumbnailUrl = ''
-    if (thumbnailFile) {
-      const safeName = thumbnailFile.name.replace(/[^a-zA-Z0-9._-]/g, '-')
-      const path = `thumbs/${productId || 'draft'}/${Date.now()}-${safeName}`
-      const { error } = await supabase.storage.from('product-images').upload(path, thumbnailFile, {
-        cacheControl: '31536000',
-        contentType: 'image/webp',
-        upsert: true,
-      })
-      if (!error) {
-        const { data } = supabase.storage.from('product-images').getPublicUrl(path)
-        thumbnailUrl = data.publicUrl
-        await trackUpload({
-          file: thumbnailFile,
-          bucket: 'product-images',
-          productId,
-          path,
-          publicUrl: thumbnailUrl,
-          assetKind: 'image_thumbnail',
-        })
-      }
-    }
-    return { url, thumbnailUrl }
+  const url = await uploadAsset(file, 'product-images', productId, assetKind)
+  let thumbnailUrl = ''
+  if (thumbnailFile) {
+    const safeName = thumbnailFile.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+    const path = `thumbs/${productId || 'draft'}/${Date.now()}-${safeName}`
+    const { error } = await supabase.storage.from('product-images').upload(path, thumbnailFile, {
+      cacheControl: '31536000',
+      contentType: 'image/webp',
+      upsert: true,
+    })
+    if (error) throw error
+    const { data } = supabase.storage.from('product-images').getPublicUrl(path)
+    thumbnailUrl = data.publicUrl
+    await trackUpload({
+      file: thumbnailFile,
+      bucket: 'product-images',
+      productId,
+      path,
+      publicUrl: thumbnailUrl,
+      assetKind: 'image_thumbnail',
+    })
   }
-
-  return {
-    url: await fileToDataUrl(file),
-    thumbnailUrl: thumbnailFile ? await fileToDataUrl(thumbnailFile) : '',
-  }
+  return { url, thumbnailUrl }
 }
 
 export async function uploadModelSource(file, productId) {

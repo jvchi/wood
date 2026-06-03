@@ -1738,6 +1738,21 @@ input {
   transition-timing-function: var(--ease-out);
 }
 
+.product-media .product-card-thumbnail {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.product-media .product-card-full-image {
+  position: relative;
+  z-index: 1;
+}
+
+.product-media .product-card-full-image.is-loading {
+  opacity: 0;
+}
+
 .product-media-masonry img {
   outline: none;
 }

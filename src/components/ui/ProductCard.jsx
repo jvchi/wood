@@ -25,6 +25,8 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
   const isMasonry = variant === 'masonry'
   const imageRef = useRef(null)
   const location = useLocation()
+  const fullImageSrc = product.images[0]
+  const thumbnailSrc = product.image_thumbnails?.[0]
 
   useEffect(() => {
     if (!imageRef.current || !imageLoaded) return
@@ -72,23 +74,32 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
           className="block h-full"
           viewTransition
         >
-          {!imageLoaded && (
-            <div className="absolute inset-0 bg-black/[0.04]" />
+          {thumbnailSrc && !imageLoaded && (
+            <img
+              className="product-card-thumbnail"
+              src={thumbnailSrc}
+              alt=""
+              width="180"
+              height="180"
+              loading={index < 4 ? 'eager' : 'lazy'}
+              decoding="async"
+              aria-hidden="true"
+            />
           )}
           <MotionImg
             ref={imageRef}
             layoutId={isMasonry ? undefined : `product-image-${product.id}`}
             layout={!isMasonry}
-            src={product.images[0]}
+            className={thumbnailSrc && !imageLoaded ? 'product-card-full-image is-loading' : 'product-card-full-image'}
+            src={fullImageSrc}
             alt={product.name}
             width="800"
             height="1067"
             loading="lazy"
             transition={sharedImageTransition}
             initial={false}
-            animate={{ opacity: 1, borderRadius: 0 }}
+            animate={{ opacity: imageLoaded || !thumbnailSrc ? 1 : 0, borderRadius: 0 }}
             exit={{ opacity: 1 }}
-            style={{ opacity: 1 }}
             onLoad={() => setImageLoaded(true)}
           />
         </Link>

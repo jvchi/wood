@@ -11,7 +11,7 @@ const MOBILE_CATEGORY_LABELS = {
 }
 
 export default function ShopPage() {
-  const { products, loading } = useProducts()
+  const { products, loading, error } = useProducts()
   const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY)
 
   const categories = useMemo(() => {
@@ -54,8 +54,14 @@ export default function ShopPage() {
         ))}
       </nav>
 
+      {error && (
+        <p className="section-rule py-16 text-center text-base text-[var(--color-secondary)]">
+          Products could not be loaded. Refresh to try again.
+        </p>
+      )}
+
       <div className="shop-masonry">
-        {filtered.map((product, index) => (
+        {!error && filtered.map((product, index) => (
           <ProductCard
             key={product.id}
             product={product}
@@ -65,7 +71,7 @@ export default function ShopPage() {
         ))}
       </div>
 
-      {filtered.length === 0 && (
+      {!error && filtered.length === 0 && (
         <p className="section-rule py-16 text-center text-base text-[var(--color-secondary)]">
           No products found in this category.
         </p>
