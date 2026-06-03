@@ -74,9 +74,9 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
           className="block h-full"
           viewTransition
         >
-          {thumbnailSrc && !imageLoaded && (
+          {thumbnailSrc && (
             <img
-              className="product-card-thumbnail"
+              className={imageLoaded ? 'product-card-thumbnail is-loaded' : 'product-card-thumbnail'}
               src={thumbnailSrc}
               alt=""
               width="180"
@@ -90,7 +90,7 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
             ref={imageRef}
             layoutId={isMasonry ? undefined : `product-image-${product.id}`}
             layout={!isMasonry}
-            className={thumbnailSrc && !imageLoaded ? 'product-card-full-image is-loading' : 'product-card-full-image'}
+            className={thumbnailSrc && !imageLoaded ? 'product-card-full-image is-loading' : 'product-card-full-image is-loaded'}
             src={fullImageSrc}
             alt={product.name}
             width="800"
@@ -98,7 +98,7 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
             loading="lazy"
             transition={sharedImageTransition}
             initial={false}
-            animate={{ opacity: imageLoaded || !thumbnailSrc ? 1 : 0, borderRadius: 0 }}
+            animate={{ borderRadius: 0 }}
             exit={{ opacity: 1 }}
             onLoad={() => setImageLoaded(true)}
           />

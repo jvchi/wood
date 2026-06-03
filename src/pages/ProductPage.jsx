@@ -52,8 +52,17 @@ function ImageGallery({ images, thumbnails = [], name }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [imageRatios, setImageRatios] = useState({})
   const [thumbnailFallbacks, setThumbnailFallbacks] = useState({})
+  const [loadedImages, setLoadedImages] = useState({})
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
+  const activeImage = images[activeIndex]
+  const activeThumbnail = thumbnailFallbacks[activeIndex]
+    ? activeImage
+    : (thumbnails[activeIndex] || imageThumbUrl(activeImage, {
+      width: GALLERY_THUMB_WIDTH,
+      quality: GALLERY_THUMB_QUALITY,
+    }))
+  const activeImageLoaded = loadedImages[activeImage] === true
 
   const setImage = index => {
     setActiveIndex((index + images.length) % images.length)
@@ -129,9 +138,22 @@ function ImageGallery({ images, thumbnails = [], name }) {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        {activeThumbnail && (
+          <img
+            key={`preview-${activeImage}`}
+            className={activeImageLoaded ? 'product-gallery-preview is-loaded' : 'product-gallery-preview'}
+            src={activeThumbnail}
+            alt=""
+            width={GALLERY_THUMB_WIDTH}
+            height={GALLERY_THUMB_WIDTH}
+            aria-hidden="true"
+            decoding="async"
+          />
+        )}
         <img
-          key={images[activeIndex]}
-          src={images[activeIndex]}
+          key={activeImage}
+          className={activeImageLoaded ? 'product-gallery-image is-loaded' : 'product-gallery-image is-loading'}
+          src={activeImage}
           alt={name}
           loading="eager"
           fetchPriority="high"
@@ -141,8 +163,12 @@ function ImageGallery({ images, thumbnails = [], name }) {
             if (naturalWidth && naturalHeight) {
               setImageRatios(p => ({ ...p, [activeIndex]: `${naturalWidth} / ${naturalHeight}` }))
             }
+            setLoadedImages(p => ({ ...p, [activeImage]: true }))
           }}
         />
+        <div className={activeImageLoaded ? 'product-gallery-loader is-hidden' : 'product-gallery-loader'}>
+          <LoadingSpinner label="Loading product image" size={32} />
+        </div>
         {images.length > 1 && (
           <p className="product-gallery-count" aria-live="polite">
             <AnimatedNumber value={activeIndex + 1} aria-label={`Image ${activeIndex + 1}`} /> / <AnimatedNumber value={images.length} aria-label={`${images.length} images`} />

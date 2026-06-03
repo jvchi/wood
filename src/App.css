@@ -210,7 +210,7 @@ input {
   pointer-events: none;
 }
 
-.loading-spinner lord-icon {
+.loading-spinner dotlottie-wc {
   position: relative;
   z-index: 1;
   display: block;
@@ -228,7 +228,7 @@ input {
   content: '';
 }
 
-.loading-spinner.is-lordicon-ready::after {
+.loading-spinner.is-lottie-loader::after {
   display: none;
 }
 
@@ -1741,16 +1741,41 @@ input {
 .product-media .product-card-thumbnail {
   position: absolute;
   inset: 0;
+  opacity: 0.3;
+  filter: blur(0);
+  transform: scale(1);
   z-index: 0;
+  transition:
+    opacity 420ms var(--ease-out),
+    filter 420ms var(--ease-out),
+    transform 420ms var(--ease-out);
+}
+
+.product-media .product-card-thumbnail.is-loaded {
+  opacity: 0;
+  filter: blur(10px);
+  transform: scale(1.015);
 }
 
 .product-media .product-card-full-image {
   position: relative;
   z-index: 1;
+  transition:
+    opacity 420ms var(--ease-out),
+    filter 420ms var(--ease-out),
+    transform 420ms var(--ease-out);
 }
 
 .product-media .product-card-full-image.is-loading {
   opacity: 0;
+  filter: blur(10px);
+  transform: scale(1.015);
+}
+
+.product-media .product-card-full-image.is-loaded {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
 }
 
 .product-media-masonry img {
@@ -1992,13 +2017,70 @@ input {
   object-fit: contain;
 }
 
+.product-gallery-preview,
+.product-gallery-image {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  transition:
+    opacity 460ms var(--ease-out),
+    filter 460ms var(--ease-out),
+    transform 460ms var(--ease-out);
+}
+
+.product-gallery-preview {
+  z-index: 0;
+  opacity: 0.3;
+  filter: blur(0);
+  transform: scale(1);
+}
+
+.product-gallery-preview.is-loaded {
+  opacity: 0;
+  filter: blur(12px);
+  transform: scale(1.015);
+}
+
+.product-gallery-image {
+  z-index: 1;
+}
+
+.product-gallery-image.is-loading {
+  opacity: 0;
+  filter: blur(12px);
+  transform: scale(1.015);
+}
+
+.product-gallery-image.is-loaded {
+  opacity: 1;
+  filter: blur(0);
+  transform: scale(1);
+}
+
+.product-gallery-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  opacity: 1;
+  transition:
+    opacity 260ms var(--ease-out),
+    visibility 260ms var(--ease-out);
+}
+
+.product-gallery-loader.is-hidden {
+  visibility: hidden;
+  opacity: 0;
+}
+
 .product-gallery-frame canvas,
 .product-gallery-frame .three-placeholder {
   width: 100%;
   height: 100%;
 }
 
-.product-gallery-frame .loading-spinner lord-icon {
+.product-gallery-frame .loading-spinner dotlottie-wc {
   width: 32px !important;
   height: 32px !important;
 }
