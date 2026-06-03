@@ -8,6 +8,8 @@ export default function ThreeModelPlaceholder({
   size = 56,
   spinner = variant !== 'room',
 }) {
+  const showSilhouette = !poster
+
   return (
     <div className={`three-placeholder three-placeholder-${variant} ${className}`} role="status" aria-label={label}>
       {spinner ? (
@@ -15,7 +17,7 @@ export default function ThreeModelPlaceholder({
       ) : (
         <>
           {poster ? <img src={poster} alt="" loading="eager" decoding="async" /> : null}
-          <div className="three-placeholder-silhouette" aria-hidden="true" />
+          {showSilhouette ? <div className="three-placeholder-silhouette" aria-hidden="true" /> : null}
         </>
       )}
     </div>

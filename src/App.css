@@ -203,32 +203,40 @@ input {
 .loading-spinner {
   position: relative;
   display: grid;
+  width: fit-content;
+  height: fit-content;
   min-width: 0.75rem;
   min-height: 0.75rem;
   place-items: center;
-  color: var(--color-muted);
+  color: var(--color-primary);
   pointer-events: none;
 }
 
-.loading-spinner dotlottie-wc {
+.loading-spinner-lottie {
   position: relative;
   z-index: 1;
   display: block;
 }
 
+.loading-spinner-lottie svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .loading-spinner::after {
   position: absolute;
   z-index: 0;
-  width: clamp(0.15rem, 38%, 0.25rem);
+  width: 72%;
   aspect-ratio: 1;
-  border: 1px solid rgba(119, 119, 119, 0.2);
-  border-top-color: var(--color-muted);
+  border: 1.5px solid rgba(0, 0, 0, 0.16);
+  border-top-color: currentColor;
   border-radius: 50%;
   animation: loader-fallback-spin 900ms linear infinite;
   content: '';
 }
 
-.loading-spinner.is-lottie-loader::after {
+.loading-spinner.is-lottie-ready::after {
   display: none;
 }
 
@@ -247,9 +255,11 @@ input {
   position: absolute;
   inset: 0;
   z-index: 3;
+  display: grid;
   min-width: 100%;
   min-height: 100%;
-  background: var(--color-surface);
+  place-items: center;
+  background: transparent;
 }
 
 @keyframes loader-fallback-spin {
@@ -559,6 +569,15 @@ input {
 .three-placeholder-chair,
 .three-placeholder-product {
   background: transparent;
+}
+
+.three-placeholder-product img {
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
 
 .three-placeholder-chair .three-placeholder-silhouette,
@@ -2022,6 +2041,12 @@ input {
   position: absolute;
   inset: 0;
   margin: auto;
+  width: auto;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center;
   transition:
     opacity 460ms var(--ease-out),
     filter 460ms var(--ease-out),
@@ -2080,7 +2105,7 @@ input {
   height: 100%;
 }
 
-.product-gallery-frame .loading-spinner dotlottie-wc {
+.product-gallery-frame .loading-spinner-lottie {
   width: 32px !important;
   height: 32px !important;
 }

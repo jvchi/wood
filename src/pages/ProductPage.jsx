@@ -6,7 +6,7 @@ import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
-import { imageThumbUrl } from '../utils/imageThumb'
+import { imageLqipUrl, imageThumbUrl } from '../utils/imageThumb'
 import Button from '../components/ui/Button'
 import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumber'
 import LazyThreeScene from '../components/three/LazyThreeScene'
@@ -52,20 +52,57 @@ function ImageGallery({ images, thumbnails = [], name }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [imageRatios, setImageRatios] = useState({})
   const [thumbnailFallbacks, setThumbnailFallbacks] = useState({})
+  const [previewFallbacks, setPreviewFallbacks] = useState({})
   const [loadedImages, setLoadedImages] = useState({})
+  const [settledImages, setSettledImages] = useState({})
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
   const activeImage = images[activeIndex]
-  const activeThumbnail = thumbnailFallbacks[activeIndex]
+  const activeThumbnail = previewFallbacks[activeIndex]
     ? activeImage
-    : (thumbnails[activeIndex] || imageThumbUrl(activeImage, {
-      width: GALLERY_THUMB_WIDTH,
-      quality: GALLERY_THUMB_QUALITY,
-    }))
+    : imageLqipUrl(activeImage)
   const activeImageLoaded = loadedImages[activeImage] === true
+  const activeImageSettled = settledImages[activeImage] === true
+
+  useEffect(() => {
+    let cancelled = false
+    const preloaders = images.map(image => {
+      const preloader = new Image()
+      preloader.decoding = 'async'
+      preloader.onload = () => {
+        if (cancelled) return
+        setLoadedImages(p => (p[image] ? p : { ...p, [image]: true }))
+      }
+      preloader.src = image
+      if (preloader.complete && preloader.naturalWidth) {
+        preloader.onload()
+      }
+      return preloader
+    })
+
+    return () => {
+      cancelled = true
+      preloaders.forEach(preloader => {
+        preloader.onload = null
+      })
+    }
+  }, [images])
+
+  useEffect(() => {
+    if (!activeImageLoaded || activeImageSettled) return undefined
+    const timer = window.setTimeout(() => {
+      setSettledImages(p => ({ ...p, [activeImage]: true }))
+    }, 800)
+    return () => window.clearTimeout(timer)
+  }, [activeImage, activeImageLoaded, activeImageSettled])
 
   const setImage = index => {
-    setActiveIndex((index + images.length) % images.length)
+    const nextIndex = (index + images.length) % images.length
+    const nextImage = images[nextIndex]
+    if (loadedImages[nextImage]) {
+      setSettledImages(p => (p[nextImage] ? p : { ...p, [nextImage]: true }))
+    }
+    setActiveIndex(nextIndex)
   }
 
   const handleTouchStart = event => {
@@ -141,13 +178,16 @@ function ImageGallery({ images, thumbnails = [], name }) {
         {activeThumbnail && (
           <img
             key={`preview-${activeImage}`}
-            className={activeImageLoaded ? 'product-gallery-preview is-loaded' : 'product-gallery-preview'}
+            className={activeImageSettled ? 'product-gallery-preview is-loaded' : 'product-gallery-preview'}
             src={activeThumbnail}
             alt=""
             width={GALLERY_THUMB_WIDTH}
             height={GALLERY_THUMB_WIDTH}
             aria-hidden="true"
             decoding="async"
+            onError={() => {
+              setPreviewFallbacks(p => (p[activeIndex] ? p : { ...p, [activeIndex]: true }))
+            }}
           />
         )}
         <img
@@ -166,7 +206,7 @@ function ImageGallery({ images, thumbnails = [], name }) {
             setLoadedImages(p => ({ ...p, [activeImage]: true }))
           }}
         />
-        <div className={activeImageLoaded ? 'product-gallery-loader is-hidden' : 'product-gallery-loader'}>
+        <div className={activeImageSettled ? 'product-gallery-loader is-hidden' : 'product-gallery-loader'}>
           <LoadingSpinner label="Loading product image" size={32} />
         </div>
         {images.length > 1 && (
@@ -219,7 +259,7 @@ function ProductActionControls({
 export default function ProductPage({ isOverlay = false }) {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { product, loading } = useProduct(id)
+  const { product, loading, error } = useProduct(id)
   const { addItem } = useCart()
   const { isInWishlist, toggleItem } = useWishlist()
   const { addToast } = useToast()
@@ -259,6 +299,14 @@ export default function ProductPage({ isOverlay = false }) {
 
   if (loading) return (
     <div className="page-shell page-top product-page-loading pb-16 md:pb-20" aria-busy="true" />
+  )
+
+  if (error) return (
+    <div className="page-shell page-top pb-16 text-center md:pb-20">
+      <h1 className="page-title mb-4">Product could not be loaded</h1>
+      <p className="mb-6 text-base text-[var(--color-secondary)]">Refresh to try again.</p>
+      <Link to="/shop" className="pressable label-text-compact text-[var(--color-secondary)] underline underline-offset-4">Return to Shop</Link>
+    </div>
   )
 
   if (!product) return (
@@ -324,7 +372,11 @@ export default function ProductPage({ isOverlay = false }) {
             <ImageGallery images={product.images} thumbnails={product.image_thumbnails} name={product.name} />
           ) : (
             <div className="product-gallery-frame">
-              <Suspense fallback={<LoadingSpinner className="product-media-loader" label="Loading product model" size={32} />}>
+              <Suspense fallback={(
+                <div className="product-media-loader">
+                  <LoadingSpinner label="Loading product model" size={32} />
+                </div>
+              )}>
                 <LazyThreeScene
                   fallback={<ThreeModelPlaceholder variant="product" label="Loading product model" size={32} />}
                   poster={product.model_poster_url || product.fallback_image_url || product.images[0]}

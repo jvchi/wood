@@ -129,14 +129,14 @@ export default function ProductViewer({
 
   if (!webglAvailable || profile.preferStatic) {
     return (
-      <div className="h-full min-h-[400px] w-full bg-[var(--color-surface)]">
+      <div className="h-full min-h-[400px] w-full">
         <ThreeModelPlaceholder poster={fallbackImage} variant="product" label="Product preview" spinner={false} />
       </div>
     )
   }
 
   return (
-    <div className="relative h-full min-h-[400px] w-full bg-[var(--color-surface)]">
+    <div className="relative h-full min-h-[400px] w-full">
       <Canvas
         style={{ width: '100%', height: '100%' }}
         camera={{ position: cameraPosition, fov: cameraFov }}
@@ -197,7 +197,9 @@ export default function ProductViewer({
         </div>
       )}
       {!modelReady && (
-        <LoadingSpinner className="model-loading-overlay" label="Loading product model" />
+        <div className="model-loading-overlay">
+          <LoadingSpinner label="Loading product model" size={32} />
+        </div>
       )}
     </div>
   )

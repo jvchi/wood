@@ -10,6 +10,8 @@ const PRODUCT_CACHE_ALL = 'include-unpublished'
 const PRODUCT_QUERY_TIMEOUT_MS = 10000
 const productListCache = new Map()
 const productListRequests = new Map()
+const productDetailCache = new Map()
+const productDetailRequests = new Map()
 let productListCacheVersion = 0
 export const PRODUCT_PLACEHOLDER_IMAGE = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 800 1000%22%3E%3Crect width=%22800%22 height=%221000%22 fill=%22%23efeee8%22/%3E%3Cpath d=%22M210 570h380M250 500h300M310 430h180%22 stroke=%22%23000%22 stroke-opacity=%22.24%22 stroke-width=%2214%22 stroke-linecap=%22square%22/%3E%3Ctext x=%22400%22 y=%22635%22 text-anchor=%22middle%22 font-family=%22Arial,sans-serif%22 font-size=%2232%22 font-weight=%22700%22 fill=%22%23000%22 fill-opacity=%22.42%22%3EWOOD%3C/text%3E%3C/svg%3E'
 
@@ -111,6 +113,9 @@ function filterPublicProducts(products) {
 function setCachedProducts(includeUnpublished, products) {
   const cachedAt = Date.now()
   productListCache.set(productListCacheKey(includeUnpublished), { products, cachedAt })
+  for (const product of products) {
+    productDetailCache.set(product.id, product)
+  }
 
   if (includeUnpublished) {
     productListCache.set(PRODUCT_CACHE_PUBLIC, {
@@ -136,6 +141,8 @@ export function clearProductListCache() {
   productListCacheVersion += 1
   productListCache.clear()
   productListRequests.clear()
+  productDetailCache.clear()
+  productDetailRequests.clear()
 }
 
 async function runSupabaseProductQuery(query) {
@@ -341,6 +348,21 @@ async function fetchProductsFromSource({ includeUnpublished }) {
   return data.map(mapSupabaseProduct)
 }
 
+async function fetchProductFromSource(productId) {
+  requireSupabaseConfig()
+  const { data, error } = await runSupabaseProductQuery(
+    supabase
+      .from('products')
+      .select(PRODUCT_SELECT)
+      .eq('id', productId)
+      .eq('published', true)
+      .eq('archived', false)
+      .maybeSingle()
+  )
+  if (error) throw error
+  return data ? mapSupabaseProduct(data) : null
+}
+
 export async function listProducts({ includeUnpublished = false, force = false } = {}) {
   if (force) clearProductListCache()
 
@@ -371,6 +393,33 @@ export async function listProducts({ includeUnpublished = false, force = false }
     })
 
   productListRequests.set(key, request)
+  return request
+}
+
+export async function getProduct(productId, { force = false } = {}) {
+  const id = String(productId || '')
+  if (!id) return null
+  if (force) {
+    productDetailCache.delete(id)
+    productDetailRequests.delete(id)
+  }
+
+  const cached = !force ? productDetailCache.get(id) : null
+  if (cached) return cached
+
+  const pending = productDetailRequests.get(id)
+  if (pending) return pending
+
+  const request = fetchProductFromSource(id)
+    .then(product => {
+      if (product) productDetailCache.set(id, product)
+      return product
+    })
+    .finally(() => {
+      productDetailRequests.delete(id)
+    })
+
+  productDetailRequests.set(id, request)
   return request
 }
 
