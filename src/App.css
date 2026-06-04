@@ -218,28 +218,6 @@ input {
   display: block;
 }
 
-.loading-spinner-lottie svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.loading-spinner::after {
-  position: absolute;
-  z-index: 0;
-  width: 72%;
-  aspect-ratio: 1;
-  border: 1.5px solid rgba(0, 0, 0, 0.16);
-  border-top-color: currentColor;
-  border-radius: 50%;
-  animation: loader-fallback-spin 900ms linear infinite;
-  content: '';
-}
-
-.loading-spinner.is-lottie-ready::after {
-  display: none;
-}
-
 .loading-spinner-fullpage,
 .product-page-loading {
   min-height: calc(100dvh - var(--nav-height, 0px));
@@ -260,12 +238,6 @@ input {
   min-height: 100%;
   place-items: center;
   background: transparent;
-}
-
-@keyframes loader-fallback-spin {
-  to {
-    transform: rotate(1turn);
-  }
 }
 
 .initial-loader {

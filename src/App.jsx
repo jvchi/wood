@@ -12,6 +12,7 @@ import { SharedProductTransitionContext } from './context/SharedProductTransitio
 import ErrorBoundary from './components/ui/ErrorBoundary'
 import PageLayout from './components/layout/PageLayout'
 import InitialLoadTransition from './components/layout/InitialLoadTransition'
+import LoadingSpinner from './components/ui/LoadingSpinner'
 import { PersistentThreeSceneProvider } from './components/three/PersistentThreeSceneProvider'
 import useInitialLoadReady from './hooks/useInitialLoadReady'
 import { routeLoaders } from './lib/routePreload'
@@ -35,7 +36,11 @@ const MotionDiv = framerMotion.div
 const LOADER_ROUTES = new Set(['/', '/shop', '/about'])
 
 function RouteFallback() {
-  return <div className="route-fallback" role="status" aria-label="Loading page" />
+  return (
+    <div className="route-fallback" role="status" aria-label="Loading page">
+      <LoadingSpinner label="Loading page" size={32} />
+    </div>
+  )
 }
 
 function AppErrorFallback() {

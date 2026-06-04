@@ -298,7 +298,9 @@ export default function ProductPage({ isOverlay = false }) {
   }, [product])
 
   if (loading) return (
-    <div className="page-shell page-top product-page-loading pb-16 md:pb-20" aria-busy="true" />
+    <div className="page-shell page-top product-page-loading pb-16 md:pb-20" aria-busy="true">
+      <LoadingSpinner label="Loading product" size={32} />
+    </div>
   )
 
   if (error) return (
