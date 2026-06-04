@@ -68,7 +68,6 @@ export function Map({
       ...initialOptions.options,
     })
 
-    mapInstance.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left')
     mapRef.current = mapInstance
     setMap(mapInstance)
 

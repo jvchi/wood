@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import {
   Map,
   MapControls,
@@ -8,6 +10,7 @@ import {
 import { useMap } from '../components/ui/mapContext'
 
 const hub = {
+  id: 'grand-rapids',
   label: 'Workshop 01',
   city: 'Grand Rapids',
   region: 'Michigan',
@@ -30,20 +33,20 @@ const shops = [
 
 const articles = [
   {
-    label: 'Founded',
-    copy: 'Wood began as a small furniture studio for rooms that had to work every day. The first pieces were built slowly, sold locally, and adjusted after living with them in real homes.',
+    label: 'Origin',
+    copy: 'Wood was founded in Grand Rapids, a city that learned furniture by hand before it learned it by catalog. The studio began with one rule: no piece leaves until the room feels quieter, richer, and more settled with it there.',
   },
   {
-    label: 'Materials',
-    copy: 'We buy fewer boards than a volume catalog would accept. The usable timber pool is smaller, the inspection takes longer, and the final object carries that selection.',
+    label: 'Timber',
+    copy: 'Our buyers reject more timber than they keep. Walnut, oak, ash, and maple are chosen for grain, density, movement, and the way they will darken under years of light, touch, and use.',
   },
   {
-    label: 'Pricing',
-    copy: 'The price includes what usually disappears: joinery, finishing, freight, replacement surfaces, and people who can answer for the product after delivery.',
+    label: 'Making',
+    copy: 'Frames are joined slowly, upholstery is pulled by hand, and finishes are built in thin coats rather than hidden under a hard shine. The luxury is not loud. It is the weight, the silence, the repairability, and the absence of compromise.',
   },
   {
-    label: 'Network',
-    copy: 'The map shows where the work moves now. Grand Rapids remains the workshop point; each shop city is a place where the piece can be seen, ordered, serviced, or returned to us.',
+    label: 'Houses',
+    copy: 'The map shows the houses that carry the work now: places to sit with a piece, choose a finish in daylight, arrange delivery, or return years later for service. Grand Rapids remains the workshop point.',
   },
 ]
 
@@ -88,6 +91,7 @@ function AboutMapMarkers() {
 
 function StoreDirectory() {
   const { map } = useMap()
+  const [isOpen, setIsOpen] = useState(false)
   const stores = [hub, ...shops]
   const flyToLocation = coords => {
     map?.flyTo({
@@ -103,19 +107,34 @@ function StoreDirectory() {
 
   return (
     <aside
-      className="about-store-directory"
+      className={`about-store-directory${isOpen ? ' is-open' : ''}`}
       aria-label="Store locations"
       data-lenis-prevent
       onWheel={event => event.stopPropagation()}
       onTouchMove={event => event.stopPropagation()}
     >
-      <p>Stores</p>
-      <div>
+      <button
+        className="about-store-directory-toggle"
+        type="button"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen(current => !current)}
+      >
+        <span>
+          <strong>Stores</strong>
+          <em>{stores.length} locations</em>
+        </span>
+        <ChevronDown aria-hidden="true" size={16} strokeWidth={2} />
+      </button>
+      <div className="about-store-directory-list" aria-hidden={!isOpen}>
         {stores.map(store => (
           <button
-            key={`${store.city}-${store.region}`}
+            key={store.id}
             type="button"
-            onClick={() => flyToLocation(store.coords)}
+            tabIndex={isOpen ? 0 : -1}
+            onClick={() => {
+              flyToLocation(store.coords)
+              setIsOpen(false)
+            }}
           >
             <span>{store.city}</span>
             <em>{store.region}</em>
@@ -140,7 +159,7 @@ export default function AboutPage() {
             theme="light"
             scrollZoom={false}
             dragPan
-            touchZoomRotate
+            touchZoomRotate={false}
           >
             <AboutMapMarkers />
             <StoreDirectory />
@@ -154,7 +173,7 @@ export default function AboutPage() {
       <section className="about-articles" aria-labelledby="about-title">
         <header className="about-intro">
           <p className="about-eyebrow">About Wood</p>
-          <h1 id="about-title">Built slowly. Priced accordingly.</h1>
+          <h1 id="about-title">Furniture with provenance. Built to gather a patina.</h1>
         </header>
         {articles.map(item => (
           <article key={item.label}>

@@ -1422,48 +1422,35 @@ input {
   bottom: max(1rem, var(--page-x));
   z-index: 12;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  width: min(14rem, calc(100% - 2rem));
-  max-height: min(28rem, calc(100% - 8rem));
-  padding: 0.75rem;
-  gap: 0.55rem;
+  grid-template-rows: auto auto;
+  width: min(18rem, calc(100% - 2rem));
+  max-height: min(16rem, calc(100% - 8rem));
+  padding: 0.38rem;
   overflow: hidden;
   overscroll-behavior: contain;
   pointer-events: auto;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.64);
+  border-radius: 0;
+  backdrop-filter: blur(24px) saturate(1.15);
+  transition:
+    max-height 420ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    background-color 220ms ease;
 }
 
-.about-store-directory p {
-  color: var(--color-muted);
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1;
-  text-transform: uppercase;
+.about-store-directory.is-open {
+  max-height: min(16rem, calc(100% - 8rem));
+  background: rgba(255, 255, 255, 0.72);
 }
 
-.about-store-directory div {
+.about-store-directory-toggle {
   display: grid;
-  min-height: 0;
-  gap: 0.1rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-
-.about-store-directory div::-webkit-scrollbar {
-  display: none;
-}
-
-.about-store-directory button {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 2.25rem;
   gap: 0.75rem;
-  align-items: baseline;
-  min-height: 2rem;
-  padding: 0;
+  align-items: center;
+  min-height: 3rem;
+  padding: 0.45rem 0.45rem 0.45rem 0.85rem;
   border: 0;
+  border-radius: 0;
   color: var(--color-primary);
   background: transparent;
   font: inherit;
@@ -1471,24 +1458,120 @@ input {
   cursor: pointer;
 }
 
-.about-store-directory button:hover span {
-  opacity: 0.58;
+.about-store-directory-toggle:active {
+  transform: scale(0.96);
 }
 
-.about-store-directory span {
+.about-store-directory-toggle > span {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.about-store-directory-toggle strong {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.about-store-directory-toggle em {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.about-store-directory-toggle svg {
+  justify-self: center;
+  color: var(--color-primary);
+  transition:
+    transform 420ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    opacity 180ms ease;
+}
+
+.about-store-directory.is-open .about-store-directory-toggle svg {
+  transform: rotate(180deg);
+}
+
+.about-store-directory-list {
+  display: grid;
+  max-height: 0;
+  gap: 0.12rem;
+  margin: 0;
+  padding: 0 0.45rem 0.45rem;
+  visibility: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  opacity: 0;
+  transform: translateY(-0.25rem);
+  transition:
+    max-height 420ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    opacity 180ms ease,
+    transform 420ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    visibility 0s linear 420ms;
+}
+
+.about-store-directory.is-open .about-store-directory-list {
+  max-height: 11.25rem;
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    max-height 420ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    opacity 180ms ease 80ms,
+    transform 420ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    visibility 0s;
+}
+
+.about-store-directory-list::-webkit-scrollbar {
+  display: none;
+}
+
+.about-store-directory-list button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.4rem;
+  border-radius: 0;
+  border: 0;
+  color: var(--color-primary);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.about-store-directory-list button:hover {
+  background: rgba(11, 20, 29, 0.05);
+}
+
+.about-store-directory-list button:active {
+  transform: scale(0.96);
+}
+
+.about-store-directory-list span {
   min-width: 0;
   font-size: 0.875rem;
   font-weight: 500;
-  line-height: 1.2;
-  transition: opacity 160ms ease;
+  line-height: 1;
 }
 
-.about-store-directory em {
+.about-store-directory-list em {
   color: var(--color-muted);
   font-size: 0.75rem;
   font-style: normal;
   font-weight: 500;
-  line-height: 1.2;
+  line-height: 1;
 }
 
 .about-map,
@@ -1902,11 +1985,10 @@ input {
 
   .about-store-directory {
     right: 0.75rem;
-    bottom: 1.25rem;
+    bottom: 0.9rem;
     left: 0.75rem;
     width: auto;
-    height: min(17rem, calc(100% - 5.5rem));
-    max-height: none;
+    max-height: min(12.5rem, calc(100% - 6rem));
   }
 
   .about-map-copy {
