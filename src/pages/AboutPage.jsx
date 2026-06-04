@@ -1,97 +1,167 @@
-import { useState } from 'react'
+import {
+  Map,
+  MapControls,
+  MapMarker,
+  MarkerContent,
+  MarkerTooltip,
+} from '../components/ui/map'
+import { useMap } from '../components/ui/mapContext'
 
-const principles = [
-  ['01', 'Structure', 'Every piece starts with a room plan, then resolves into a clear object with a quiet footprint.'],
-  ['02', 'Material', 'Solid timber, honest textiles, and replaceable surfaces keep the collection useful beyond one season.'],
-  ['03', 'Service', 'Dimensions, care, delivery, and repair information stay visible so ownership is straightforward.'],
+const hub = {
+  label: 'Workshop 01',
+  city: 'Grand Rapids',
+  region: 'Michigan',
+  coords: [-85.6681, 42.9634],
+}
+
+const shops = [
+  { id: 'new-york', city: 'New York', region: 'NY', coords: [-74.006, 40.7128], status: 'Open' },
+  { id: 'los-angeles', city: 'Los Angeles', region: 'CA', coords: [-118.2437, 34.0522], status: 'Open' },
+  { id: 'chicago', city: 'Chicago', region: 'IL', coords: [-87.6298, 41.8781], status: 'Open' },
+  { id: 'toronto', city: 'Toronto', region: 'ON', coords: [-79.3832, 43.6532], status: 'Open' },
+  { id: 'vancouver', city: 'Vancouver', region: 'BC', coords: [-123.1207, 49.2827], status: 'Open' },
+  { id: 'london', city: 'London', region: 'UK', coords: [-0.1276, 51.5072], status: 'Open' },
+  { id: 'paris', city: 'Paris', region: 'FR', coords: [2.3522, 48.8566], status: 'Open' },
+  { id: 'berlin', city: 'Berlin', region: 'DE', coords: [13.405, 52.52], status: 'Open' },
+  { id: 'amsterdam', city: 'Amsterdam', region: 'NL', coords: [4.9041, 52.3676], status: 'Open' },
+  { id: 'madrid', city: 'Madrid', region: 'ES', coords: [-3.7038, 40.4168], status: 'Open' },
+  { id: 'lagos', city: 'Lagos', region: 'NG', coords: [3.3792, 6.5244], status: 'Open' },
 ]
 
-const specs = [
-  ['2019', 'Founded'],
-  ['25 yr', 'Frame warranty'],
-  ['100%', 'Natural materials'],
-  ['12', 'Core forms'],
+const articles = [
+  {
+    label: 'Founded',
+    copy: 'Wood began as a small furniture studio for rooms that had to work every day. The first pieces were built slowly, sold locally, and adjusted after living with them in real homes.',
+  },
+  {
+    label: 'Materials',
+    copy: 'We buy fewer boards than a volume catalog would accept. The usable timber pool is smaller, the inspection takes longer, and the final object carries that selection.',
+  },
+  {
+    label: 'Pricing',
+    copy: 'The price includes what usually disappears: joinery, finishing, freight, replacement surfaces, and people who can answer for the product after delivery.',
+  },
+  {
+    label: 'Network',
+    copy: 'The map shows where the work moves now. Grand Rapids remains the workshop point; each shop city is a place where the piece can be seen, ordered, serviced, or returned to us.',
+  },
 ]
 
-export default function AboutPage() {
-  const [heroLoaded, setHeroLoaded] = useState(false)
-  const [detailLoaded, setDetailLoaded] = useState(false)
+function AboutMapMarkers() {
+  const { map } = useMap()
+  const flyToLocation = coords => {
+    map?.flyTo({
+      center: coords,
+      zoom: 10.8,
+      pitch: 58,
+      bearing: -22,
+      speed: 0.55,
+      curve: 1.8,
+      essential: true,
+    })
+  }
 
   return (
-    <div className="about-page">
-      <header className="about-hero" aria-labelledby="about-title">
-        <div className="about-grid">
-          <p className="about-kicker">About / Wood</p>
-          <h1 id="about-title" className="about-title">Furniture for rooms that are used every day.</h1>
-          <p className="about-hero-copy">
-            We design direct, durable living room objects with clear proportions, natural materials, and enough restraint to sit quietly in the background.
-          </p>
-          <div className="about-hero-index" aria-label="About page sections">
-            <span>Index</span>
-            <span>Materials</span>
-            <span>Rooms</span>
-            <span>Care</span>
-          </div>
-        </div>
-      </header>
+    <>
+      <MapMarker
+        longitude={hub.coords[0]}
+        latitude={hub.coords[1]}
+        onClick={() => flyToLocation(hub.coords)}
+      >
+        <MarkerContent className="about-map-marker about-map-marker-hub" />
+        <MarkerTooltip>{hub.label} / {hub.city}</MarkerTooltip>
+      </MapMarker>
+      {shops.map(shop => (
+        <MapMarker
+          key={shop.id}
+          longitude={shop.coords[0]}
+          latitude={shop.coords[1]}
+          onClick={() => flyToLocation(shop.coords)}
+        >
+          <MarkerContent className="about-map-marker" />
+          <MarkerTooltip>{shop.city}, {shop.region} / {shop.status}</MarkerTooltip>
+        </MapMarker>
+      ))}
+    </>
+  )
+}
 
-      <section className="about-hero-image" aria-label="Minimal living room">
-        {!heroLoaded && <div className="about-image-placeholder" />}
-        <img
-          src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=1600&q=80"
-          alt="Minimal living room with wood furniture"
-          width="1600"
-          height="700"
-          onLoad={() => setHeroLoaded(true)}
-          className={heroLoaded ? 'is-loaded' : ''}
-        />
-      </section>
+function StoreDirectory() {
+  const { map } = useMap()
+  const stores = [hub, ...shops]
+  const flyToLocation = coords => {
+    map?.flyTo({
+      center: coords,
+      zoom: 10.8,
+      pitch: 58,
+      bearing: -22,
+      speed: 0.55,
+      curve: 1.8,
+      essential: true,
+    })
+  }
 
-      <section className="about-stats" aria-label="Company facts">
-        {specs.map(([number, label]) => (
-          <div key={label}>
-            <p>{number}</p>
-            <span>{label}</span>
-          </div>
+  return (
+    <aside
+      className="about-store-directory"
+      aria-label="Store locations"
+      data-lenis-prevent
+      onWheel={event => event.stopPropagation()}
+      onTouchMove={event => event.stopPropagation()}
+    >
+      <p>Stores</p>
+      <div>
+        {stores.map(store => (
+          <button
+            key={`${store.city}-${store.region}`}
+            type="button"
+            onClick={() => flyToLocation(store.coords)}
+          >
+            <span>{store.city}</span>
+            <em>{store.region}</em>
+          </button>
         ))}
+      </div>
+    </aside>
+  )
+}
+
+export default function AboutPage() {
+  return (
+    <div className="about-page">
+      <section className="about-map-section" aria-label="North American supply corridor">
+        <div className="about-map-frame">
+          <Map
+            className="about-map"
+            center={[-97.2, 41.2]}
+            zoom={3.2}
+            bearing={0}
+            pitch={0}
+            theme="light"
+            scrollZoom={false}
+            dragPan
+            touchZoomRotate
+          >
+            <AboutMapMarkers />
+            <StoreDirectory />
+            <MapControls position="top-right" showCompass showFullscreen />
+          </Map>
+
+          <p className="about-map-caption">Wood / North American corridor</p>
+        </div>
       </section>
 
-      <section className="about-editorial" aria-labelledby="about-edit-title">
-        <div className="about-editorial-copy">
-          <p className="about-kicker">Method</p>
-          <h2 id="about-edit-title">Start with the room. Reduce everything else.</h2>
-          <p>
-            Each product is reviewed against the same simple requirements: stable construction, readable dimensions, repairable parts, and forms that do not dominate the space around them.
-          </p>
-        </div>
-        <div className="about-editorial-media">
-          {!detailLoaded && <div className="about-image-placeholder" />}
-          <img
-            src="https://images.unsplash.com/photo-1540574163026-643ea20ade25?w=1000&q=80"
-            alt="Neutral sofa in a quiet room"
-            width="1000"
-            height="1250"
-            loading="lazy"
-            onLoad={() => setDetailLoaded(true)}
-            className={detailLoaded ? 'is-loaded' : ''}
-          />
-        </div>
-      </section>
-
-      <section className="about-principles" aria-label="Design principles">
-        {principles.map(([number, title, text]) => (
-          <article key={title}>
-            <span>{number}</span>
-            <h3>{title}</h3>
-            <p>{text}</p>
+      <section className="about-articles" aria-labelledby="about-title">
+        <header className="about-intro">
+          <p className="about-eyebrow">About Wood</p>
+          <h1 id="about-title">Built slowly. Priced accordingly.</h1>
+        </header>
+        {articles.map(item => (
+          <article key={item.label}>
+            <h2>{item.label}</h2>
+            <p>{item.copy}</p>
           </article>
         ))}
-      </section>
-
-      <section className="about-manifesto" aria-label="Design statement">
-        <p>Useful forms.</p>
-        <p>Durable materials.</p>
-        <p>Direct presentation.</p>
       </section>
     </div>
   )

@@ -359,11 +359,22 @@ export default function HomePage() {
   const [bestSellerActionMode, setBestSellerActionMode] = useState('rest')
   const [bestSellerHoverLabel, setBestSellerHoverLabel] = useState(null)
   const [showHeroScrollHint, setShowHeroScrollHint] = useState(false)
-  const { products, loading: productsLoading } = useProducts()
-  const bestSellerProducts = useMemo(
-    () => products.filter(product => product.best_seller).slice(0, 8),
-    [products],
-  )
+  const { products, loading: productsLoading, error: productsError } = useProducts()
+  const bestSellerProducts = useMemo(() => {
+    const explicitBestSellers = products.filter(product => product.best_seller)
+    const homepageProducts = products.filter(product => product.show_on_homepage)
+    const featuredProducts = products.filter(product => product.featured)
+    const source = explicitBestSellers.length
+      ? explicitBestSellers
+      : homepageProducts.length
+        ? homepageProducts
+        : featuredProducts.length
+          ? featuredProducts
+          : products
+
+    return source.slice(0, 8)
+  }, [products])
+  const bestSellersPending = productsLoading || (productsError && products.length === 0) || (!productsLoading && !productsError && products.length === 0)
   const heroScene = useMemo(() => ({ active }) => (
     <LazyThreeScene
       fallback={<ThreeModelPlaceholder variant="room" label="Loading room view" />}
@@ -888,8 +899,8 @@ export default function HomePage() {
 
           <div className="home-bestseller-shell">
             <div className="home-bestseller-board">
-              {productsLoading ? (
-                <div className="home-bestseller-loading" aria-hidden="true">
+              {bestSellersPending ? (
+                <div className="home-bestseller-loading" role="status" aria-label="Loading best sellers">
                   {bestSellerSkeletonItems.map(item => (
                     <Skeleton className="home-bestseller-stack-skeleton" key={item} />
                   ))}

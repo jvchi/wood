@@ -446,6 +446,7 @@ export default function ProductPage({ isOverlay = false }) {
                     modelScale={product.model_scale}
                     modelRotation={product.model_rotation}
                     modelCamera={product.model_camera}
+                    modelLightPosition={product.model_light_position}
                     fallbackImage={product.model_poster_url || product.fallback_image_url || product.images[0]}
                   />
                 </LazyThreeScene>

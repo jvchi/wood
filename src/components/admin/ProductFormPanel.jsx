@@ -25,6 +25,17 @@ function formatRotationCsv(values) {
   return values.map(v => Number(v.toFixed(3))).join(',')
 }
 
+function parseVectorCsv(value, fallback = [3, 5, 4]) {
+  const parts = String(value || '').split(',').map(part => Number(part.trim()))
+  return fallback.map((fallbackValue, index) => (
+    Number.isFinite(parts[index]) ? parts[index] : fallbackValue
+  ))
+}
+
+function formatVectorCsv(values) {
+  return values.map(v => Number(v.toFixed(2))).join(',')
+}
+
 const ROTATION_DEGREES_MIN = -180
 const ROTATION_DEGREES_MAX = 180
 const ROTATION_DEGREES_STEP = 1
@@ -32,6 +43,10 @@ const ZERO_ROTATION_EPSILON = 0.0001
 const MODEL_SCALE_MIN = 0.05
 const MODEL_SCALE_MAX = 5
 const MODEL_SCALE_STEP = 0.01
+const DEFAULT_LIGHT_POSITION = [3, 5, 4]
+const LIGHT_POSITION_MIN = -10
+const LIGHT_POSITION_MAX = 10
+const LIGHT_POSITION_STEP = 0.01
 
 function parseModelScale(value) {
   const parsed = Number(value)
@@ -150,6 +165,102 @@ function ScaleControl({ value, onChange, onCommit }) {
   )
 }
 
+function LightPositionControl({ value, onCommit }) {
+  const values = parseVectorCsv(value || formatVectorCsv(DEFAULT_LIGHT_POSITION), DEFAULT_LIGHT_POSITION)
+  const [x, y, z] = values
+  const normalize = axisValue => ((axisValue - LIGHT_POSITION_MIN) / (LIGHT_POSITION_MAX - LIGHT_POSITION_MIN)) * 100
+  const clamp = next => Math.min(LIGHT_POSITION_MAX, Math.max(LIGHT_POSITION_MIN, next))
+  const positionFromPercent = percent => LIGHT_POSITION_MIN + ((LIGHT_POSITION_MAX - LIGHT_POSITION_MIN) * percent)
+
+  const commitValues = nextValues => {
+    const formatted = formatVectorCsv(nextValues)
+    onCommit?.(formatted)
+  }
+  const setAxis = (index, nextValue) => {
+    const updated = [...values]
+    updated[index] = clamp(Number(nextValue))
+    commitValues(updated)
+  }
+  const handleMapPointer = event => {
+    const map = event.currentTarget
+    const bounds = map.getBoundingClientRect()
+    const railWidth = 10.4
+    const gap = 5.6
+    const planeWidth = bounds.width - railWidth - gap
+    const localX = event.clientX - bounds.left
+    const localY = event.clientY - bounds.top
+    const isHeightRail = localX >= planeWidth + gap
+    const updated = [...values]
+
+    if (isHeightRail) {
+      const yPercent = 1 - Math.min(1, Math.max(0, localY / bounds.height))
+      updated[1] = clamp(positionFromPercent(yPercent))
+    } else {
+      const xPercent = Math.min(1, Math.max(0, localX / planeWidth))
+      const zPercent = 1 - Math.min(1, Math.max(0, localY / bounds.height))
+      updated[0] = clamp(positionFromPercent(xPercent))
+      updated[2] = clamp(positionFromPercent(zPercent))
+    }
+
+    commitValues(updated)
+  }
+  const startMapPointer = event => {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    handleMapPointer(event)
+  }
+  const reset = () => {
+    onCommit?.('')
+  }
+
+  return (
+    <div className="admin-light-position-control">
+      <div
+        className="admin-light-position-map"
+        role="slider"
+        tabIndex={0}
+        aria-label="Drag key light position"
+        aria-valuetext={`X ${x.toFixed(2)}, Y ${y.toFixed(2)}, Z ${z.toFixed(2)}`}
+        onPointerDown={startMapPointer}
+        onPointerMove={event => {
+          if (event.buttons === 1) handleMapPointer(event)
+        }}
+        style={{
+          '--light-x': `${normalize(x) * 0.86}%`,
+          '--light-z': `${(100 - normalize(z)) * 0.78}%`,
+          '--light-y': `${100 - normalize(y)}%`,
+        }}
+      >
+        <span className="admin-light-position-map-dot" />
+        <span className="admin-light-position-height-dot" />
+      </div>
+      {['X', 'Y', 'Z'].map((axis, index) => (
+        <label className="admin-light-position-axis" key={axis}>
+          <span>{axis}</span>
+          <input
+            type="range"
+            min={LIGHT_POSITION_MIN}
+            max={LIGHT_POSITION_MAX}
+            step={LIGHT_POSITION_STEP}
+            value={values[index]}
+            onChange={event => setAxis(index, event.target.value)}
+            aria-label={`Key light ${axis} position`}
+          />
+          <input
+            type="number"
+            min={LIGHT_POSITION_MIN}
+            max={LIGHT_POSITION_MAX}
+            step={LIGHT_POSITION_STEP}
+            value={values[index]}
+            onChange={event => setAxis(index, event.target.value)}
+            aria-label={`Precise key light ${axis} position`}
+          />
+        </label>
+      ))}
+      <button type="button" className="admin-rotation-reset" onClick={reset}>Reset</button>
+    </div>
+  )
+}
+
 function ModelPreviewEditor({
   draft,
   previewRef,
@@ -165,6 +276,7 @@ function ModelPreviewEditor({
   savedViewThumb,
   onRotationCommit,
   onScaleCommit,
+  onLightPositionCommit,
   onSaveCamera,
   onResetCamera,
   onResetPosition,
@@ -204,6 +316,7 @@ function ModelPreviewEditor({
         scale={liveScale}
         rotation={liveRotation}
         camera={draft.model_camera}
+        lightPosition={draft.model_light_position}
         aspectRatio={aspectRatioValue}
         aspectLabel={aspectRatio}
         showAspectGhost={!capturing}
@@ -230,6 +343,10 @@ function ModelPreviewEditor({
               onViewRight={onViewRight}
               onViewTop={onViewTop}
             />
+          </div>
+          <div className="admin-model-preview-rotation admin-model-preview-light">
+            <span className="admin-model-preview-rotation-label">Key light</span>
+            <LightPositionControl value={draft.model_light_position} onCommit={onLightPositionCommit} />
           </div>
           <div className="admin-model-preview-toolbar">
             <button type="button" className="pressable admin-model-preview-action" onClick={onSaveCamera}>
@@ -377,6 +494,7 @@ const emptyProduct = {
   model_scale: 1,
   model_rotation: '0,0,0',
   model_camera: '',
+  model_light_position: '',
   model_format: 'glb',
   model_file_size: '',
   published: true,
@@ -1113,6 +1231,7 @@ export default function ProductFormPanel({ product, categories, collections, pro
       model_poster_url: '',
       model_version: '',
       model_file_size: '',
+      model_light_position: '',
       fallback_image_url: '',
     }))
     clearLocalSourceModel()
@@ -1382,6 +1501,7 @@ export default function ProductFormPanel({ product, categories, collections, pro
               savedViewThumb={savedViewThumb}
               onRotationCommit={value => update('model_rotation', value)}
               onScaleCommit={value => update('model_scale', value)}
+              onLightPositionCommit={value => update('model_light_position', value)}
               onSaveCamera={handleSaveCamera}
               onResetCamera={handleResetCamera}
               onResetPosition={handleResetPosition}

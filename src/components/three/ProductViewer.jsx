@@ -13,6 +13,14 @@ import { canUseWebGL, getDevicePerformanceProfile, resolveModelAsset } from '../
 import { parseCameraCsv } from '../../lib/modelCamera'
 
 const MODEL_LOAD_TIMEOUT_MS = 10000
+const DEFAULT_LIGHT_POSITION = [3, 5, 4]
+
+function parseVectorCsv(value, fallback = DEFAULT_LIGHT_POSITION) {
+  const values = String(value || '').split(',').map(part => Number(part.trim()))
+  return fallback.map((fallbackValue, index) => (
+    Number.isFinite(values[index]) ? values[index] : fallbackValue
+  ))
+}
 
 function AutoRotate({ enabled, target }) {
   const controls = useRef()
@@ -112,6 +120,7 @@ export default function ProductViewer({
   modelScale,
   modelRotation,
   modelCamera,
+  modelLightPosition,
   fallbackImage,
   active = true,
 }) {
@@ -120,6 +129,7 @@ export default function ProductViewer({
   const cameraPosition = savedCamera?.position || [3, 1, 3]
   const cameraFov = savedCamera?.fov || 40
   const cameraTarget = savedCamera?.target || [0, 0, 0]
+  const keyLightPosition = parseVectorCsv(modelLightPosition)
   const [autoRotate, setAutoRotate] = useState(true)
   const [loadedModelUrl, setLoadedModelUrl] = useState(null)
   const [failedModelUrl, setFailedModelUrl] = useState(null)
@@ -209,8 +219,8 @@ export default function ProductViewer({
       >
         <SceneEnvironment />
         <hemisphereLight args={[0xffffff, 0xe6e3d8, 0.65]} />
-        <ambientLight intensity={0.45} />
-        <directionalLight position={[3, 5, 4]} intensity={1.1} />
+        <ambientLight intensity={0.28} />
+        <directionalLight position={keyLightPosition} intensity={2.2} />
         <directionalLight position={[-4, 2, -3]} intensity={0.55} />
         <directionalLight position={[0, 3, -5]} intensity={0.4} />
         <AutoRotate enabled={autoRotate} target={cameraTarget} />

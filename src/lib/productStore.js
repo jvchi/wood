@@ -270,6 +270,7 @@ function mapSupabaseProduct(row) {
     model_scale: model?.scale || row.model_scale || 1,
     model_rotation: model?.rotation || row.model_rotation || '0,0,0',
     model_camera: model?.camera || row.model_camera || '',
+    model_light_position: model?.metadata?.light_position || row.model_light_position || '',
     model_format: model?.format || '',
     model_file_size: model?.file_size || '',
   })
@@ -330,7 +331,7 @@ const PRODUCT_SELECT = `
   categories(slug,name),
   collections(slug,name),
   product_images(url,thumbnail_url,sort_order,is_main),
-  product_models(url,lite_url,poster_url,version,fallback_image_url,scale,rotation,format,file_size,camera)
+  product_models(url,lite_url,poster_url,version,fallback_image_url,scale,rotation,format,file_size,camera,metadata)
 `
 
 async function fetchProductsFromSource({ includeUnpublished }) {
@@ -697,6 +698,9 @@ async function replaceProductModel(product) {
     scale: Number(product.model_scale || 1),
     rotation: product.model_rotation || '0,0,0',
     camera: product.model_camera || null,
+    metadata: {
+      light_position: product.model_light_position || null,
+    },
     format: product.model_format || 'glb',
     file_size: product.model_file_size ? Number(product.model_file_size) : null,
   })

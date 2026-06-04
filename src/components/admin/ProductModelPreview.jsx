@@ -14,6 +14,14 @@ import { DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_TARGET, DEFAULT_FOV, parseCamer
 // exceed 10s, and admin previews shouldn't bail early. Retry button below
 // lets the admin recover without reloading the page.
 const MODEL_LOAD_TIMEOUT_MS = 45000
+const DEFAULT_LIGHT_POSITION = [3, 5, 4]
+
+function parseVectorCsv(value, fallback = DEFAULT_LIGHT_POSITION) {
+  const values = String(value || '').split(',').map(part => Number(part.trim()))
+  return fallback.map((fallbackValue, index) => (
+    Number.isFinite(values[index]) ? values[index] : fallbackValue
+  ))
+}
 
 function parseRotation(rotation) {
   const values = String(rotation || '0,0,0').split(',').map(value => Number(value.trim()))
@@ -268,7 +276,7 @@ function CaptureBridge({ controlsRef, captureRef }) {
 }
 
 const ProductModelPreview = forwardRef(function ProductModelPreview(
-  { modelUrl, fallbackImage, scale, rotation, camera, aspectRatio, aspectLabel, showAspectGhost = true },
+  { modelUrl, fallbackImage, scale, rotation, camera, lightPosition, aspectRatio, aspectLabel, showAspectGhost = true },
   ref,
 ) {
   const [failedModelUrl, setFailedModelUrl] = useState(null)
@@ -286,6 +294,7 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
   const resolvedModelSrc = resolvedModel?.src
   const modelReady = loadedModelUrl === resolvedModelSrc
   const failed = failedModelUrl === resolvedModelSrc
+  const keyLightPosition = useMemo(() => parseVectorCsv(lightPosition), [lightPosition])
 
   const parsedCamera = useMemo(() => parseCameraCsv(camera) || {
     position: DEFAULT_CAMERA_POSITION,
@@ -466,8 +475,8 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
       >
         <SceneEnvironment />
         <hemisphereLight args={[0xffffff, 0xe6e3d8, 0.65]} />
-        <ambientLight intensity={0.45} />
-        <directionalLight position={[3, 5, 4]} intensity={1.1} />
+        <ambientLight intensity={0.28} />
+        <directionalLight position={keyLightPosition} intensity={2.2} />
         <directionalLight position={[-4, 2, -3]} intensity={0.55} />
         <directionalLight position={[0, 3, -5]} intensity={0.4} />
         <ErrorBoundary
