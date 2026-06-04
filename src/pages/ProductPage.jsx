@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { motion as framerMotion } from 'framer-motion'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useProduct } from '../hooks/useProduct'
@@ -29,6 +30,26 @@ const GALLERY_THUMB_QUALITY = 42
   },
 } */
 
+function FixedGalleryLoader({ bounds, label }) {
+  if (typeof document === 'undefined' || !bounds) return null
+
+  return createPortal(
+    <div
+      className="product-gallery-loader-fixed"
+      aria-hidden="true"
+      style={{
+        '--gallery-loader-left': `${bounds.left}px`,
+        '--gallery-loader-top': `${bounds.top}px`,
+        '--gallery-loader-width': `${bounds.width}px`,
+        '--gallery-loader-height': `${bounds.height}px`,
+      }}
+    >
+      <LoadingSpinner label={label} size={32} />
+    </div>,
+    document.body,
+  )
+}
+
 function HeartIcon({ filled = false }) {
   return (
     <svg
@@ -49,6 +70,7 @@ function HeartIcon({ filled = false }) {
 }
 
 function ImageGallery({ images, thumbnails = [], name }) {
+  const galleryFrameRef = useRef(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [imageRatios, setImageRatios] = useState({})
   const [thumbnailFallbacks, setThumbnailFallbacks] = useState({})
@@ -63,6 +85,7 @@ function ImageGallery({ images, thumbnails = [], name }) {
     : imageLqipUrl(activeImage)
   const activeImageLoaded = loadedImages[activeImage] === true
   const activeImageSettled = settledImages[activeImage] === true
+  const [loaderBounds, setLoaderBounds] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -95,6 +118,36 @@ function ImageGallery({ images, thumbnails = [], name }) {
     }, 800)
     return () => window.clearTimeout(timer)
   }, [activeImage, activeImageLoaded, activeImageSettled])
+
+  useEffect(() => {
+    let frame = 0
+
+    if (activeImageSettled) {
+      frame = window.requestAnimationFrame(() => setLoaderBounds(null))
+      return () => window.cancelAnimationFrame(frame)
+    }
+
+    const updateBounds = () => {
+      const bounds = galleryFrameRef.current?.getBoundingClientRect()
+      if (!bounds) return
+      setLoaderBounds({
+        left: bounds.left,
+        top: bounds.top,
+        width: bounds.width,
+        height: bounds.height,
+      })
+    }
+
+    frame = window.requestAnimationFrame(updateBounds)
+    window.addEventListener('resize', updateBounds)
+    window.addEventListener('scroll', updateBounds, { passive: true })
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', updateBounds)
+      window.removeEventListener('scroll', updateBounds)
+    }
+  }, [activeImageSettled])
 
   const setImage = index => {
     const nextIndex = (index + images.length) % images.length
@@ -161,6 +214,7 @@ function ImageGallery({ images, thumbnails = [], name }) {
         ))}
       </div>
       <MotionDiv
+        ref={galleryFrameRef}
         /* layout */
         /* layoutId={activeIndex === 0 ? `product-media-${productId}` : undefined} */
         className="product-gallery-frame"
@@ -206,9 +260,9 @@ function ImageGallery({ images, thumbnails = [], name }) {
             setLoadedImages(p => ({ ...p, [activeImage]: true }))
           }}
         />
-        <div className={activeImageSettled ? 'product-gallery-loader is-hidden' : 'product-gallery-loader'}>
-          <LoadingSpinner label="Loading product image" size={32} />
-        </div>
+        {!activeImageSettled && (
+          <FixedGalleryLoader bounds={loaderBounds} label="Loading product image" />
+        )}
         {images.length > 1 && (
           <p className="product-gallery-count" aria-live="polite">
             <AnimatedNumber value={activeIndex + 1} aria-label={`Image ${activeIndex + 1}`} /> / <AnimatedNumber value={images.length} aria-label={`${images.length} images`} />

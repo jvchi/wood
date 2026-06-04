@@ -1,6 +1,7 @@
 import { useState, useMemo, startTransition } from 'react'
 import { useProducts } from '../hooks/useProducts'
 import ProductCard from '../components/ui/ProductCard'
+import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 const ALL_CATEGORY = 'all'
 const MOBILE_CATEGORY_LABELS = {
@@ -24,7 +25,11 @@ export default function ShopPage() {
     return products.filter(p => p.category === activeCategory)
   }, [products, activeCategory])
 
-  if (loading) return null
+  if (loading) return (
+    <div className="shop-page page-shell page-top shop-page-loading pb-16 md:pb-20" aria-busy="true">
+      <LoadingSpinner label="Loading shop products" size={32} />
+    </div>
+  )
 
   return (
     <div className="shop-page page-shell page-top pb-16 md:pb-20">

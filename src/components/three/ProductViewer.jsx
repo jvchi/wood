@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Center } from '@react-three/drei'
 import { ACESFilmicToneMapping, SRGBColorSpace, PMREMGenerator } from 'three'
@@ -84,6 +85,26 @@ function ProductModelLoadFallback({ onError }) {
   return null
 }
 
+function ModelLoadingOverlay({ bounds }) {
+  if (typeof document === 'undefined' || !bounds) return null
+
+  return createPortal(
+    <div
+      className="model-loading-overlay-fixed"
+      aria-hidden="true"
+      style={{
+        '--model-loader-left': `${bounds.left}px`,
+        '--model-loader-top': `${bounds.top}px`,
+        '--model-loader-width': `${bounds.width}px`,
+        '--model-loader-height': `${bounds.height}px`,
+      }}
+    >
+      <LoadingSpinner label="Loading product model" size={32} />
+    </div>,
+    document.body,
+  )
+}
+
 export default function ProductViewer({
   modelUrl,
   modelLiteUrl,
@@ -94,6 +115,7 @@ export default function ProductViewer({
   fallbackImage,
   active = true,
 }) {
+  const viewerRef = useRef(null)
   const savedCamera = parseCameraCsv(modelCamera)
   const cameraPosition = savedCamera?.position || [3, 1, 3]
   const cameraFov = savedCamera?.fov || 40
@@ -104,6 +126,7 @@ export default function ProductViewer({
   const [builtInFailedKey, setBuiltInFailedKey] = useState(null)
   const [webglAvailable] = useState(canUseWebGL)
   const [profile] = useState(getDevicePerformanceProfile)
+  const [loaderBounds, setLoaderBounds] = useState(null)
   const resolvedModel = modelUrl
     ? resolveModelAsset(
       { src: modelUrl, liteSrc: modelLiteUrl, poster: fallbackImage, version: modelVersion },
@@ -127,6 +150,36 @@ export default function ProductViewer({
     return () => window.clearTimeout(timer)
   }, [isUploadedModel, modelReady, resolvedModelSrc])
 
+  useEffect(() => {
+    let frame = 0
+
+    if (modelReady) {
+      frame = requestAnimationFrame(() => setLoaderBounds(null))
+      return () => cancelAnimationFrame(frame)
+    }
+
+    const updateBounds = () => {
+      const bounds = viewerRef.current?.getBoundingClientRect()
+      if (!bounds) return
+      setLoaderBounds({
+        left: bounds.left,
+        top: bounds.top,
+        width: bounds.width,
+        height: bounds.height,
+      })
+    }
+
+    frame = requestAnimationFrame(updateBounds)
+    window.addEventListener('resize', updateBounds)
+    window.addEventListener('scroll', updateBounds, { passive: true })
+
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('resize', updateBounds)
+      window.removeEventListener('scroll', updateBounds)
+    }
+  }, [modelReady])
+
   if (!webglAvailable || profile.preferStatic) {
     return (
       <div className="h-full min-h-[400px] w-full">
@@ -136,7 +189,7 @@ export default function ProductViewer({
   }
 
   return (
-    <div className="relative h-full min-h-[400px] w-full">
+    <div ref={viewerRef} className="relative h-full min-h-[400px] w-full">
       <Canvas
         style={{ width: '100%', height: '100%' }}
         camera={{ position: cameraPosition, fov: cameraFov }}
@@ -196,11 +249,7 @@ export default function ProductViewer({
           <ThreeModelPlaceholder poster={fallbackImage} variant="product" label="Product preview unavailable" spinner={false} />
         </div>
       )}
-      {!modelReady && (
-        <div className="model-loading-overlay">
-          <LoadingSpinner label="Loading product model" size={32} />
-        </div>
-      )}
+      {!modelReady && <ModelLoadingOverlay bounds={loaderBounds} />}
     </div>
   )
 }

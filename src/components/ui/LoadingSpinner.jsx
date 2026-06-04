@@ -9,7 +9,7 @@ export default function LoadingSpinner({
   size = 56,
   fullPage = false,
 }) {
-  const renderedSize = fullPage ? size : Math.min(size, 56)
+  const renderedSize = (fullPage ? size : Math.min(size, 56)) * 0.6
   const playerRef = useRef(null)
 
   useEffect(() => {

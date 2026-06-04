@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
 import {
   motion as framerMotion,
@@ -53,7 +54,37 @@ function markHomeSceneReady(sceneName) {
   }
 }
 
-function BestSellerStackedProduct({ product, index, location }) {
+function BestSellerHoverLabel({ label, reduceMotion }) {
+  if (typeof document === 'undefined' || !label) return null
+
+  return createPortal(
+    <div
+      className="home-bestseller-hover-label"
+      aria-hidden="true"
+      style={{
+        '--label-left': `${label.left}px`,
+        '--label-top': `${label.top}px`,
+        '--label-width': `${label.width}px`,
+      }}
+    >
+      <MotionDiv
+        className="home-bestseller-hover-label-inner"
+        initial={{ opacity: 0, y: reduceMotion ? 0 : 12, filter: reduceMotion ? 'blur(0px)' : 'blur(6px)' }}
+        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+        transition={{
+          ...bestSellerStackTransition,
+          delay: reduceMotion ? 0 : 0.17,
+        }}
+      >
+        <strong>{label.name}</strong>
+        <em>{label.price}</em>
+      </MotionDiv>
+    </div>,
+    document.body,
+  )
+}
+
+function BestSellerStackedProduct({ product, index, location, onHoverLabelChange }) {
   const ref = useRef(null)
   const hoverDelayRef = useRef(null)
   const touchRevertTimerRef = useRef(null)
@@ -74,6 +105,19 @@ function BestSellerStackedProduct({ product, index, location }) {
     { src: product.images[2], alt: '', y: layerTwoY, ...bestSellerLayerConfigs[2] },
   ].filter(layer => layer.src)
   const isMirroredStack = index % 4 === 2
+  const updateHoverLabel = () => {
+    const bounds = ref.current?.getBoundingClientRect()
+    if (!bounds) return
+
+    onHoverLabelChange({
+      id: product.id,
+      name: product.name,
+      price: formatPrice(product.price),
+      left: bounds.left + bounds.width * 0.15,
+      top: bounds.top + bounds.height * 0.74,
+      width: Math.min(256, bounds.width * 0.62),
+    })
+  }
   const clearHoverDelay = () => {
     if (hoverDelayRef.current) {
       window.clearTimeout(hoverDelayRef.current)
@@ -92,6 +136,7 @@ function BestSellerStackedProduct({ product, index, location }) {
       touchRevertTimerRef.current = null
       isTouchExpandedRef.current = false
       setIsHovered(false)
+      onHoverLabelChange(null)
     }, 5000)
   }
   const handleLinkClick = event => {
@@ -106,6 +151,7 @@ function BestSellerStackedProduct({ product, index, location }) {
       event.preventDefault()
       isTouchExpandedRef.current = true
       setIsHovered(true)
+      updateHoverLabel()
       startTouchRevertTimer()
     }
   }
@@ -116,6 +162,7 @@ function BestSellerStackedProduct({ product, index, location }) {
     hoverDelayRef.current = window.setTimeout(() => {
       hoverDelayRef.current = null
       setIsHovered(true)
+      updateHoverLabel()
     }, BEST_SELLER_HOVER_DELAY)
   }
   const resetHover = () => {
@@ -123,6 +170,7 @@ function BestSellerStackedProduct({ product, index, location }) {
     // Only reset hover for non-touch (touch state is managed by tap handler)
     if (!isTouchExpandedRef.current) {
       setIsHovered(false)
+      onHoverLabelChange(null)
     }
   }
   const getLayerStackOrderVariants = layerIndex => {
@@ -201,38 +249,18 @@ function BestSellerStackedProduct({ product, index, location }) {
       },
     }
   }
-  const detailVariants = {
-    rest: {
-      opacity: 0,
-      y: reduceMotion ? 0 : 12,
-      filter: reduceMotion ? 'blur(0px)' : 'blur(6px)',
-      transition: {
-        duration: reduceMotion ? 0 : 0.16,
-        ease: [0.32, 0.72, 0, 1],
-        delay: 0,
-      },
-    },
-    hover: {
-      opacity: 1,
-      y: 0,
-      filter: 'blur(0px)',
-      transition: {
-        ...bestSellerStackTransition,
-        delay: reduceMotion ? 0 : 0.17,
-      },
-    },
-  }
-
   useEffect(() => () => {
     clearHoverDelay()
     clearTouchRevertTimer()
-  }, [])
+    onHoverLabelChange(null)
+  }, [onHoverLabelChange])
   useEffect(() => {
     const handleScroll = () => {
       // Only revert hover on scroll for non-touch expanded state
       if (!isTouchExpandedRef.current) {
         clearHoverDelay()
         setIsHovered(false)
+        onHoverLabelChange(null)
       }
     }
     window.addEventListener('scroll', handleScroll, { passive: true })
@@ -253,7 +281,10 @@ function BestSellerStackedProduct({ product, index, location }) {
       onPointerCancel={resetHover}
       onMouseEnter={queueHover}
       onMouseLeave={resetHover}
-      onFocus={() => setIsHovered(true)}
+      onFocus={() => {
+        setIsHovered(true)
+        updateHoverLabel()
+      }}
       onBlur={event => {
         if (!event.currentTarget.contains(event.relatedTarget)) {
           resetHover()
@@ -297,14 +328,6 @@ function BestSellerStackedProduct({ product, index, location }) {
               </MotionDiv>
             </MotionDiv>
           ))}
-          <MotionDiv
-            className="home-bestseller-stack-details"
-            variants={detailVariants}
-            aria-hidden={!isHovered}
-          >
-            <strong>{product.name}</strong>
-            <em>{formatPrice(product.price)}</em>
-          </MotionDiv>
         </MotionDiv>
       </Link>
     </article>
@@ -334,6 +357,7 @@ export default function HomePage() {
   const [heroSceneActive, setHeroSceneActive] = useState(true)
   const [chairSceneActive, setChairSceneActive] = useState(true)
   const [bestSellerActionMode, setBestSellerActionMode] = useState('rest')
+  const [bestSellerHoverLabel, setBestSellerHoverLabel] = useState(null)
   const [showHeroScrollHint, setShowHeroScrollHint] = useState(false)
   const { products, loading: productsLoading } = useProducts()
   const bestSellerProducts = useMemo(
@@ -878,6 +902,7 @@ export default function HomePage() {
                       product={product}
                       index={index}
                       location={location}
+                      onHoverLabelChange={setBestSellerHoverLabel}
                     />
                   ))}
                 </div>
@@ -893,6 +918,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      <BestSellerHoverLabel label={bestSellerHoverLabel} reduceMotion={reduceMotion} />
       <Footer />
     </div>
   )
