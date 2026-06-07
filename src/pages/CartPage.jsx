@@ -5,7 +5,6 @@ import { useCart } from '../context/CartContext'
 import { formatPrice } from '../utils/formatPrice'
 import Button from '../components/ui/Button'
 import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumber'
-import { PRODUCT_PLACEHOLDER_IMAGE } from '../lib/productStore'
 
 const SWIPE_ACTION_WIDTH = 88
 const FULL_SWIPE_VELOCITY = -760
@@ -142,9 +141,7 @@ function CartItem({ item, removeItem, updateQuantity }) {
             loading="lazy"
             draggable="false"
             onError={event => {
-              if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
-                event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
-              }
+              event.currentTarget.style.display = 'none'
             }}
           />
         </Link>

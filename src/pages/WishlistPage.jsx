@@ -5,7 +5,6 @@ import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
 import Button from '../components/ui/Button'
 import AnimatedNumber from '../components/ui/AnimatedNumber'
-import { PRODUCT_PLACEHOLDER_IMAGE } from '../lib/productStore'
 
 export default function WishlistPage() {
   const { items, removeItem } = useWishlist()
@@ -41,9 +40,7 @@ export default function WishlistPage() {
                   loading="lazy"
                   className="h-full w-full object-cover"
                   onError={event => {
-                    if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
-                      event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
-                    }
+                    event.currentTarget.style.display = 'none'
                   }}
                 />
               </div>

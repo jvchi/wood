@@ -13,7 +13,7 @@ const productListRequests = new Map()
 const productDetailCache = new Map()
 const productDetailRequests = new Map()
 let productListCacheVersion = 0
-export const PRODUCT_PLACEHOLDER_IMAGE = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 800 1000%22%3E%3Crect width=%22800%22 height=%221000%22 fill=%22%23efeee8%22/%3E%3Cpath d=%22M210 570h380M250 500h300M310 430h180%22 stroke=%22%23000%22 stroke-opacity=%22.24%22 stroke-width=%2214%22 stroke-linecap=%22square%22/%3E%3Ctext x=%22400%22 y=%22635%22 text-anchor=%22middle%22 font-family=%22Arial,sans-serif%22 font-size=%2232%22 font-weight=%22700%22 fill=%22%23000%22 fill-opacity=%22.42%22%3EWOOD%3C/text%3E%3C/svg%3E'
+export const PRODUCT_PLACEHOLDER_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
 
 export const defaultCategories = [
   { id: 'sofas', name: 'Sofas', slug: 'sofas', description: 'Soft seating for living spaces.' },

@@ -1064,6 +1064,7 @@ input {
 }
 
 .home-bestseller-stack-plane {
+  position: relative;
   width: 100%;
   height: 100%;
   overflow: visible;
@@ -1093,6 +1094,20 @@ input {
   outline: 0;
   box-shadow: none;
   object-fit: cover;
+}
+
+.home-bestseller-stack-image .home-bestseller-stack-thumb {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.34;
+  filter: blur(8px);
+  transform: scale(1.015);
+}
+
+.home-bestseller-stack-image img:not(.home-bestseller-stack-thumb) {
+  position: relative;
+  z-index: 1;
 }
 
 .home-bestseller-stack-base {

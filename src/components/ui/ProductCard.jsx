@@ -2,7 +2,6 @@ import { Link, useLocation } from 'react-router-dom'
 import { motion as framerMotion } from 'framer-motion'
 import { useState, forwardRef, useEffect, useRef } from 'react'
 import { useWishlist } from '../../context/WishlistContext'
-import { PRODUCT_PLACEHOLDER_IMAGE } from '../../lib/productStore'
 
 const MotionDiv = framerMotion.div
 const MotionImg = framerMotion.img
@@ -106,11 +105,6 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
             exit={{ opacity: 1 }}
             onLoad={() => setImageLoaded(true)}
             onError={event => {
-              if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
-                event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
-                setImageLoaded(true)
-                return
-              }
               event.currentTarget.style.display = 'none'
               setImageLoaded(true)
             }}

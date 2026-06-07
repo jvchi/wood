@@ -19,7 +19,6 @@ import Footer from '../components/layout/Footer'
 import Skeleton from '../components/ui/Skeleton'
 import { LetterCascade } from '../components/ui/LetterCascade'
 import { useProducts } from '../hooks/useProducts'
-import { PRODUCT_PLACEHOLDER_IMAGE } from '../lib/productStore'
 import { formatPrice } from '../utils/formatPrice'
 
 const HeroScene = lazy(() => import('../components/three/HeroScene'))
@@ -102,9 +101,9 @@ function BestSellerStackedProduct({ product, index, location, onHoverLabelChange
   const layerOneY = useTransform(scrollYProgress, [0, 1], bestSellerLayerConfigs[1].yRange)
   const layerTwoY = useTransform(scrollYProgress, [0, 1], bestSellerLayerConfigs[2].yRange)
   const layerImages = [
-    { src: product.images[0], alt: product.name, y: baseY, ...bestSellerLayerConfigs[0] },
-    { src: product.images[1], alt: '', y: layerOneY, ...bestSellerLayerConfigs[1] },
-    { src: product.images[2], alt: '', y: layerTwoY, ...bestSellerLayerConfigs[2] },
+    { src: product.images[0], thumbnail: product.image_thumbnails?.[0], alt: product.name, y: baseY, ...bestSellerLayerConfigs[0] },
+    { src: product.images[1], thumbnail: product.image_thumbnails?.[1], alt: '', y: layerOneY, ...bestSellerLayerConfigs[1] },
+    { src: product.images[2], thumbnail: product.image_thumbnails?.[2], alt: '', y: layerTwoY, ...bestSellerLayerConfigs[2] },
   ].filter(layer => layer.src)
   const isMirroredStack = index % 4 === 2
   const updateHoverLabel = () => {
@@ -320,6 +319,21 @@ function BestSellerStackedProduct({ product, index, location, onHoverLabelChange
                 variants={getLayerPlaneVariants(layerIndex)}
                 transition={bestSellerStackTransition}
               >
+                {layer.thumbnail && (
+                  <img
+                    className="home-bestseller-stack-thumb"
+                    src={layer.thumbnail}
+                    alt=""
+                    width={180}
+                    height={180}
+                    loading="lazy"
+                    decoding="async"
+                    aria-hidden="true"
+                    onError={event => {
+                      event.currentTarget.style.display = 'none'
+                    }}
+                  />
+                )}
                 <MotionImg
                   src={layer.src}
                   alt={layer.alt}
@@ -327,10 +341,6 @@ function BestSellerStackedProduct({ product, index, location, onHoverLabelChange
                   height={layerIndex === 0 ? 1125 : 650}
                   loading="lazy"
                   onError={event => {
-                    if (layerIndex === 0 && event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
-                      event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
-                      return
-                    }
                     event.currentTarget.style.display = 'none'
                   }}
                 />

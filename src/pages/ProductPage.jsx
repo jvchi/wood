@@ -13,7 +13,6 @@ import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumbe
 import LazyThreeScene from '../components/three/LazyThreeScene'
 import ThreeModelPlaceholder from '../components/three/ThreeModelPlaceholder'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
-import { PRODUCT_PLACEHOLDER_IMAGE } from '../lib/productStore'
 
 const ProductViewer = lazy(() => import('../components/three/ProductViewer'))
 
@@ -208,8 +207,8 @@ function ImageGallery({ images, thumbnails = [], name }) {
                 }
               }}
               onError={event => {
-                if (thumbnailFallbacks[i] && event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
-                  event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
+                if (thumbnailFallbacks[i]) {
+                  event.currentTarget.style.display = 'none'
                   return
                 }
                 setThumbnailFallbacks(p => (p[i] ? p : { ...p, [i]: true }))
@@ -265,11 +264,6 @@ function ImageGallery({ images, thumbnails = [], name }) {
             setLoadedImages(p => ({ ...p, [activeImage]: true }))
           }}
           onError={event => {
-            if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
-              event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
-              setLoadedImages(p => ({ ...p, [activeImage]: true }))
-              return
-            }
             event.currentTarget.style.display = 'none'
             setLoadedImages(p => ({ ...p, [activeImage]: true }))
           }}

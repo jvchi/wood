@@ -1,5 +1,4 @@
 import { motion as framerMotion } from 'framer-motion'
-import { PRODUCT_PLACEHOLDER_IMAGE } from '../../lib/productStore'
 
 const MotionDiv = framerMotion.div
 const MotionImg = framerMotion.img
@@ -39,9 +38,7 @@ export default function SharedProductImage({
         transition={productImageTransition}
         onLoad={onLoad}
         onError={event => {
-          if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
-            event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
-          }
+          event.currentTarget.style.display = 'none'
         }}
       />
     </MotionDiv>
