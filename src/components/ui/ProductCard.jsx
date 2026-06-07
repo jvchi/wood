@@ -106,7 +106,6 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
             onLoad={() => setImageLoaded(true)}
             onError={event => {
               event.currentTarget.style.display = 'none'
-              setImageLoaded(true)
             }}
           />
         </Link>

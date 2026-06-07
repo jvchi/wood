@@ -13,7 +13,7 @@ const productListRequests = new Map()
 const productDetailCache = new Map()
 const productDetailRequests = new Map()
 let productListCacheVersion = 0
-export const PRODUCT_PLACEHOLDER_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
+export const PRODUCT_PLACEHOLDER_IMAGE = ''
 
 export const defaultCategories = [
   { id: 'sofas', name: 'Sofas', slug: 'sofas', description: 'Soft seating for living spaces.' },
@@ -188,12 +188,14 @@ export function normalizeProduct(product) {
   const quantity = Number(product.stock_quantity ?? product.stock ?? 0)
   const regularPrice = Number(product.regular_price ?? product.price ?? 0)
   const salePrice = product.sale_price === '' || product.sale_price == null ? '' : Number(product.sale_price)
-  const images = Array.isArray(product.images) && product.images.length ? product.images : [PRODUCT_PLACEHOLDER_IMAGE]
   const imageThumbnails = Array.isArray(product.image_thumbnails)
     ? product.image_thumbnails
     : Array.isArray(product.thumbnail_images)
       ? product.thumbnail_images
       : []
+  const images = Array.isArray(product.images) && product.images.length
+    ? product.images
+    : imageThumbnails.filter(Boolean)
   const tags = Array.isArray(product.tags)
     ? product.tags
     : String(product.tags || '').split(',').map(tag => tag.trim()).filter(Boolean)
