@@ -7,8 +7,12 @@ function isChunkLoadError(error) {
   return (
     message.includes('Failed to fetch dynamically imported module') ||
     message.includes('Importing a module script failed') ||
+    message.includes('error loading dynamically imported module') ||
     message.includes('Loading chunk') ||
-    message.includes('ChunkLoadError')
+    message.includes('ChunkLoadError') ||
+    message.includes('expected a JavaScript-or-Wasm module script') ||
+    message.includes('module script failed') ||
+    message.includes('Unexpected token')
   )
 }
 
