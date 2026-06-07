@@ -794,8 +794,7 @@ export default function HomePage() {
               <span>wood</span>
             </h1>
             <div className="home-mobile-panel">
-              <p className="label-text-compact">The Sofa Room</p>
-              <p>Settle into the shape of home.</p>
+              <p>Explore pieces for every room.</p>
             </div>
             <MotionDiv
               className="home-scroll-hint"

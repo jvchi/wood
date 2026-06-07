@@ -2103,6 +2103,16 @@ input {
   min-width: 0;
   gap: 0.2rem;
   padding-top: 0.5rem;
+  opacity: 0;
+  filter: blur(6px);
+  transition:
+    opacity 360ms var(--ease-out),
+    filter 420ms var(--ease-out);
+}
+
+.product-card.is-image-loaded .product-card-meta {
+  opacity: 1;
+  filter: blur(0);
 }
 
 .product-card-masonry .product-card-meta {

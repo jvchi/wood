@@ -55,7 +55,7 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
   return (
     <article
       ref={ref}
-      className={`product-card group ${isMasonry ? 'product-card-masonry' : ''} ${isTall ? 'is-tall' : ''} ${isWide ? 'is-wide' : ''}`}
+      className={`product-card group ${isMasonry ? 'product-card-masonry' : ''} ${imageLoaded ? 'is-image-loaded' : 'is-image-loading'} ${isTall ? 'is-tall' : ''} ${isWide ? 'is-wide' : ''}`}
       style={isMasonry ? { '--masonry-index': index % 6 } : undefined}
     >
       <MotionDiv
