@@ -5,6 +5,7 @@ import { OrbitControls, Center, Environment, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import Room from '../../../components/Room'
 import { canUseWebGL, getDevicePerformanceProfile } from '../../lib/threeAssetStrategy'
+import { PRODUCT_PLACEHOLDER_IMAGE } from '../../lib/productStore'
 import ErrorBoundary from '../ui/ErrorBoundary'
 
 const POINTER_LEAVE_RESET_MS = 120
@@ -366,6 +367,13 @@ export default function HeroScene({ active = true, fallbackImage, fallbackAlt = 
             alt={fallbackAlt}
             className="h-full w-full object-cover"
             loading="eager"
+            onError={event => {
+              if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
+                event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
+                return
+              }
+              event.currentTarget.style.display = 'none'
+            }}
           />
         )}
       </div>

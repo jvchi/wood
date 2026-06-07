@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
 import Button from '../components/ui/Button'
 import AnimatedNumber from '../components/ui/AnimatedNumber'
+import { PRODUCT_PLACEHOLDER_IMAGE } from '../lib/productStore'
 
 export default function WishlistPage() {
   const { items, removeItem } = useWishlist()
@@ -32,7 +33,19 @@ export default function WishlistPage() {
           <article key={product.id} className="group">
             <Link to={`/product/${product.id}`} className="block">
               <div className="product-media">
-                <img src={product.images[0]} alt={product.name} width="800" height="1067" loading="lazy" className="h-full w-full object-cover" />
+                <img
+                  src={product.images[0]}
+                  alt={product.name}
+                  width="800"
+                  height="1067"
+                  loading="lazy"
+                  className="h-full w-full object-cover"
+                  onError={event => {
+                    if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
+                      event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
+                    }
+                  }}
+                />
               </div>
             </Link>
             <div className="mt-2 min-w-0 space-y-0.5">

@@ -13,6 +13,11 @@ export default function MobileNav({ isOpen, onClose, visualLocation }) {
   const displayedLocation = visualLocation || location
   const previousPathnameRef = useRef(location.pathname)
 
+  function handleNavClick(event, to) {
+    if (displayedLocation.pathname !== to) return
+    event.preventDefault()
+  }
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
@@ -55,16 +60,20 @@ export default function MobileNav({ isOpen, onClose, visualLocation }) {
       aria-label="Mobile navigation"
     >
       <div className="page-shell flex flex-1 flex-col items-center justify-center gap-2 text-center">
-        {navLinks.map(link => (
-          <Link
-            key={link.to}
-            to={link.to}
-            className={`pressable drawer-link inline-flex min-h-14 items-center justify-center text-[clamp(2rem,13vw,4.5rem)] font-bold uppercase leading-none ${displayedLocation.pathname === link.to ? 'is-current' : ''}`}
-            aria-current={displayedLocation.pathname === link.to ? 'page' : undefined}
-          >
-            {link.label}
-          </Link>
-        ))}
+        {navLinks.map(link => {
+          const isCurrent = displayedLocation.pathname === link.to
+          return (
+            <Link
+              key={link.to}
+              to={link.to}
+              className={`pressable drawer-link inline-flex min-h-14 items-center justify-center text-[clamp(2rem,13vw,4.5rem)] font-bold uppercase leading-none ${isCurrent ? 'is-current' : ''}`}
+              aria-current={isCurrent ? 'page' : undefined}
+              onClick={event => handleNavClick(event, link.to)}
+            >
+              {link.label}
+            </Link>
+          )
+        })}
       </div>
     </div>
   )

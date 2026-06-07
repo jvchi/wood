@@ -9,6 +9,7 @@ import UploadedProductModel from '../three/UploadedProductModel'
 import ErrorBoundary from '../ui/ErrorBoundary'
 import { canUseWebGL, getDevicePerformanceProfile, resolveModelAsset } from '../../lib/threeAssetStrategy'
 import { DEFAULT_CAMERA_POSITION, DEFAULT_CAMERA_TARGET, DEFAULT_FOV, parseCameraCsv } from '../../lib/modelCamera'
+import { PRODUCT_PLACEHOLDER_IMAGE } from '../../lib/productStore'
 
 // Generous timeout — large GLBs (15+ MB) over typical broadband easily
 // exceed 10s, and admin previews shouldn't bail early. Retry button below
@@ -439,7 +440,19 @@ const ProductModelPreview = forwardRef(function ProductModelPreview(
   if (!resolvedModel?.src || failed || !webglAvailable || profile.preferStatic) {
     return (
       <div className="admin-model-preview-frame admin-model-fallback">
-        {fallbackImage ? <img src={fallbackImage} alt="" /> : <ThreeModelPlaceholder variant="product" label="No 3D model" spinner={false} />}
+        {fallbackImage ? (
+          <img
+            src={fallbackImage}
+            alt=""
+            onError={event => {
+              if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
+                event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
+                return
+              }
+              event.currentTarget.style.display = 'none'
+            }}
+          />
+        ) : <ThreeModelPlaceholder variant="product" label="No 3D model" spinner={false} />}
         {failed && (
           <button
             type="button"

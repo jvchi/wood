@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext'
 import { formatPrice } from '../utils/formatPrice'
 import Button from '../components/ui/Button'
 import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumber'
+import { PRODUCT_PLACEHOLDER_IMAGE } from '../lib/productStore'
 
 const SWIPE_ACTION_WIDTH = 88
 const FULL_SWIPE_VELOCITY = -760
@@ -132,7 +133,20 @@ function CartItem({ item, removeItem, updateQuantity }) {
         onDragEnd={handleDragEnd}
       >
         <Link to={`/product/${item.product.id}`} className="cart-item-image" draggable="false">
-          <img src={item.product.images[0]} alt={item.product.name} width="256" height="320" className="cart-item-thumb" loading="lazy" draggable="false" />
+          <img
+            src={item.product.images[0]}
+            alt={item.product.name}
+            width="256"
+            height="320"
+            className="cart-item-thumb"
+            loading="lazy"
+            draggable="false"
+            onError={event => {
+              if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
+                event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
+              }
+            }}
+          />
         </Link>
 
         <div className="min-w-0 flex-1 flex flex-col justify-between">

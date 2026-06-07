@@ -91,7 +91,7 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
   }, [])
 
   const navLinks = [
-    { to: '/', label: 'New' },
+    { to: '/', label: 'Home' },
     { to: '/shop', label: 'Shop' },
     { to: '/about', label: 'About' },
   ]
@@ -102,6 +102,11 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
       onFocus: () => preloadAppRoute(to),
       onTouchStart: () => preloadAppRoute(to),
     }
+  }
+
+  function handleNavClick(event, to) {
+    if (displayedLocation.pathname !== to) return
+    event.preventDefault()
   }
 
   return (
@@ -138,17 +143,21 @@ export default function Navbar({ brandIntroReady = true, visualLocation }) {
           </Link>
 
           <div className="hidden items-center gap-6 md:flex">
-            {navLinks.map(link => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`pressable nav-link label-text ${isHome ? 'mix-blend-difference text-white' : ''} ${displayedLocation.pathname === link.to ? 'is-current' : ''}`}
-                aria-current={displayedLocation.pathname === link.to ? 'page' : undefined}
-                {...getPreloadProps(link.to)}
-              >
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map(link => {
+              const isCurrent = displayedLocation.pathname === link.to
+              return (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`pressable nav-link label-text ${isHome ? 'mix-blend-difference text-white' : ''} ${isCurrent ? 'is-current' : ''}`}
+                  aria-current={isCurrent ? 'page' : undefined}
+                  onClick={event => handleNavClick(event, link.to)}
+                  {...getPreloadProps(link.to)}
+                >
+                  {link.label}
+                </Link>
+              )
+            })}
           </div>
 
           <div className="navbar-actions flex items-center gap-1 md:gap-3">

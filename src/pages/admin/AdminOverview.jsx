@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useProducts } from '../../hooks/useProducts'
+import { PRODUCT_PLACEHOLDER_IMAGE } from '../../lib/productStore'
 import { hasSupabaseConfig } from '../../lib/supabase'
 import { formatPrice } from '../../utils/formatPrice'
 import AnimatedNumber from '../../components/ui/AnimatedNumber'
@@ -77,7 +78,17 @@ export default function AdminOverview() {
           <div className="admin-list">
             {recent.map(product => (
               <Link key={product.id} to="/admin/products" className="admin-list-row pressable">
-                <img src={product.images[0]} alt="" width="56" height="56" />
+                <img
+                  src={product.images[0]}
+                  alt=""
+                  width="56"
+                  height="56"
+                  onError={event => {
+                    if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
+                      event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
+                    }
+                  }}
+                />
                 <span>
                   <strong>{product.name}</strong>
                   <small>{new Date(product.updated_at).toLocaleDateString()}</small>
@@ -97,7 +108,17 @@ export default function AdminOverview() {
             <div className="admin-list">
               {lowStock.map(product => (
                 <Link key={product.id} to="/admin/products" className="admin-list-row pressable">
-                  <img src={product.images[0]} alt="" width="56" height="56" />
+                  <img
+                    src={product.images[0]}
+                    alt=""
+                    width="56"
+                    height="56"
+                    onError={event => {
+                      if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
+                        event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
+                      }
+                    }}
+                  />
                   <span>
                     <strong>{product.name}</strong>
                     <small>{product.sku || 'No SKU'}</small>

@@ -16,7 +16,17 @@ export default function ThreeModelPlaceholder({
         <LoadingSpinner label={label} size={size} />
       ) : (
         <>
-          {poster ? <img src={poster} alt="" loading="eager" decoding="async" /> : null}
+          {poster ? (
+            <img
+              src={poster}
+              alt=""
+              loading="eager"
+              decoding="async"
+              onError={event => {
+                event.currentTarget.style.display = 'none'
+              }}
+            />
+          ) : null}
           {showSilhouette ? <div className="three-placeholder-silhouette" aria-hidden="true" /> : null}
         </>
       )}

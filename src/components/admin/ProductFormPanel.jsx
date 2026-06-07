@@ -360,7 +360,13 @@ function ModelPreviewEditor({
             )}
             {savedViewThumb && (
               <figure className="admin-saved-view-thumb">
-                <img src={savedViewThumb} alt="Saved view preview" />
+                <img
+                  src={savedViewThumb}
+                  alt="Saved view preview"
+                  onError={event => {
+                    event.currentTarget.style.display = 'none'
+                  }}
+                />
                 <figcaption>Saved frame</figcaption>
               </figure>
             )}
@@ -1433,7 +1439,16 @@ export default function ProductFormPanel({ product, categories, collections, pro
                 return (
                   <figure key={`${image}-${index}`} className={isFallback ? 'is-fallback' : ''}>
                     <div className="admin-image-strip-thumb" style={{ '--thumb-ratio': ratio }}>
-                      <img src={image} alt="" onLoad={event => handleImageMeta(image, event)} />
+                      <img
+                        src={image}
+                        alt=""
+                        onLoad={event => handleImageMeta(image, event)}
+                        onError={event => {
+                          if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
+                            event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
+                          }
+                        }}
+                      />
                       {ratioLabel && <span className="admin-image-strip-aspect">{ratioLabel}</span>}
                       {isFallback && <span className="admin-image-strip-badge">Fallback</span>}
                       <div className="admin-image-strip-hover">

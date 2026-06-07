@@ -19,6 +19,7 @@ import Footer from '../components/layout/Footer'
 import Skeleton from '../components/ui/Skeleton'
 import { LetterCascade } from '../components/ui/LetterCascade'
 import { useProducts } from '../hooks/useProducts'
+import { PRODUCT_PLACEHOLDER_IMAGE } from '../lib/productStore'
 import { formatPrice } from '../utils/formatPrice'
 
 const HeroScene = lazy(() => import('../components/three/HeroScene'))
@@ -324,6 +325,13 @@ function BestSellerStackedProduct({ product, index, location, onHoverLabelChange
                   width={layerIndex === 0 ? 900 : 520}
                   height={layerIndex === 0 ? 1125 : 650}
                   loading="lazy"
+                  onError={event => {
+                    if (layerIndex === 0 && event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
+                      event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
+                      return
+                    }
+                    event.currentTarget.style.display = 'none'
+                  }}
                 />
               </MotionDiv>
             </MotionDiv>

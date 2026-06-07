@@ -145,7 +145,19 @@ export default function AdminProductsPage() {
                   const hasProductImage = product.images?.some(image => image && image !== PRODUCT_PLACEHOLDER_IMAGE)
                   return (
                     <>
-                      <img src={adminProductThumb(product)} alt="" width="72" height="72" loading="lazy" decoding="async" />
+                      <img
+                        src={adminProductThumb(product)}
+                        alt=""
+                        width="72"
+                        height="72"
+                        loading="lazy"
+                        decoding="async"
+                        onError={event => {
+                          if (event.currentTarget.src !== PRODUCT_PLACEHOLDER_IMAGE) {
+                            event.currentTarget.src = PRODUCT_PLACEHOLDER_IMAGE
+                          }
+                        }}
+                      />
                 <div className="admin-product-primary">
                   <strong>{product.name}</strong>
                   <span>{product.category} · {product.sku || 'No SKU'}</span>
