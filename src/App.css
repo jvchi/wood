@@ -892,6 +892,7 @@ input {
 }
 
 .home-bestseller-section {
+  --shop-column-gap: clamp(0.75rem, 1.8vw, 1.25rem);
   position: relative;
   z-index: 1;
   isolation: isolate;
@@ -1020,10 +1021,10 @@ input {
 .home-bestseller-grid,
 .home-bestseller-loading {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
-  gap: clamp(4rem, 7vw, 7rem) clamp(2rem, 4vw, 4rem);
-  padding: clamp(1rem, 4vw, 3rem) clamp(2rem, 5vw, 4rem) 0;
+  gap: clamp(1.35rem, 3vw, 2.4rem) var(--shop-column-gap);
+  padding: 0;
   border: 0;
   outline: 0;
   box-shadow: none;
@@ -1032,12 +1033,12 @@ input {
 .home-bestseller-stack-card,
 .home-bestseller-stack-skeleton {
   position: relative;
-  min-height: clamp(17rem, 29vw, 23.5rem);
+  min-height: clamp(11rem, 22vw, 18rem);
 }
 
 .home-bestseller-stack-card:nth-child(even),
 .home-bestseller-stack-skeleton:nth-child(even) {
-  margin-top: clamp(4rem, 8.5vw, 9rem);
+  margin-top: clamp(1.5rem, 3.5vw, 3rem);
 }
 
 .home-bestseller-stack-link {
@@ -1049,7 +1050,7 @@ input {
 
 .home-bestseller-stack-media {
   position: relative;
-  min-height: clamp(15.5rem, 26vw, 21rem);
+  min-height: clamp(10rem, 20vw, 16.5rem);
   isolation: isolate;
   perspective: 900px;
   transform-style: preserve-3d;
@@ -3170,7 +3171,6 @@ input {
   z-index: 0;
   height: var(--site-footer-height);
   overflow: hidden;
-  border-top: 1px solid var(--color-border);
   background: var(--color-background);
   color: var(--color-primary);
 }
@@ -5629,14 +5629,14 @@ input {
 
   .home-bestseller-grid,
   .home-bestseller-loading {
-    grid-template-columns: minmax(0, 1fr);
-    gap: clamp(2.5rem, 11vw, 3.5rem);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem 0.75rem;
     padding: 0;
   }
 
   .home-bestseller-stack-card,
   .home-bestseller-stack-skeleton {
-    min-height: clamp(12.5rem, 58vw, 19rem);
+    min-height: clamp(9rem, 36vw, 14rem);
   }
 
   .home-bestseller-stack-card:nth-child(even),
@@ -5645,7 +5645,7 @@ input {
   }
 
   .home-bestseller-stack-media {
-    min-height: clamp(12rem, 54vw, 17.5rem);
+    min-height: clamp(8.5rem, 34vw, 13rem);
   }
 
   .home-bestseller-stack-base {

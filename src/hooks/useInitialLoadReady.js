@@ -72,7 +72,8 @@ function preloadHomeHeroAsset() {
 function waitForHomeScenes() {
   if (
     document.documentElement.dataset.homeHeroReady === 'true' &&
-    document.documentElement.dataset.homeChairReady === 'true'
+    document.documentElement.dataset.homeChairReady === 'true' &&
+    document.documentElement.dataset.homeBestSellersReady === 'true'
   ) {
     return Promise.resolve()
   }
@@ -123,6 +124,7 @@ export default function useInitialLoadReady(pathname, { enabled = true } = {}) {
     if (routeKey === '/') {
       delete document.documentElement.dataset.homeHeroReady
       delete document.documentElement.dataset.homeChairReady
+      delete document.documentElement.dataset.homeBestSellersReady
     }
 
     async function waitForInitialView() {

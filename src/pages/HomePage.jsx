@@ -49,7 +49,8 @@ function markHomeSceneReady(sceneName) {
   document.documentElement.dataset[sceneName] = 'true'
   if (
     document.documentElement.dataset.homeHeroReady === 'true' &&
-    document.documentElement.dataset.homeChairReady === 'true'
+    document.documentElement.dataset.homeChairReady === 'true' &&
+    document.documentElement.dataset.homeBestSellersReady === 'true'
   ) {
     window.dispatchEvent(new Event('wood:home-scenes-ready'))
   }
@@ -383,6 +384,39 @@ export default function HomePage() {
     return source.slice(0, 8)
   }, [products])
   const bestSellersPending = productsLoading || (productsError && products.length === 0) || (!productsLoading && !productsError && products.length === 0)
+
+  useEffect(() => {
+    if (productsLoading) return undefined
+
+    const urls = bestSellerProducts
+      .flatMap(product => (product.images || []).slice(0, 3))
+      .filter(Boolean)
+
+    if (!urls.length) {
+      markHomeSceneReady('homeBestSellersReady')
+      return undefined
+    }
+
+    let cancelled = false
+    const loaders = urls.map((src) => {
+      const img = new Image()
+      img.decoding = 'async'
+      img.src = src
+      if (img.complete) return Promise.resolve()
+      return new Promise((resolve) => {
+        img.addEventListener('load', resolve, { once: true })
+        img.addEventListener('error', resolve, { once: true })
+      })
+    })
+
+    Promise.all(loaders).then(() => {
+      if (!cancelled) markHomeSceneReady('homeBestSellersReady')
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [bestSellerProducts, productsLoading])
   const heroScene = useMemo(() => ({ active }) => (
     <LazyThreeScene
       fallback={<ThreeModelPlaceholder variant="room" label="Loading room view" />}
