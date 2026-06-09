@@ -2883,13 +2883,11 @@ input {
 }
 
 .navbar-default {
-  border-bottom: 1px solid var(--color-border);
   background: var(--color-white);
 }
 
 .navbar-home {
   color: var(--color-white);
-  border-bottom: 1px solid transparent;
   background: transparent;
   mix-blend-mode: difference;
 }
