@@ -181,12 +181,16 @@ export default function ProductViewer({
 
     frame = requestAnimationFrame(updateBounds)
     window.addEventListener('resize', updateBounds)
-    window.addEventListener('scroll', updateBounds, { passive: true })
+    // Scroll events don't bubble — the product route scrolls inside
+    // .product-route-overlay, not on window. capture: true so the listener
+    // still fires for any scrolling ancestor; otherwise the spinner sticks
+    // to its first viewport position and looks orphaned in mid-air.
+    window.addEventListener('scroll', updateBounds, { capture: true, passive: true })
 
     return () => {
       cancelAnimationFrame(frame)
       window.removeEventListener('resize', updateBounds)
-      window.removeEventListener('scroll', updateBounds)
+      window.removeEventListener('scroll', updateBounds, { capture: true })
     }
   }, [modelReady])
 

@@ -2624,7 +2624,9 @@ input {
 
 .product-gallery-preview {
   z-index: 0;
-  opacity: 0.3;
+  /* Fully opaque while the full image streams in — the LQIP IS the visible
+     image at this moment. Fades out the instant the full image is decoded. */
+  opacity: 1;
   filter: blur(0);
   transform: scale(1);
 }

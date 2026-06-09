@@ -78,6 +78,7 @@ function HeartIcon({ filled = false }) {
 
 function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
   const galleryFrameRef = useRef(null)
+  const mainImageRef = useRef(null)
   const transformsAvailable = useSupabaseTransformsAvailable()
   const [activeIndex, setActiveIndex] = useState(0)
   const [imageRatios, setImageRatios] = useState({})
@@ -148,7 +149,10 @@ function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
   useEffect(() => {
     let frame = 0
 
-    if (activeImageSettled) {
+    // Hide the spinner the moment the image is decoded — no 800ms "settled"
+    // wait. The image's own fade-in (CSS transition on .product-gallery-image)
+    // carries the visual continuity.
+    if (activeImageLoaded) {
       frame = window.requestAnimationFrame(() => setLoaderBounds(null))
       return () => window.cancelAnimationFrame(frame)
     }
@@ -166,14 +170,19 @@ function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
 
     frame = window.requestAnimationFrame(updateBounds)
     window.addEventListener('resize', updateBounds)
-    window.addEventListener('scroll', updateBounds, { passive: true })
+    // Scroll events don't bubble — the product route scrolls inside
+    // .product-route-overlay, not on window. Use capture: true so the window
+    // listener still fires for any scrolling ancestor between the frame and
+    // the document. Without this the spinner sticks to its first viewport
+    // position and never follows the product as the user scrolls.
+    window.addEventListener('scroll', updateBounds, { capture: true, passive: true })
 
     return () => {
       window.cancelAnimationFrame(frame)
       window.removeEventListener('resize', updateBounds)
-      window.removeEventListener('scroll', updateBounds)
+      window.removeEventListener('scroll', updateBounds, { capture: true })
     }
-  }, [activeImageSettled])
+  }, [activeImageLoaded])
 
   const setImage = index => {
     const nextIndex = (index + images.length) % images.length
@@ -268,7 +277,7 @@ function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
         {activeThumbnail && (
           <img
             key={`preview-${activeImage}`}
-            className={activeImageSettled ? 'product-gallery-preview is-loaded' : 'product-gallery-preview'}
+            className={activeImageLoaded ? 'product-gallery-preview is-loaded' : 'product-gallery-preview'}
             src={activeThumbnail}
             alt=""
             width={GALLERY_THUMB_WIDTH}
@@ -281,6 +290,24 @@ function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
           />
         )}
         <img
+          ref={el => {
+            mainImageRef.current = el
+            // Cached-image race: when an <img>'s resource is already in the
+            // browser cache, React often attaches the onLoad listener AFTER
+            // the load event has fired, so we never get told it's done.
+            // Catch it here — if the element is mounted and already complete,
+            // record it as loaded ourselves.
+            if (el && el.complete && el.naturalWidth > 0 && !loadedImages[activeImage]) {
+              const w = el.naturalWidth
+              const h = el.naturalHeight
+              queueMicrotask(() => {
+                setLoadedImages(p => (p[activeImage] ? p : { ...p, [activeImage]: true }))
+                if (w && h) {
+                  setImageRatios(p => ({ ...p, [activeIndex]: `${w} / ${h}` }))
+                }
+              })
+            }
+          }}
           key={activeImage}
           className={activeImageLoaded ? 'product-gallery-image is-loaded' : 'product-gallery-image is-loading'}
           src={transformsAvailable ? imageDisplayUrl(activeImage, { width: 1280 }) : activeImage}
@@ -306,7 +333,7 @@ function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
             setLoadedImages(p => ({ ...p, [activeImage]: true }))
           }}
         />
-        {!activeImageSettled && (
+        {!activeImageLoaded && (
           <FixedGalleryLoader bounds={loaderBounds} label="Loading product image" />
         )}
         {images.length > 1 && (
