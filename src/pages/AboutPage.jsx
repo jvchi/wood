@@ -165,8 +165,6 @@ export default function AboutPage() {
             <StoreDirectory />
             <MapControls position="top-right" showCompass showFullscreen />
           </Map>
-
-          <p className="about-map-caption">Wood / North American corridor</p>
         </div>
       </section>
 

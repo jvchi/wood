@@ -34,6 +34,7 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
   const wishlisted = isInWishlist(product.id)
   const isMasonry = variant === 'masonry'
   const imageRef = useRef(null)
+  const loadedFullImageSrcRef = useRef(null)
   const location = useLocation()
   const transformsAvailable = useSupabaseTransformsAvailable()
   const rawImage = product.images[0]
@@ -107,10 +108,10 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
           className="block h-full"
           viewTransition
         >
-          {lqipSrc && !thumbnailFailed && (
+          {lqipSrc && !thumbnailFailed && !imageLoaded && (
             <img
               key={lqipSrc}
-              className={imageLoaded ? 'product-card-thumbnail is-loaded' : 'product-card-thumbnail'}
+              className="product-card-thumbnail"
               src={lqipSrc}
               alt=""
               width="800"
@@ -141,13 +142,27 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
               initial={false}
               animate={{ borderRadius: 0 }}
               exit={{ opacity: 1 }}
-              onLoad={() => setLoadedImageSrc(fullImageSrc)}
+              style={imageLoaded ? { opacity: 1, transition: 'none' } : undefined}
+              onLoad={() => {
+                loadedFullImageSrcRef.current = fullImageSrc
+                setLoadedImageSrc(fullImageSrc)
+                setFailedFullImageSrc(current => (current === fullImageSrc ? null : current))
+              }}
               onError={event => {
+                if (loadedFullImageSrcRef.current === fullImageSrc) return
+                if (loadedImageSrc === fullImageSrc) return
+
+                const failedImage = event.currentTarget
+                if (failedImage.naturalWidth > 0) return
+
+                const failedSrc = failedImage.currentSrc || failedImage.src || fullImageSrc
                 if (transformsAvailable) {
                   markSupabaseTransformsBroken()
                   return
                 }
-                setFailedFullImageSrc(event.currentTarget.currentSrc || fullImageSrc)
+                if (failedSrc === fullImageSrc && loadedFullImageSrcRef.current !== fullImageSrc) {
+                  setFailedFullImageSrc(fullImageSrc)
+                }
               }}
             />
           )}
