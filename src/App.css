@@ -928,7 +928,7 @@ input {
   letter-spacing: -0.045em;
   text-align: center;
   text-transform: none;
-  text-wrap: balance;
+  white-space: nowrap;
   transform: translate3d(-50%, 0, 0);
   will-change: transform;
 }
@@ -1023,7 +1023,7 @@ input {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
-  gap: clamp(1.35rem, 3vw, 2.4rem) var(--shop-column-gap);
+  gap: clamp(0.75rem, 1.6vw, 1.5rem) var(--shop-column-gap);
   padding: 0;
   border: 0;
   outline: 0;
@@ -1033,12 +1033,12 @@ input {
 .home-bestseller-stack-card,
 .home-bestseller-stack-skeleton {
   position: relative;
-  min-height: clamp(11rem, 22vw, 18rem);
+  min-height: clamp(10rem, 18vw, 15rem);
 }
 
 .home-bestseller-stack-card:nth-child(even),
 .home-bestseller-stack-skeleton:nth-child(even) {
-  margin-top: clamp(1.5rem, 3.5vw, 3rem);
+  margin-top: clamp(1rem, 2vw, 2rem);
 }
 
 .home-bestseller-stack-link {
@@ -1050,7 +1050,7 @@ input {
 
 .home-bestseller-stack-media {
   position: relative;
-  min-height: clamp(10rem, 20vw, 16.5rem);
+  min-height: clamp(9.5rem, 17vw, 14rem);
   isolation: isolate;
   perspective: 900px;
   transform-style: preserve-3d;
@@ -1097,12 +1097,7 @@ input {
 }
 
 .home-bestseller-stack-image .home-bestseller-stack-thumb {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  opacity: 0.34;
-  filter: blur(8px);
-  transform: scale(1.015);
+  display: none;
 }
 
 .home-bestseller-stack-image img:not(.home-bestseller-stack-thumb) {

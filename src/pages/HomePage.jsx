@@ -19,7 +19,6 @@ import Footer from '../components/layout/Footer'
 import Skeleton from '../components/ui/Skeleton'
 import { LetterCascade } from '../components/ui/LetterCascade'
 import { useProducts } from '../hooks/useProducts'
-import { formatPrice } from '../utils/formatPrice'
 
 const HeroScene = lazy(() => import('../components/three/HeroScene'))
 const ChairShowcaseScene = lazy(() => import('../components/three/ChairShowcaseScene'))
@@ -78,7 +77,6 @@ function BestSellerHoverLabel({ label, reduceMotion }) {
         }}
       >
         <strong>{label.name}</strong>
-        <em>{label.price}</em>
       </MotionDiv>
     </div>,
     document.body,
@@ -113,7 +111,6 @@ function BestSellerStackedProduct({ product, index, location, onHoverLabelChange
     onHoverLabelChange({
       id: product.id,
       name: product.name,
-      price: formatPrice(product.price),
       left: bounds.left + bounds.width * 0.15,
       top: bounds.top + bounds.height * 0.74,
       width: Math.min(256, bounds.width * 0.62),
