@@ -25,8 +25,10 @@ const sharedImageTransition = {
 
 const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false }, ref) => {
   const [imageLoaded, setImageLoaded] = useState(false)
-  const [isTall, setIsTall] = useState(false)
-  const [isWide, setIsWide] = useState(false)
+  // Fallback shape classes for legacy products that don't have stored
+  // dimensions — only those use the post-load ResizeObserver path below.
+  const [legacyIsTall, setLegacyIsTall] = useState(false)
+  const [legacyIsWide, setLegacyIsWide] = useState(false)
   const { isInWishlist, toggleItem } = useWishlist()
   const wishlisted = isInWishlist(product.id)
   const isMasonry = variant === 'masonry'
@@ -34,46 +36,50 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
   const location = useLocation()
   const transformsAvailable = useSupabaseTransformsAvailable()
   const rawImage = product.images[0]
-  const storedThumb = product.image_thumbnails?.[0]
-  // When Supabase image transforms are usable, derive an LQIP from the source
-  // (matches the main image's aspect ratio). When they aren't (Free tier),
-  // fall back to the pre-uploaded square WebP — wrong ratio but it loads.
-  const lqipSrc = transformsAvailable ? imageLqipUrl(rawImage) : storedThumb
+  // LQIP is always the pre-uploaded sharp WebP (now aspect-preserving after the
+  // dimensions migration). No render-endpoint round-trip, no first-render flash
+  // while we wait for a 404 to detect broken transforms.
+  const lqipSrc = product.image_thumbnails?.[0]
   const fullImageSrc = transformsAvailable ? imageDisplayUrl(rawImage, { width: 960 }) : rawImage
   const fullImageSrcSet = transformsAvailable ? imageSrcSet(rawImage) : undefined
   const isPriority = index < 2
   const isAboveFold = index < 4
-  // Stored dimensions reserve the right card height before the image loads,
-  // eliminating the masonry reflow when the full image arrives. Older products
-  // without saved dimensions fall back to the existing auto-height behaviour.
+  // Stored dimensions decide aspect-ratio + is-tall/is-wide on the FIRST
+  // render — same value whether the image is cached or not. That's what kills
+  // the "items shift around as they load" effect: every card claims its final
+  // layout immediately.
   const storedDim = product.image_dimensions?.[0]
-  const mediaAspectRatio = storedDim?.width && storedDim?.height
-    ? `${storedDim.width} / ${storedDim.height}`
-    : undefined
+  const hasStoredDim = Boolean(storedDim?.width && storedDim?.height)
+  const mediaAspectRatio = hasStoredDim ? `${storedDim.width} / ${storedDim.height}` : undefined
+  const storedRatio = hasStoredDim ? storedDim.height / storedDim.width : null
+  const isTall = hasStoredDim ? storedRatio > 1.25 : legacyIsTall
+  const isWide = hasStoredDim ? storedRatio <= 0.85 : legacyIsWide
 
+  // Legacy path: only runs for products uploaded before the dimensions
+  // migration. Once those get re-uploaded (or the backfill script is re-run
+  // after future image swaps), this effect becomes a no-op for every card.
   useEffect(() => {
-    if (!imageRef.current || !imageLoaded) return
+    if (hasStoredDim) return undefined
+    if (!imageRef.current || !imageLoaded) return undefined
     const img = imageRef.current
     const card = img.closest('.product-card')
-    if (!card) {
-      return undefined
-    }
+    if (!card) return undefined
 
     const updateLayout = () => {
       if (!img.naturalWidth) return
       const ratio = img.naturalHeight / img.naturalWidth
       const parentWidth = card.clientWidth
-      setIsTall(parentWidth * ratio >= 500 && ratio > 1.25)
-      setIsWide(ratio <= 0.85)
+      setLegacyIsTall(parentWidth * ratio >= 500 && ratio > 1.25)
+      setLegacyIsWide(ratio <= 0.85)
     }
 
     const observer = new ResizeObserver(() => {
       updateLayout()
     })
-    
+
     observer.observe(card)
     return () => observer.disconnect()
-  }, [imageLoaded, imageRef])
+  }, [imageLoaded, hasStoredDim])
 
   return (
     <article
@@ -109,13 +115,6 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
               decoding="async"
               aria-hidden="true"
               onError={event => {
-                if (transformsAvailable) {
-                  // Render endpoint isn't usable on this project — flip the
-                  // global flag and let React swap us to the stored square
-                  // thumbnail (or hide if there isn't one).
-                  markSupabaseTransformsBroken()
-                  return
-                }
                 event.currentTarget.style.display = 'none'
               }}
             />

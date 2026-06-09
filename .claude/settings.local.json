@@ -47,7 +47,9 @@
       "Bash(curl -sI http://localhost:5173/)",
       "Bash(curl -sI -m 5 http://localhost:5173/)",
       "Bash(curl -s -m 5 -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5174/)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(grep -nA3 \"home-bestseller-stack-layer-one\\\\|home-bestseller-stack-layer-two\\\\|home-bestseller-stack-base\" /Users/destiny/wood/src/App.css)",
+      "Bash(grep -nA4 \"is-wide\\\\|is-tall\" /Users/destiny/wood/src/App.css)"
     ]
   }
 }

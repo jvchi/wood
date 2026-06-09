@@ -88,14 +88,10 @@ function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
   const activeImage = images[activeIndex]
-  // Prefer the pre-stored sharp WebP thumbnail (visible image content, not a
-  // blur). Fall back to the render-endpoint LQIP only if the thumbnail is
-  // missing AND transforms are usable. If both are out, render nothing — the
-  // main image fades in cleanly.
-  const storedThumbnail = thumbnails[activeIndex]
-  const activeThumbnail = previewFallbacks[activeIndex]
-    ? null
-    : storedThumbnail || (transformsAvailable ? imageLqipUrl(activeImage) : null)
+  // Always the pre-uploaded sharp WebP — no render-endpoint round-trip, no
+  // first-render flash. If missing or it errors, the main image just fades
+  // in cleanly with no backdrop.
+  const activeThumbnail = previewFallbacks[activeIndex] ? null : thumbnails[activeIndex] || null
   const activeImageLoaded = loadedImages[activeImage] === true
   const activeImageSettled = settledImages[activeImage] === true
   const [loaderBounds, setLoaderBounds] = useState(null)

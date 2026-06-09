@@ -2319,10 +2319,20 @@ input {
 .product-media .product-card-thumbnail {
   position: absolute;
   inset: 0;
-  opacity: 0.3;
+  width: 100%;
+  height: 100%;
+  /* Fully opaque while the full image streams in — the LQIP IS the visible
+     image at this moment, not a ghosted hint. It fades out only once the
+     full image has decoded. */
+  opacity: 1;
   filter: blur(0);
   transform: scale(1);
   z-index: 0;
+  /* object-fit: cover guarantees the LQIP fills the reserved card slot even
+     when sub-pixel rounding makes the stored thumb a hair off-aspect from
+     the container. Aspect ratios match by design, so nothing is cropped. */
+  object-fit: cover;
+  object-position: center;
   transition:
     opacity 420ms var(--ease-out),
     filter 420ms var(--ease-out),
