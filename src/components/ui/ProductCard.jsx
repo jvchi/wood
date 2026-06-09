@@ -5,7 +5,6 @@ import { useWishlist } from '../../context/WishlistContext'
 import {
   imageDisplayUrl,
   imageSrcSet,
-  imageLqipUrl,
   markSupabaseTransformsBroken,
   useSupabaseTransformsAvailable,
 } from '../../utils/imageThumb'
@@ -24,7 +23,9 @@ const sharedImageTransition = {
 }
 
 const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false }, ref) => {
-  const [imageLoaded, setImageLoaded] = useState(false)
+  const [loadedImageSrc, setLoadedImageSrc] = useState(null)
+  const [failedThumbnailSrc, setFailedThumbnailSrc] = useState(null)
+  const [failedFullImageSrc, setFailedFullImageSrc] = useState(null)
   // Fallback shape classes for legacy products that don't have stored
   // dimensions — only those use the post-load ResizeObserver path below.
   const [legacyIsTall, setLegacyIsTall] = useState(false)
@@ -42,6 +43,9 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
   const lqipSrc = product.image_thumbnails?.[0]
   const fullImageSrc = transformsAvailable ? imageDisplayUrl(rawImage, { width: 960 }) : rawImage
   const fullImageSrcSet = transformsAvailable ? imageSrcSet(rawImage) : undefined
+  const imageLoaded = loadedImageSrc === fullImageSrc
+  const thumbnailFailed = failedThumbnailSrc === lqipSrc
+  const fullImageFailed = failedFullImageSrc === fullImageSrc
   const isPriority = index < 2
   const isAboveFold = index < 4
   // Stored dimensions decide aspect-ratio + is-tall/is-wide on the FIRST
@@ -103,8 +107,9 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
           className="block h-full"
           viewTransition
         >
-          {lqipSrc && (
+          {lqipSrc && !thumbnailFailed && (
             <img
+              key={lqipSrc}
               className={imageLoaded ? 'product-card-thumbnail is-loaded' : 'product-card-thumbnail'}
               src={lqipSrc}
               alt=""
@@ -114,37 +119,38 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
               fetchPriority={isPriority ? 'high' : 'low'}
               decoding="async"
               aria-hidden="true"
+              onError={() => setFailedThumbnailSrc(lqipSrc)}
+            />
+          )}
+          {!fullImageFailed && (
+            <MotionImg
+              key={fullImageSrc}
+              ref={imageRef}
+              layoutId={isMasonry ? undefined : `product-image-${product.id}`}
+              layout={!isMasonry}
+              className={lqipSrc && !imageLoaded ? 'product-card-full-image is-loading' : 'product-card-full-image is-loaded'}
+              src={fullImageSrc}
+              srcSet={fullImageSrcSet}
+              sizes="(max-width: 880px) 50vw, (max-width: 1280px) 33vw, 25vw"
+              alt={product.name}
+              width="800"
+              height="1067"
+              loading={isAboveFold ? 'eager' : 'lazy'}
+              fetchPriority={isPriority ? 'high' : 'auto'}
+              transition={sharedImageTransition}
+              initial={false}
+              animate={{ borderRadius: 0 }}
+              exit={{ opacity: 1 }}
+              onLoad={() => setLoadedImageSrc(fullImageSrc)}
               onError={event => {
-                event.currentTarget.style.display = 'none'
+                if (transformsAvailable) {
+                  markSupabaseTransformsBroken()
+                  return
+                }
+                setFailedFullImageSrc(event.currentTarget.currentSrc || fullImageSrc)
               }}
             />
           )}
-          <MotionImg
-            ref={imageRef}
-            layoutId={isMasonry ? undefined : `product-image-${product.id}`}
-            layout={!isMasonry}
-            className={lqipSrc && !imageLoaded ? 'product-card-full-image is-loading' : 'product-card-full-image is-loaded'}
-            src={fullImageSrc}
-            srcSet={fullImageSrcSet}
-            sizes="(max-width: 880px) 50vw, (max-width: 1280px) 33vw, 25vw"
-            alt={product.name}
-            width="800"
-            height="1067"
-            loading={isAboveFold ? 'eager' : 'lazy'}
-            fetchPriority={isPriority ? 'high' : 'auto'}
-            transition={sharedImageTransition}
-            initial={false}
-            animate={{ borderRadius: 0 }}
-            exit={{ opacity: 1 }}
-            onLoad={() => setImageLoaded(true)}
-            onError={event => {
-              if (transformsAvailable) {
-                markSupabaseTransformsBroken()
-                return
-              }
-              event.currentTarget.style.display = 'none'
-            }}
-          />
         </Link>
         <button
           type="button"
