@@ -46,7 +46,11 @@ function writeLocal(key, value) {
   window.dispatchEvent(new CustomEvent(PRODUCT_EVENT))
 }
 
-async function createImageThumbnailFile(file, { width = 180, quality = 0.58 } = {}) {
+// Generates a tiny WebP preview of the source image with the SOURCE aspect
+// ratio preserved (longest side capped at `maxSide`). Also reports the source
+// dimensions so callers can persist them — needed to reserve the right card
+// height before the full image loads.
+async function createImageThumbnailFile(file, { maxSide = 240, quality = 0.6 } = {}) {
   if (!file || typeof document === 'undefined') return null
 
   let bitmap = null
@@ -64,28 +68,20 @@ async function createImageThumbnailFile(file, { width = 180, quality = 0.58 } = 
       })
     }
 
-    const sourceCanvas = document.createElement('canvas')
-    sourceCanvas.width = bitmap.width
-    sourceCanvas.height = bitmap.height
-    const sourceContext = sourceCanvas.getContext('2d')
-    if (!sourceContext) return null
-    sourceContext.drawImage(bitmap, 0, 0)
+    const sourceWidth = bitmap.width
+    const sourceHeight = bitmap.height
+    if (!sourceWidth || !sourceHeight) return null
 
-    const padding = Math.round(width * 0.08)
-    const availableWidth = width - padding * 2
-    const availableHeight = width - padding * 2
-    const scale = Math.min(availableWidth / sourceCanvas.width, availableHeight / sourceCanvas.height, 1)
-    const drawWidth = Math.max(1, Math.round(sourceCanvas.width * scale))
-    const drawHeight = Math.max(1, Math.round(sourceCanvas.height * scale))
-    const drawX = Math.round((width - drawWidth) / 2)
-    const drawY = Math.round((width - drawHeight) / 2)
+    const scale = Math.min(maxSide / Math.max(sourceWidth, sourceHeight), 1)
+    const targetWidth = Math.max(1, Math.round(sourceWidth * scale))
+    const targetHeight = Math.max(1, Math.round(sourceHeight * scale))
 
     const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = width
+    canvas.width = targetWidth
+    canvas.height = targetHeight
     const context = canvas.getContext('2d')
     if (!context) return null
-    context.drawImage(sourceCanvas, 0, 0, sourceCanvas.width, sourceCanvas.height, drawX, drawY, drawWidth, drawHeight)
+    context.drawImage(bitmap, 0, 0, sourceWidth, sourceHeight, 0, 0, targetWidth, targetHeight)
 
     const blob = await new Promise(resolve => {
       canvas.toBlob(resolve, 'image/webp', quality)
@@ -93,7 +89,8 @@ async function createImageThumbnailFile(file, { width = 180, quality = 0.58 } = 
     if (!blob) return null
 
     const baseName = String(file.name || 'image').replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9._-]/g, '-')
-    return new File([blob], `${baseName}-thumb.webp`, { type: 'image/webp' })
+    const thumbnailFile = new File([blob], `${baseName}-thumb.webp`, { type: 'image/webp' })
+    return { file: thumbnailFile, width: sourceWidth, height: sourceHeight }
   } catch {
     return null
   } finally {
@@ -217,6 +214,12 @@ export function normalizeProduct(product) {
     currency: product.currency || 'USD',
     images,
     image_thumbnails: images.map((_, index) => imageThumbnails[index] || ''),
+    image_dimensions: images.map((_, index) => {
+      const dim = product.image_dimensions?.[index]
+      return dim && dim.width && dim.height
+        ? { width: dim.width, height: dim.height }
+        : null
+    }),
     main_image_url: product.main_image_url || images[0] || '',
     description: product.description || product.short_description || '',
     short_description: product.short_description || product.description || '',
@@ -257,6 +260,9 @@ function mapSupabaseProduct(row) {
     .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
   const images = imageRows.map(image => image.url)
   const imageThumbnails = imageRows.map(image => image.thumbnail_url || '')
+  const imageDimensions = imageRows.map(image =>
+    image.width && image.height ? { width: image.width, height: image.height } : null,
+  )
   const model = Array.isArray(row.product_models) ? row.product_models[0] : null
 
   return normalizeProduct({
@@ -265,6 +271,7 @@ function mapSupabaseProduct(row) {
     collection: row.collections?.slug || row.collection_id,
     images: images.length ? images : [row.main_image_url].filter(Boolean),
     image_thumbnails: imageThumbnails,
+    image_dimensions: imageDimensions,
     model_url: model?.url || row.model_url || '',
     model_lite_url: model?.lite_url || row.model_lite_url || '',
     model_poster_url: model?.poster_url || row.model_poster_url || '',
@@ -284,7 +291,42 @@ function requireSupabaseConfig() {
   }
 }
 
-const PRODUCT_SELECT = `
+// Once the dimensions migration is applied this flag stays false and the
+// `width,height` columns are part of the query. Before the migration is
+// applied (or if the column ever disappears), the first failed query flips
+// the flag and we re-issue the query without those columns. Cached in
+// sessionStorage so we don't pay the failed round-trip every page load.
+const MISSING_DIMENSIONS_KEY = 'productImageDimensionsMissing'
+let imageDimensionsMissing =
+  typeof sessionStorage !== 'undefined' && sessionStorage.getItem(MISSING_DIMENSIONS_KEY) === '1'
+
+function markImageDimensionsMissing() {
+  if (imageDimensionsMissing) return
+  imageDimensionsMissing = true
+  try {
+    sessionStorage.setItem(MISSING_DIMENSIONS_KEY, '1')
+  } catch {
+    // ignore — flag still set in-memory for the rest of the session
+  }
+}
+
+function buildProductSelect() {
+  const imageCols = imageDimensionsMissing
+    ? 'url,thumbnail_url,sort_order,is_main'
+    : 'url,thumbnail_url,width,height,sort_order,is_main'
+  return PRODUCT_SELECT_TEMPLATE.replace('__IMAGE_COLS__', imageCols)
+}
+
+function isMissingColumnError(error) {
+  if (!error) return false
+  // Supabase / PostgREST returns code "42703" (undefined column) plus a
+  // message that names the column. Match defensively on either signal.
+  if (error.code === '42703') return true
+  const message = String(error.message || '').toLowerCase()
+  return message.includes('column') && (message.includes('width') || message.includes('height'))
+}
+
+const PRODUCT_SELECT_TEMPLATE = `
   id,
   name,
   slug,
@@ -332,20 +374,27 @@ const PRODUCT_SELECT = `
   updated_at,
   categories(slug,name),
   collections(slug,name),
-  product_images(url,thumbnail_url,sort_order,is_main),
+  product_images(__IMAGE_COLS__),
   product_models(url,lite_url,poster_url,version,fallback_image_url,scale,rotation,format,file_size,camera,metadata)
 `
 
 async function fetchProductsFromSource({ includeUnpublished }) {
   requireSupabaseConfig()
 
-  const query = supabase
-    .from('products')
-    .select(PRODUCT_SELECT)
-    .order('updated_at', { ascending: false })
+  const runOnce = () => {
+    const query = supabase
+      .from('products')
+      .select(buildProductSelect())
+      .order('updated_at', { ascending: false })
+    if (!includeUnpublished) query.eq('published', true).eq('archived', false)
+    return runSupabaseProductQuery(query)
+  }
 
-  if (!includeUnpublished) query.eq('published', true).eq('archived', false)
-  const { data, error } = await runSupabaseProductQuery(query)
+  let { data, error } = await runOnce()
+  if (error && !imageDimensionsMissing && isMissingColumnError(error)) {
+    markImageDimensionsMissing()
+    ;({ data, error } = await runOnce())
+  }
   if (error) throw error
   if (!Array.isArray(data)) throw new Error('Supabase returned an invalid products response.')
   return data.map(mapSupabaseProduct)
@@ -353,15 +402,23 @@ async function fetchProductsFromSource({ includeUnpublished }) {
 
 async function fetchProductFromSource(productId) {
   requireSupabaseConfig()
-  const { data, error } = await runSupabaseProductQuery(
-    supabase
-      .from('products')
-      .select(PRODUCT_SELECT)
-      .eq('id', productId)
-      .eq('published', true)
-      .eq('archived', false)
-      .maybeSingle()
-  )
+
+  const runOnce = () =>
+    runSupabaseProductQuery(
+      supabase
+        .from('products')
+        .select(buildProductSelect())
+        .eq('id', productId)
+        .eq('published', true)
+        .eq('archived', false)
+        .maybeSingle(),
+    )
+
+  let { data, error } = await runOnce()
+  if (error && !imageDimensionsMissing && isMissingColumnError(error)) {
+    markImageDimensionsMissing()
+    ;({ data, error } = await runOnce())
+  }
   if (error) throw error
   return data ? mapSupabaseProduct(data) : null
 }
@@ -675,14 +732,24 @@ function toSupabaseProduct(product) {
 async function replaceProductImages(product) {
   await supabase.from('product_images').delete().eq('product_id', product.id)
   if (!product.images.length) return
-  const rows = product.images.map((url, index) => ({
-    product_id: product.id,
-    url,
-    thumbnail_url: product.image_thumbnails?.[index] || null,
-    sort_order: index,
-    is_main: index === 0,
-    alt_text: product.name,
-  }))
+  const rows = product.images.map((url, index) => {
+    const dim = product.image_dimensions?.[index]
+    const base = {
+      product_id: product.id,
+      url,
+      thumbnail_url: product.image_thumbnails?.[index] || null,
+      sort_order: index,
+      is_main: index === 0,
+      alt_text: product.name,
+    }
+    // Only include width/height when the columns exist on the table — before
+    // the dimensions migration is applied, sending them would 400.
+    if (!imageDimensionsMissing && dim?.width && dim?.height) {
+      base.width = dim.width
+      base.height = dim.height
+    }
+    return base
+  })
   const { error } = await supabase.from('product_images').insert(rows)
   if (error) throw error
 }
@@ -802,16 +869,16 @@ export async function uploadStorageResumable(file, bucket, path, {
 }
 
 export async function uploadImageWithThumbnail(file, productId, assetKind = 'image') {
-  if (!file) return { url: '', thumbnailUrl: '' }
+  if (!file) return { url: '', thumbnailUrl: '', width: null, height: null }
   requireSupabaseConfig()
-  const thumbnailFile = await createImageThumbnailFile(file)
+  const thumbnail = await createImageThumbnailFile(file)
 
   const url = await uploadAsset(file, 'product-images', productId, assetKind)
   let thumbnailUrl = ''
-  if (thumbnailFile) {
-    const safeName = thumbnailFile.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+  if (thumbnail?.file) {
+    const safeName = thumbnail.file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
     const path = `thumbs/${productId || 'draft'}/${Date.now()}-${safeName}`
-    const { error } = await supabase.storage.from('product-images').upload(path, thumbnailFile, {
+    const { error } = await supabase.storage.from('product-images').upload(path, thumbnail.file, {
       cacheControl: '31536000',
       contentType: 'image/webp',
       upsert: true,
@@ -820,7 +887,7 @@ export async function uploadImageWithThumbnail(file, productId, assetKind = 'ima
     const { data } = supabase.storage.from('product-images').getPublicUrl(path)
     thumbnailUrl = data.publicUrl
     await trackUpload({
-      file: thumbnailFile,
+      file: thumbnail.file,
       bucket: 'product-images',
       productId,
       path,
@@ -828,7 +895,12 @@ export async function uploadImageWithThumbnail(file, productId, assetKind = 'ima
       assetKind: 'image_thumbnail',
     })
   }
-  return { url, thumbnailUrl }
+  return {
+    url,
+    thumbnailUrl,
+    width: thumbnail?.width ?? null,
+    height: thumbnail?.height ?? null,
+  }
 }
 
 export async function uploadModelSource(file, productId) {

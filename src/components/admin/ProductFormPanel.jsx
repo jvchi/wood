@@ -492,6 +492,7 @@ const emptyProduct = {
   stock_status: 'out_of_stock',
   images: [],
   image_thumbnails: [],
+  image_dimensions: [],
   model_url: '',
   model_lite_url: '',
   model_poster_url: '',
@@ -943,10 +944,17 @@ export default function ProductFormPanel({ product, categories, collections, pro
       setDraft(current => {
         const currentImages = (current.images || []).filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
         const currentThumbnails = (current.image_thumbnails || []).slice(0, currentImages.length)
+        const currentDimensions = (current.image_dimensions || []).slice(0, currentImages.length)
         return {
           ...current,
           images: [...currentImages, ...uploaded.map(image => image.url)],
           image_thumbnails: [...currentThumbnails, ...uploaded.map(image => image.thumbnailUrl || '')],
+          image_dimensions: [
+            ...currentDimensions,
+            ...uploaded.map(image =>
+              image.width && image.height ? { width: image.width, height: image.height } : null,
+            ),
+          ],
         }
       })
     } catch (err) {
@@ -1161,10 +1169,17 @@ export default function ProductFormPanel({ product, categories, collections, pro
       setDraft(current => {
         const currentImages = (current.images || []).filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
         const currentThumbnails = (current.image_thumbnails || []).slice(0, currentImages.length)
+        const currentDimensions = (current.image_dimensions || []).slice(0, currentImages.length)
         return {
           ...current,
           images: [...currentImages, uploaded.url],
           image_thumbnails: [...currentThumbnails, uploaded.thumbnailUrl || ''],
+          image_dimensions: [
+            ...currentDimensions,
+            uploaded.width && uploaded.height
+              ? { width: uploaded.width, height: uploaded.height }
+              : null,
+          ],
         }
       })
       setCaptureStatus(`Saved · ${width}×${height}`)
@@ -1208,10 +1223,17 @@ export default function ProductFormPanel({ product, categories, collections, pro
       setDraft(current => {
         const currentImages = (current.images || []).filter(image => image !== PRODUCT_PLACEHOLDER_IMAGE)
         const currentThumbnails = (current.image_thumbnails || []).slice(0, currentImages.length)
+        const currentDimensions = (current.image_dimensions || []).slice(0, currentImages.length)
         return {
           ...current,
           images: [...currentImages, ...uploaded.map(image => image.url)],
           image_thumbnails: [...currentThumbnails, ...uploaded.map(image => image.thumbnailUrl || '')],
+          image_dimensions: [
+            ...currentDimensions,
+            ...uploaded.map(image =>
+              image.width && image.height ? { width: image.width, height: image.height } : null,
+            ),
+          ],
         }
       })
       setCaptureStatus(`Saved · ${uploaded.length} × ${width}×${height}`)
@@ -1274,16 +1296,20 @@ export default function ProductFormPanel({ product, categories, collections, pro
   function moveImage(index, direction) {
     const nextImages = [...draft.images]
     const nextThumbnails = [...(draft.image_thumbnails || [])]
+    const nextDimensions = [...(draft.image_dimensions || [])]
     const target = index + direction
     if (target < 0 || target >= nextImages.length) return
     const [image] = nextImages.splice(index, 1)
     nextImages.splice(target, 0, image)
     const [thumbnail] = nextThumbnails.splice(index, 1)
     nextThumbnails.splice(target, 0, thumbnail || '')
+    const [dimension] = nextDimensions.splice(index, 1)
+    nextDimensions.splice(target, 0, dimension || null)
     setDraft(current => ({
       ...current,
       images: nextImages,
       image_thumbnails: nextThumbnails,
+      image_dimensions: nextDimensions,
     }))
   }
 
@@ -1476,6 +1502,7 @@ export default function ProductFormPanel({ product, categories, collections, pro
                           ...current,
                           images: current.images.filter((_, imageIndex) => imageIndex !== index),
                           image_thumbnails: (current.image_thumbnails || []).filter((_, imageIndex) => imageIndex !== index),
+                          image_dimensions: (current.image_dimensions || []).filter((_, imageIndex) => imageIndex !== index),
                         }))}
                       >Delete</button>
                     </figcaption>

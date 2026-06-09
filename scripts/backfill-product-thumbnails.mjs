@@ -3,9 +3,11 @@ import path from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import sharp from 'sharp'
 
-const THUMB_WIDTH = 180
-const THUMB_QUALITY = 58
-const THUMB_PADDING = Math.round(THUMB_WIDTH * 0.08)
+// Aspect-preserving thumbnail: scale so the longest side is THUMB_MAX_SIDE,
+// keep the source aspect ratio. Tiny WebP (~3–8 KB) used as a sharp LQIP
+// while the full image streams in.
+const THUMB_MAX_SIDE = 240
+const THUMB_QUALITY = 60
 
 function loadEnvFile(filePath) {
   return readFile(filePath, 'utf8')
@@ -59,7 +61,7 @@ async function main() {
   const supabase = createClient(supabaseUrl, supabaseKey)
   let query = supabase
     .from('product_images')
-    .select('id,product_id,url,thumbnail_url,sort_order,alt_text')
+    .select('id,product_id,url,thumbnail_url,width,height,sort_order,alt_text')
     .order('product_id')
     .order('sort_order')
   if (productId) query = query.eq('product_id', productId)
@@ -68,7 +70,7 @@ async function main() {
   if (error) throw error
 
   const pending = rows.filter(row => row.url)
-  console.log(`Found ${rows.length} product image rows; regenerating ${pending.length} thumbnails.`)
+  console.log(`Found ${rows.length} product image rows; backfilling ${pending.length}.`)
 
   let completed = 0
   for (const row of pending) {
@@ -81,38 +83,19 @@ async function main() {
         .rotate()
         .metadata()
 
-      const availableWidth = THUMB_WIDTH - THUMB_PADDING * 2
-      const availableHeight = THUMB_WIDTH - THUMB_PADDING * 2
-      const scale = Math.min(
-        availableWidth / (metadata.width || THUMB_WIDTH),
-        availableHeight / (metadata.height || THUMB_WIDTH),
-        1,
-      )
-      const resizedWidth = Math.max(1, Math.round((metadata.width || THUMB_WIDTH) * scale))
-      const resizedHeight = Math.max(1, Math.round((metadata.height || THUMB_WIDTH) * scale))
-      const left = Math.round((THUMB_WIDTH - resizedWidth) / 2)
-      const top = Math.round((THUMB_WIDTH - resizedHeight) / 2)
+      const sourceWidth = metadata.width || 0
+      const sourceHeight = metadata.height || 0
+      if (!sourceWidth || !sourceHeight) {
+        throw new Error(`could not read dimensions (${row.url})`)
+      }
 
-      const product = await sharp(original, { animated: false })
+      const scale = Math.min(THUMB_MAX_SIDE / Math.max(sourceWidth, sourceHeight), 1)
+      const thumbWidth = Math.max(1, Math.round(sourceWidth * scale))
+      const thumbHeight = Math.max(1, Math.round(sourceHeight * scale))
+
+      const thumb = await sharp(original, { animated: false })
         .rotate()
-        .resize({
-          width: resizedWidth,
-          height: resizedHeight,
-          fit: 'contain',
-          withoutEnlargement: true,
-        })
-        .png()
-        .toBuffer()
-
-      const thumb = await sharp({
-        create: {
-          width: THUMB_WIDTH,
-          height: THUMB_WIDTH,
-          channels: 4,
-          background: { r: 0, g: 0, b: 0, alpha: 0 },
-        },
-      })
-        .composite([{ input: product, left, top }])
+        .resize({ width: thumbWidth, height: thumbHeight, fit: 'contain', withoutEnlargement: true })
         .webp({ quality: THUMB_QUALITY, effort: 4 })
         .toBuffer()
 
@@ -130,7 +113,11 @@ async function main() {
 
       const { error: updateError } = await supabase
         .from('product_images')
-        .update({ thumbnail_url: thumbnailUrl })
+        .update({
+          thumbnail_url: thumbnailUrl,
+          width: sourceWidth,
+          height: sourceHeight,
+        })
         .eq('id', row.id)
       if (updateError) throw updateError
 
@@ -148,7 +135,7 @@ async function main() {
       if (trackError) {
         console.warn(`tracked update failed: ${trackError.message}`)
       } else {
-        console.log(`${thumb.length} bytes`)
+        console.log(`${thumb.length} bytes · ${sourceWidth}×${sourceHeight}`)
       }
       completed += 1
     } catch (err) {

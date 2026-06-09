@@ -7,7 +7,14 @@ import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
-import { imageLqipUrl, imageThumbUrl } from '../utils/imageThumb'
+import {
+  imageLqipUrl,
+  imageThumbUrl,
+  imageDisplayUrl,
+  imageSrcSet,
+  markSupabaseTransformsBroken,
+  useSupabaseTransformsAvailable,
+} from '../utils/imageThumb'
 import Button from '../components/ui/Button'
 import AnimatedNumber, { AnimatedCurrency } from '../components/ui/AnimatedNumber'
 import LazyThreeScene from '../components/three/LazyThreeScene'
@@ -69,8 +76,9 @@ function HeartIcon({ filled = false }) {
   )
 }
 
-function ImageGallery({ images, thumbnails = [], name }) {
+function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
   const galleryFrameRef = useRef(null)
+  const transformsAvailable = useSupabaseTransformsAvailable()
   const [activeIndex, setActiveIndex] = useState(0)
   const [imageRatios, setImageRatios] = useState({})
   const [thumbnailFallbacks, setThumbnailFallbacks] = useState({})
@@ -80,36 +88,58 @@ function ImageGallery({ images, thumbnails = [], name }) {
   const touchStartX = useRef(null)
   const touchStartY = useRef(null)
   const activeImage = images[activeIndex]
+  // Prefer the pre-stored sharp WebP thumbnail (visible image content, not a
+  // blur). Fall back to the render-endpoint LQIP only if the thumbnail is
+  // missing AND transforms are usable. If both are out, render nothing — the
+  // main image fades in cleanly.
+  const storedThumbnail = thumbnails[activeIndex]
   const activeThumbnail = previewFallbacks[activeIndex]
-    ? activeImage
-    : imageLqipUrl(activeImage)
+    ? null
+    : storedThumbnail || (transformsAvailable ? imageLqipUrl(activeImage) : null)
   const activeImageLoaded = loadedImages[activeImage] === true
   const activeImageSettled = settledImages[activeImage] === true
   const [loaderBounds, setLoaderBounds] = useState(null)
 
+  // Stage gallery preloads: the active image + its immediate neighbours fetch
+  // now; everything else waits until the user navigates to it. The old code
+  // dispatched every image in parallel which starved bandwidth from the active
+  // one on slow connections.
   useEffect(() => {
+    if (!images.length) return undefined
     let cancelled = false
-    const preloaders = images.map(image => {
+    const neighbourIndexes = new Set([
+      activeIndex,
+      (activeIndex + 1) % images.length,
+      (activeIndex - 1 + images.length) % images.length,
+    ])
+    const preloaders = []
+    neighbourIndexes.forEach(i => {
+      const image = images[i]
+      if (!image) return
       const preloader = new Image()
       preloader.decoding = 'async'
+      preloader.onerror = () => {
+        if (transformsAvailable) markSupabaseTransformsBroken()
+      }
       preloader.onload = () => {
         if (cancelled) return
         setLoadedImages(p => (p[image] ? p : { ...p, [image]: true }))
       }
-      preloader.src = image
+      preloader.src = transformsAvailable ? imageDisplayUrl(image, { width: 1280 }) : image
       if (preloader.complete && preloader.naturalWidth) {
         preloader.onload()
       }
-      return preloader
+      preloaders.push(preloader)
     })
 
     return () => {
       cancelled = true
       preloaders.forEach(preloader => {
         preloader.onload = null
+        preloader.onerror = null
       })
     }
-  }, [images])
+  }, [images, activeIndex, transformsAvailable])
 
   useEffect(() => {
     if (!activeImageLoaded || activeImageSettled) return undefined
@@ -226,10 +256,16 @@ function ImageGallery({ images, thumbnails = [], name }) {
         /* initial={false} */
         /* animate={{ opacity: 1, borderRadius: 0 }} */
         /* exit={{ opacity: 1 }} */
-        style={{
-          opacity: 1,
-          ...(imageRatios[activeIndex] ? { '--active-image-ratio': imageRatios[activeIndex] } : {}),
-        }}
+        style={(() => {
+          // Stored dimensions win — they pin the frame's aspect ratio before
+          // the full image loads, killing the "frame snaps to ratio" jump.
+          // Fall back to the post-load measurement for legacy products.
+          const stored = dimensions[activeIndex]
+          const ratio = stored?.width && stored?.height
+            ? `${stored.width} / ${stored.height}`
+            : imageRatios[activeIndex]
+          return ratio ? { opacity: 1, '--active-image-ratio': ratio } : { opacity: 1 }
+        })()}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -251,7 +287,9 @@ function ImageGallery({ images, thumbnails = [], name }) {
         <img
           key={activeImage}
           className={activeImageLoaded ? 'product-gallery-image is-loaded' : 'product-gallery-image is-loading'}
-          src={activeImage}
+          src={transformsAvailable ? imageDisplayUrl(activeImage, { width: 1280 }) : activeImage}
+          srcSet={transformsAvailable ? imageSrcSet(activeImage, { widths: [640, 960, 1280, 1600, 2048] }) : undefined}
+          sizes={transformsAvailable ? '(max-width: 880px) 100vw, (max-width: 1280px) 60vw, 50vw' : undefined}
           alt={name}
           loading="eager"
           fetchPriority="high"
@@ -264,6 +302,10 @@ function ImageGallery({ images, thumbnails = [], name }) {
             setLoadedImages(p => ({ ...p, [activeImage]: true }))
           }}
           onError={event => {
+            if (transformsAvailable) {
+              markSupabaseTransformsBroken()
+              return
+            }
             event.currentTarget.style.display = 'none'
             setLoadedImages(p => ({ ...p, [activeImage]: true }))
           }}
@@ -433,7 +475,12 @@ export default function ProductPage({ isOverlay = false }) {
           </div>
 
           {activeTab === 'photos' ? (
-            <ImageGallery images={product.images} thumbnails={product.image_thumbnails} name={product.name} />
+            <ImageGallery
+              images={product.images}
+              thumbnails={product.image_thumbnails}
+              dimensions={product.image_dimensions}
+              name={product.name}
+            />
           ) : (
             <div className="product-gallery-frame">
               <Suspense fallback={(

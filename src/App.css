@@ -1046,6 +1046,8 @@ input {
   display: grid;
   color: currentColor;
   text-decoration: none;
+  transform: scale(0.9);
+  transform-origin: center top;
 }
 
 .home-bestseller-stack-media {

@@ -2,6 +2,13 @@ import { Link, useLocation } from 'react-router-dom'
 import { motion as framerMotion } from 'framer-motion'
 import { useState, forwardRef, useEffect, useRef } from 'react'
 import { useWishlist } from '../../context/WishlistContext'
+import {
+  imageDisplayUrl,
+  imageSrcSet,
+  imageLqipUrl,
+  markSupabaseTransformsBroken,
+  useSupabaseTransformsAvailable,
+} from '../../utils/imageThumb'
 
 const MotionDiv = framerMotion.div
 const MotionImg = framerMotion.img
@@ -25,8 +32,24 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
   const isMasonry = variant === 'masonry'
   const imageRef = useRef(null)
   const location = useLocation()
-  const fullImageSrc = product.images[0]
-  const thumbnailSrc = product.image_thumbnails?.[0]
+  const transformsAvailable = useSupabaseTransformsAvailable()
+  const rawImage = product.images[0]
+  const storedThumb = product.image_thumbnails?.[0]
+  // When Supabase image transforms are usable, derive an LQIP from the source
+  // (matches the main image's aspect ratio). When they aren't (Free tier),
+  // fall back to the pre-uploaded square WebP — wrong ratio but it loads.
+  const lqipSrc = transformsAvailable ? imageLqipUrl(rawImage) : storedThumb
+  const fullImageSrc = transformsAvailable ? imageDisplayUrl(rawImage, { width: 960 }) : rawImage
+  const fullImageSrcSet = transformsAvailable ? imageSrcSet(rawImage) : undefined
+  const isPriority = index < 2
+  const isAboveFold = index < 4
+  // Stored dimensions reserve the right card height before the image loads,
+  // eliminating the masonry reflow when the full image arrives. Older products
+  // without saved dimensions fall back to the existing auto-height behaviour.
+  const storedDim = product.image_dimensions?.[0]
+  const mediaAspectRatio = storedDim?.width && storedDim?.height
+    ? `${storedDim.width} / ${storedDim.height}`
+    : undefined
 
   useEffect(() => {
     if (!imageRef.current || !imageLoaded) return
@@ -66,7 +89,7 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
         initial={false}
         animate={{ opacity: 1, borderRadius: 0 }}
         exit={{ opacity: 1 }}
-        style={{ opacity: 1 }}
+        style={isMasonry && mediaAspectRatio ? { opacity: 1, aspectRatio: mediaAspectRatio } : { opacity: 1 }}
       >
         <Link
           to={`/product/${product.id}`}
@@ -74,17 +97,25 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
           className="block h-full"
           viewTransition
         >
-          {thumbnailSrc && (
+          {lqipSrc && (
             <img
               className={imageLoaded ? 'product-card-thumbnail is-loaded' : 'product-card-thumbnail'}
-              src={thumbnailSrc}
+              src={lqipSrc}
               alt=""
-              width="180"
-              height="180"
-              loading={index < 4 ? 'eager' : 'lazy'}
+              width="800"
+              height="1067"
+              loading={isAboveFold ? 'eager' : 'lazy'}
+              fetchPriority={isPriority ? 'high' : 'low'}
               decoding="async"
               aria-hidden="true"
               onError={event => {
+                if (transformsAvailable) {
+                  // Render endpoint isn't usable on this project — flip the
+                  // global flag and let React swap us to the stored square
+                  // thumbnail (or hide if there isn't one).
+                  markSupabaseTransformsBroken()
+                  return
+                }
                 event.currentTarget.style.display = 'none'
               }}
             />
@@ -93,18 +124,25 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
             ref={imageRef}
             layoutId={isMasonry ? undefined : `product-image-${product.id}`}
             layout={!isMasonry}
-            className={thumbnailSrc && !imageLoaded ? 'product-card-full-image is-loading' : 'product-card-full-image is-loaded'}
+            className={lqipSrc && !imageLoaded ? 'product-card-full-image is-loading' : 'product-card-full-image is-loaded'}
             src={fullImageSrc}
+            srcSet={fullImageSrcSet}
+            sizes="(max-width: 880px) 50vw, (max-width: 1280px) 33vw, 25vw"
             alt={product.name}
             width="800"
             height="1067"
-            loading="lazy"
+            loading={isAboveFold ? 'eager' : 'lazy'}
+            fetchPriority={isPriority ? 'high' : 'auto'}
             transition={sharedImageTransition}
             initial={false}
             animate={{ borderRadius: 0 }}
             exit={{ opacity: 1 }}
             onLoad={() => setImageLoaded(true)}
             onError={event => {
+              if (transformsAvailable) {
+                markSupabaseTransformsBroken()
+                return
+              }
               event.currentTarget.style.display = 'none'
             }}
           />
