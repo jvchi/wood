@@ -426,7 +426,7 @@ export default function HomePage() {
   }, [bestSellerProducts, productsLoading])
   const heroScene = useMemo(() => ({ active }) => (
     <LazyThreeScene
-      fallback={<ThreeModelPlaceholder variant="room" label="Loading room view" />}
+      fallback={<ThreeModelPlaceholder variant="room" label="Loading room view" silhouette={false} />}
       variant="room"
       label="Loading room view"
       idleTimeout={0}

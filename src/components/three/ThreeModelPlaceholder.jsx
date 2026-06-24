@@ -7,8 +7,9 @@ export default function ThreeModelPlaceholder({
   variant = 'room',
   size = 56,
   spinner = variant !== 'room',
+  silhouette = true,
 }) {
-  const showSilhouette = !poster
+  const showSilhouette = silhouette && !poster
 
   return (
     <div className={`three-placeholder three-placeholder-${variant} ${className}`} role="status" aria-label={label}>
