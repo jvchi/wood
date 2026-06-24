@@ -219,6 +219,9 @@ function LightPositionControl({ value, onCommit }) {
         role="slider"
         tabIndex={0}
         aria-label="Drag key light position"
+        aria-valuemin={LIGHT_POSITION_MIN}
+        aria-valuemax={LIGHT_POSITION_MAX}
+        aria-valuenow={x}
         aria-valuetext={`X ${x.toFixed(2)}, Y ${y.toFixed(2)}, Z ${z.toFixed(2)}`}
         onPointerDown={startMapPointer}
         onPointerMove={event => {

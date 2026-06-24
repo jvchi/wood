@@ -404,7 +404,7 @@ export default function HeroScene({ active = true, fallbackImage, fallbackAlt = 
         />
         <ambientLight intensity={0.65} />
         <directionalLight position={[2, 5, 5]} intensity={0.85} />
-        <Environment preset="apartment" />
+        <Environment files="/hdri/lebombo_1k.hdr" />
         {!scrollDriven && <OrbitControls enableZoom={false} enablePan={false} autoRotate autoRotateSpeed={0.45} />}
         <ErrorBoundary fallback={null}>
           <ScrollDrivenScene

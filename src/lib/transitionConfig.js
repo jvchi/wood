@@ -3,6 +3,9 @@ export const routeTransitionTiming = {
   maxHoldMs: 3200,
   imageWaitMs: 1800,
   completeDelayMs: 1100,
+  // Safety cap so the home loader can never hang indefinitely if a 3D scene
+  // never reports ready (e.g. a slow asset or a WebGL/Suspense failure).
+  sceneWaitMs: 6000,
 }
 
 export const loaderMotion = {

@@ -51,7 +51,30 @@
       "Bash(grep -nA3 \"home-bestseller-stack-layer-one\\\\|home-bestseller-stack-layer-two\\\\|home-bestseller-stack-base\" /Users/destiny/wood/src/App.css)",
       "Bash(grep -nA4 \"is-wide\\\\|is-tall\" /Users/destiny/wood/src/App.css)",
       "Bash(grep -nA15 \"product-gallery-loader-fixed\" /Users/destiny/wood/src/App.css)",
-      "Bash(grep -nA8 \"\\\\.three-placeholder\\\\b\\\\|three-placeholder-product\\\\b\\\\|three-placeholder-room\" /Users/destiny/wood/src/App.css)"
+      "Bash(grep -nA8 \"\\\\.three-placeholder\\\\b\\\\|three-placeholder-product\\\\b\\\\|three-placeholder-room\" /Users/destiny/wood/src/App.css)",
+      "Bash(npx react-doctor@latest)",
+      "Bash(npx react-doctor@latest --verbose)",
+      "Read(//tmp/**)",
+      "Bash(grep -nA6 \"✖\" /tmp/rd.txt)",
+      "Bash(npx react-doctor *)",
+      "Bash(cd /Users/destiny/wood; rm .git/hooks/pre-commit && echo \"Removed .git/hooks/pre-commit\"; ls .git/hooks/pre-commit 2>&1)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | size %{size_download} bytes | time_total %{time_total}s\\\\n\" --max-time 90 \"https://raw.githack.com/pmndrs/drei-assets/456060a26bbeb8fdf79326f224b6d99b8bcce736/hdri/lebombo_1k.hdr\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | size %{size_download} bytes | time_total %{time_total}s\\\\n\" --max-time 90 \"https://raw.githack.com/pmndrs/drei-assets/456060a26bbeb8fdf79326f224b6d99b8bcce736/hdri/studio_small_03_1k.hdr\")",
+      "Bash(curl -sL -o /dev/null -w \"final HTTP %{http_code} | size %{size_download} bytes | total %{time_total}s\\\\n\" --max-time 120 \"https://raw.githack.com/pmndrs/drei-assets/456060a26bbeb8fdf79326f224b6d99b8bcce736/hdri/lebombo_1k.hdr\")",
+      "Bash(curl -sL -o /dev/null -w \"final HTTP %{http_code} | size %{size_download} bytes | total %{time_total}s\\\\n\" --max-time 120 \"https://raw.githack.com/pmndrs/drei-assets/456060a26bbeb8fdf79326f224b6d99b8bcce736/hdri/studio_small_03_1k.hdr\")",
+      "Bash(curl -s -D - -o /dev/null \"https://raw.githack.com/pmndrs/drei-assets/456060a26bbeb8fdf79326f224b6d99b8bcce736/hdri/lebombo_1k.hdr\")",
+      "Bash(curl -sL -o public/hdri/lebombo_1k.hdr \"https://raw.githubusercontent.com/pmndrs/drei-assets/456060a26bbeb8fdf79326f224b6d99b8bcce736/hdri/lebombo_1k.hdr\")",
+      "Bash(curl -sL -o public/hdri/studio_small_03_1k.hdr \"https://raw.githubusercontent.com/pmndrs/drei-assets/456060a26bbeb8fdf79326f224b6d99b8bcce736/hdri/studio_small_03_1k.hdr\")",
+      "Bash(file public/hdri/*.hdr)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | %{time_total}s\\\\n\" http://localhost:50824/)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | %{content_type} | %{size_download} bytes | %{time_total}s\\\\n\" http://localhost:50824/hdri/lebombo_1k.hdr)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | %{content_type} | %{size_download} bytes | %{time_total}s\\\\n\" http://localhost:50824/hdri/studio_small_03_1k.hdr)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | %{time_total}s\\\\n\" http://localhost:5173/)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | %{content_type} | %{size_download} bytes | %{time_total}s\\\\n\" http://localhost:5173/hdri/lebombo_1k.hdr)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | %{content_type} | %{size_download} bytes | %{time_total}s\\\\n\" http://localhost:5173/hdri/studio_small_03_1k.hdr)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | %{time_total}s\\\\n\" http://localhost:5174/)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | %{size_download} bytes | %{time_total}s\\\\n\" http://localhost:5174/hdri/lebombo_1k.hdr)",
+      "Bash(curl -s \"http://localhost:5174/src/components/three/HeroScene.jsx\")"
     ]
   }
 }

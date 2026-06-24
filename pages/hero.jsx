@@ -25,6 +25,16 @@ function CameraMouseMove({mouse}){
   })
   return null
 }
+function CameraRig({ x, y, z, fov }) {
+  const { camera } = useThree()
+  useEffect(() => {
+    camera.position.set(x, y, z)
+    camera.fov = fov
+    camera.updateProjectionMatrix()
+  }, [x, y, z, fov, camera])
+  return null
+}
+
 export default function Hero() {
 
   const {x, y, z, fov} = useControls('Camera',{
@@ -33,16 +43,6 @@ export default function Hero() {
     z: {value: -1, min: -20, max: 20, step: 1},
     fov: {value: 30, min: -200, max: 200, step: 10}
   })
-
-  function CameraRig({ x, y, z, fov }) {
-    const { camera } = useThree()
-    useEffect(() => {
-      camera.position.set(x, y, z)
-      camera.fov = fov
-      camera.updateProjectionMatrix()
-    }, [x, y, z, fov, camera])
-    return null
-  }
 
   const mouse = useRef({x: 0, y: 0, z: 0});
   function handleMouseMove(e){

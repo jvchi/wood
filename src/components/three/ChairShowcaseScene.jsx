@@ -278,7 +278,7 @@ export default function ChairShowcaseScene({ active = true, sectionProgressRef, 
           shadow-mapSize-height={1024}
         />
         <directionalLight position={[-2.4, 1.8, 3.4]} intensity={0.7} />
-        <Environment preset="studio" />
+        <Environment files="/hdri/studio_small_03_1k.hdr" />
         <ShowcaseCamera active={active} pointerRef={pointerRef} sectionProgressRef={sectionProgressRef} />
         <ErrorBoundary
           fallback={null}

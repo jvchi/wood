@@ -3,7 +3,7 @@ import { preloadRouteForPath, routeLoaders } from '../lib/routePreload'
 import { routeTransitionTiming } from '../lib/transitionConfig'
 import { MODEL_ASSETS, getDevicePerformanceProfile, resolveModelAsset } from '../lib/threeAssetStrategy'
 
-const { minHoldMs, maxHoldMs, imageWaitMs, completeDelayMs } = routeTransitionTiming
+const { minHoldMs, maxHoldMs, imageWaitMs, completeDelayMs, sceneWaitMs } = routeTransitionTiming
 
 function withTimeout(promise, timeout) {
   return new Promise((resolve) => {
@@ -136,7 +136,7 @@ export default function useInitialLoadReady(pathname, { enabled = true } = {}) {
       await preloadRouteData(routeKey)
 
       if (routeKey === '/') {
-        await waitForHomeScenes()
+        await withTimeout(waitForHomeScenes(), sceneWaitMs)
       }
 
       await new Promise((resolve) => window.requestAnimationFrame(() => resolve()))
