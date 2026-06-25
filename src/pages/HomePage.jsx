@@ -19,6 +19,12 @@ import Footer from '../components/layout/Footer'
 import Skeleton from '../components/ui/Skeleton'
 import { LetterCascade } from '../components/ui/LetterCascade'
 import { useProducts } from '../hooks/useProducts'
+import {
+  imageDisplayUrl,
+  imageSrcSet,
+  markSupabaseTransformsBroken,
+  useSupabaseTransformsAvailable,
+} from '../utils/imageThumb'
 
 const HeroScene = lazy(() => import('../components/three/HeroScene'))
 const ChairShowcaseScene = lazy(() => import('../components/three/ChairShowcaseScene'))
@@ -91,6 +97,9 @@ function BestSellerStackedProduct({ product, index, location, onHoverLabelChange
   const lastPointerTypeRef = useRef(null)
   const reduceMotion = useReducedMotion()
   const [isHovered, setIsHovered] = useState(false)
+  const [loadedSrcs, setLoadedSrcs] = useState(() => new Set())
+  const markSrcLoaded = src => setLoadedSrcs(prev => (prev.has(src) ? prev : new Set(prev).add(src)))
+  const transformsAvailable = useSupabaseTransformsAvailable()
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ['start end', 'end start'],
@@ -99,9 +108,9 @@ function BestSellerStackedProduct({ product, index, location, onHoverLabelChange
   const layerOneY = useTransform(scrollYProgress, [0, 1], bestSellerLayerConfigs[1].yRange)
   const layerTwoY = useTransform(scrollYProgress, [0, 1], bestSellerLayerConfigs[2].yRange)
   const layerImages = [
-    { src: product.images[0], thumbnail: product.image_thumbnails?.[0], alt: product.name, y: baseY, ...bestSellerLayerConfigs[0] },
-    { src: product.images[1], thumbnail: product.image_thumbnails?.[1], alt: '', y: layerOneY, ...bestSellerLayerConfigs[1] },
-    { src: product.images[2], thumbnail: product.image_thumbnails?.[2], alt: '', y: layerTwoY, ...bestSellerLayerConfigs[2] },
+    { src: product.images[0], thumbnail: product.image_thumbnails?.[0], display: product.image_displays?.[0], alt: product.name, y: baseY, ...bestSellerLayerConfigs[0] },
+    { src: product.images[1], thumbnail: product.image_thumbnails?.[1], display: product.image_displays?.[1], alt: '', y: layerOneY, ...bestSellerLayerConfigs[1] },
+    { src: product.images[2], thumbnail: product.image_thumbnails?.[2], display: product.image_displays?.[2], alt: '', y: layerTwoY, ...bestSellerLayerConfigs[2] },
   ].filter(layer => layer.src)
   const isMirroredStack = index % 4 === 2
   const updateHoverLabel = () => {
@@ -303,9 +312,13 @@ function BestSellerStackedProduct({ product, index, location, onHoverLabelChange
           initial={false}
           animate={isHovered ? 'hover' : 'rest'}
         >
-          {layerImages.map((layer, layerIndex) => (
+          {layerImages.map((layer, layerIndex) => {
+            const isImageLoaded = loadedSrcs.has(layer.src)
+            const fullSrc = layer.display || (transformsAvailable ? imageDisplayUrl(layer.src, { width: 640 }) : layer.src)
+            const fullSrcSet = layer.display ? undefined : (transformsAvailable ? imageSrcSet(layer.src, { widths: [320, 480, 640] }) : undefined)
+            return (
             <MotionDiv
-              className={`home-bestseller-stack-image ${layer.className}`}
+              className={`home-bestseller-stack-image ${layer.className} ${isImageLoaded ? 'is-image-loaded' : 'is-image-loading'}`}
               variants={getLayerStackOrderVariants(layerIndex)}
               transition={bestSellerStackTransition}
               style={{ y: layer.y }}
@@ -332,18 +345,26 @@ function BestSellerStackedProduct({ product, index, location, onHoverLabelChange
                   />
                 )}
                 <MotionImg
-                  src={layer.src}
+                  src={fullSrc}
+                  srcSet={fullSrcSet}
+                  sizes="(max-width: 768px) 45vw, 20vw"
                   alt={layer.alt}
                   width={layerIndex === 0 ? 900 : 520}
                   height={layerIndex === 0 ? 1125 : 650}
                   loading="lazy"
+                  onLoad={() => markSrcLoaded(layer.src)}
                   onError={event => {
+                    if (!layer.display && transformsAvailable) {
+                      markSupabaseTransformsBroken()
+                      return
+                    }
                     event.currentTarget.style.display = 'none'
                   }}
                 />
               </MotionDiv>
             </MotionDiv>
-          ))}
+            )
+          })}
         </MotionDiv>
       </Link>
     </article>

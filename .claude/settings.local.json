@@ -78,7 +78,13 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5174/)",
       "Bash(curl -s \"http://localhost:5173/src/pages/HomePage.jsx\")",
-      "Bash(curl -s \"http://localhost:5173/src/components/three/ThreeModelPlaceholder.jsx\")"
+      "Bash(curl -s \"http://localhost:5173/src/components/three/ThreeModelPlaceholder.jsx\")",
+      "Bash(curl -s \"http://localhost:5173/src/App.css?direct\")",
+      "Bash(curl -s \"http://localhost:5173/src/App.css\")",
+      "Bash(curl -s -o /dev/null -w 'HTTP %{http_code} | %{content_type} | %{size_download} bytes\\\\n' https://aehyvvbatntdmndtyzco.supabase.co/storage/v1/object/public/product-images/draft/1780531891541-product-hero-1780531891503.png)",
+      "Bash(curl -s -o /dev/null -w 'HTTP %{http_code} | %{content_type} | %{size_download} bytes\\\\n' https://aehyvvbatntdmndtyzco.supabase.co/storage/v1/object/public/product-images/thumbs/5ef75ab4-4169-4732-bb86-04e3b0a5c852/0-1780531891541-product-hero-1780531891503-030361d7-96c4-407a-9831-94d06d3c2d2c.webp)",
+      "Bash(node --check scripts/backfill-product-thumbnails.mjs)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code} | %{size_download} bytes | %{content_type}\\\\n\" \"https://aehyvvbatntdmndtyzco.supabase.co/storage/v1/object/public/product-images/draft/1780535618444-product-hero-1780535618374.png\")"
     ]
   }
 }

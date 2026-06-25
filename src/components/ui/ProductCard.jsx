@@ -42,8 +42,11 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
   // dimensions migration). No render-endpoint round-trip, no first-render flash
   // while we wait for a 404 to detect broken transforms.
   const lqipSrc = product.image_thumbnails?.[0]
-  const fullImageSrc = transformsAvailable ? imageDisplayUrl(rawImage, { width: 960 }) : rawImage
-  const fullImageSrcSet = transformsAvailable ? imageSrcSet(rawImage) : undefined
+  // Prefer the pre-generated display variant (mid-size WebP). Falls back to the
+  // Supabase render endpoint when available, then the raw original.
+  const displayImage = product.image_displays?.[0]
+  const fullImageSrc = displayImage || (transformsAvailable ? imageDisplayUrl(rawImage, { width: 960 }) : rawImage)
+  const fullImageSrcSet = displayImage ? undefined : (transformsAvailable ? imageSrcSet(rawImage) : undefined)
   const imageLoaded = loadedImageSrc === fullImageSrc
   const thumbnailFailed = failedThumbnailSrc === lqipSrc
   const fullImageFailed = failedFullImageSrc === fullImageSrc
@@ -156,7 +159,9 @@ const ProductCard = forwardRef(({ product, index = 0, variant, hideInfo = false 
                 if (failedImage.naturalWidth > 0) return
 
                 const failedSrc = failedImage.currentSrc || failedImage.src || fullImageSrc
-                if (transformsAvailable) {
+                // Only treat this as a broken transform when we were actually
+                // using the render endpoint (not a pre-generated display variant).
+                if (!displayImage && transformsAvailable) {
                   markSupabaseTransformsBroken()
                   return
                 }

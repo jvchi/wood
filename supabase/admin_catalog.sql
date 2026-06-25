@@ -78,6 +78,7 @@ create table if not exists public.product_images (
 );
 
 alter table public.product_images add column if not exists thumbnail_url text;
+alter table public.product_images add column if not exists display_url text;
 
 create table if not exists public.product_models (
   id uuid primary key default gen_random_uuid(),
@@ -109,7 +110,7 @@ create table if not exists public.product_uploads (
   bucket_id text not null check (bucket_id in ('product-images', 'product-models')),
   storage_path text not null,
   public_url text not null,
-  asset_kind text not null check (asset_kind in ('image', 'image_thumbnail', 'model', 'poster', 'lite_model', 'source_model', 'full_model')),
+  asset_kind text not null check (asset_kind in ('image', 'image_thumbnail', 'image_display', 'model', 'poster', 'lite_model', 'source_model', 'full_model')),
   file_name text not null,
   content_type text,
   file_size bigint check (file_size is null or file_size >= 0),
@@ -121,7 +122,7 @@ create table if not exists public.product_uploads (
 alter table public.product_uploads drop constraint if exists product_uploads_asset_kind_check;
 alter table public.product_uploads
   add constraint product_uploads_asset_kind_check
-  check (asset_kind in ('image', 'image_thumbnail', 'model', 'poster', 'lite_model', 'source_model', 'full_model'));
+  check (asset_kind in ('image', 'image_thumbnail', 'image_display', 'model', 'poster', 'lite_model', 'source_model', 'full_model'));
 
 create table if not exists public.inventory_logs (
   id uuid primary key default gen_random_uuid(),

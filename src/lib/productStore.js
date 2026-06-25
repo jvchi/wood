@@ -190,6 +190,7 @@ export function normalizeProduct(product) {
     : Array.isArray(product.thumbnail_images)
       ? product.thumbnail_images
       : []
+  const imageDisplays = Array.isArray(product.image_displays) ? product.image_displays : []
   const images = Array.isArray(product.images) && product.images.length
     ? product.images
     : imageThumbnails.filter(Boolean)
@@ -214,6 +215,7 @@ export function normalizeProduct(product) {
     currency: product.currency || 'USD',
     images,
     image_thumbnails: images.map((_, index) => imageThumbnails[index] || ''),
+    image_displays: images.map((_, index) => imageDisplays[index] || ''),
     image_dimensions: images.map((_, index) => {
       const dim = product.image_dimensions?.[index]
       return dim && dim.width && dim.height
@@ -260,6 +262,7 @@ function mapSupabaseProduct(row) {
     .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
   const images = imageRows.map(image => image.url)
   const imageThumbnails = imageRows.map(image => image.thumbnail_url || '')
+  const imageDisplays = imageRows.map(image => image.display_url || '')
   const imageDimensions = imageRows.map(image =>
     image.width && image.height ? { width: image.width, height: image.height } : null,
   )
@@ -271,6 +274,7 @@ function mapSupabaseProduct(row) {
     collection: row.collections?.slug || row.collection_id,
     images: images.length ? images : [row.main_image_url].filter(Boolean),
     image_thumbnails: imageThumbnails,
+    image_displays: imageDisplays,
     image_dimensions: imageDimensions,
     model_url: model?.url || row.model_url || '',
     model_lite_url: model?.lite_url || row.model_lite_url || '',
@@ -300,6 +304,13 @@ const MISSING_DIMENSIONS_KEY = 'productImageDimensionsMissing'
 let imageDimensionsMissing =
   typeof sessionStorage !== 'undefined' && sessionStorage.getItem(MISSING_DIMENSIONS_KEY) === '1'
 
+// Set when the `display_url` column isn't present yet (before the
+// add_product_image_displays migration is applied). Keeps the query from
+// 400ing; the app falls back to render-transform/raw URLs until it's there.
+const MISSING_DISPLAY_KEY = 'productImageDisplayMissing'
+let imageDisplayMissing =
+  typeof sessionStorage !== 'undefined' && sessionStorage.getItem(MISSING_DISPLAY_KEY) === '1'
+
 function markImageDimensionsMissing() {
   if (imageDimensionsMissing) return
   imageDimensionsMissing = true
@@ -310,20 +321,53 @@ function markImageDimensionsMissing() {
   }
 }
 
-function buildProductSelect() {
-  const imageCols = imageDimensionsMissing
-    ? 'url,thumbnail_url,sort_order,is_main'
-    : 'url,thumbnail_url,width,height,sort_order,is_main'
-  return PRODUCT_SELECT_TEMPLATE.replace('__IMAGE_COLS__', imageCols)
+function markImageDisplayMissing() {
+  if (imageDisplayMissing) return
+  imageDisplayMissing = true
+  try {
+    sessionStorage.setItem(MISSING_DISPLAY_KEY, '1')
+  } catch {
+    // ignore — flag still set in-memory for the rest of the session
+  }
 }
 
-function isMissingColumnError(error) {
+function buildProductSelect() {
+  const imageCols = ['url', 'thumbnail_url']
+  if (!imageDisplayMissing) imageCols.push('display_url')
+  if (!imageDimensionsMissing) imageCols.push('width', 'height')
+  imageCols.push('sort_order', 'is_main')
+  return PRODUCT_SELECT_TEMPLATE.replace('__IMAGE_COLS__', imageCols.join(','))
+}
+
+// Flips whichever optional image column is missing and returns true when it
+// changed something, so the caller can re-issue the query. Supabase / PostgREST
+// returns code "42703" (undefined column); the message usually names it.
+function handleMissingColumn(error) {
   if (!error) return false
-  // Supabase / PostgREST returns code "42703" (undefined column) plus a
-  // message that names the column. Match defensively on either signal.
-  if (error.code === '42703') return true
   const message = String(error.message || '').toLowerCase()
-  return message.includes('column') && (message.includes('width') || message.includes('height'))
+  const undefinedColumn = error.code === '42703' || message.includes('column')
+  if (!undefinedColumn) return false
+
+  if (!imageDisplayMissing && message.includes('display_url')) {
+    markImageDisplayMissing()
+    return true
+  }
+  if (!imageDimensionsMissing && (message.includes('width') || message.includes('height'))) {
+    markImageDimensionsMissing()
+    return true
+  }
+  // 42703 without a recognizable column name: drop optional columns newest-first.
+  if (error.code === '42703') {
+    if (!imageDisplayMissing) {
+      markImageDisplayMissing()
+      return true
+    }
+    if (!imageDimensionsMissing) {
+      markImageDimensionsMissing()
+      return true
+    }
+  }
+  return false
 }
 
 const PRODUCT_SELECT_TEMPLATE = `
@@ -391,8 +435,7 @@ async function fetchProductsFromSource({ includeUnpublished }) {
   }
 
   let { data, error } = await runOnce()
-  if (error && !imageDimensionsMissing && isMissingColumnError(error)) {
-    markImageDimensionsMissing()
+  while (error && handleMissingColumn(error)) {
     ;({ data, error } = await runOnce())
   }
   if (error) throw error
@@ -415,8 +458,7 @@ async function fetchProductFromSource(productId) {
     )
 
   let { data, error } = await runOnce()
-  if (error && !imageDimensionsMissing && isMissingColumnError(error)) {
-    markImageDimensionsMissing()
+  while (error && handleMissingColumn(error)) {
     ;({ data, error } = await runOnce())
   }
   if (error) throw error
@@ -748,6 +790,10 @@ async function replaceProductImages(product) {
       base.width = dim.width
       base.height = dim.height
     }
+    // Likewise only send display_url once the column exists.
+    if (!imageDisplayMissing && product.image_displays?.[index]) {
+      base.display_url = product.image_displays[index]
+    }
     return base
   })
   const { error } = await supabase.from('product_images').insert(rows)
@@ -868,38 +914,54 @@ export async function uploadStorageResumable(file, bucket, path, {
   })
 }
 
+async function uploadImageVariant(variant, { productId, folder, assetKind }) {
+  if (!variant?.file) return ''
+  const safeName = variant.file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
+  const path = `${folder}/${productId || 'draft'}/${Date.now()}-${safeName}`
+  const { error } = await supabase.storage.from('product-images').upload(path, variant.file, {
+    cacheControl: '31536000',
+    contentType: 'image/webp',
+    upsert: true,
+  })
+  if (error) throw error
+  const { data } = supabase.storage.from('product-images').getPublicUrl(path)
+  await trackUpload({
+    file: variant.file,
+    bucket: 'product-images',
+    productId,
+    path,
+    publicUrl: data.publicUrl,
+    assetKind,
+  })
+  return data.publicUrl
+}
+
 export async function uploadImageWithThumbnail(file, productId, assetKind = 'image') {
-  if (!file) return { url: '', thumbnailUrl: '', width: null, height: null }
+  if (!file) return { url: '', thumbnailUrl: '', displayUrl: '', width: null, height: null }
   requireSupabaseConfig()
+  // LQIP thumbnail (~240px) and a mid-size display variant (~1280px). The
+  // display variant is what cards/galleries actually show, so the multi-MB
+  // source is never sent to the browser even when Image Transforms are off.
   const thumbnail = await createImageThumbnailFile(file)
+  const display = await createImageThumbnailFile(file, { maxSide: 1280, quality: 0.8 })
 
   const url = await uploadAsset(file, 'product-images', productId, assetKind)
-  let thumbnailUrl = ''
-  if (thumbnail?.file) {
-    const safeName = thumbnail.file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
-    const path = `thumbs/${productId || 'draft'}/${Date.now()}-${safeName}`
-    const { error } = await supabase.storage.from('product-images').upload(path, thumbnail.file, {
-      cacheControl: '31536000',
-      contentType: 'image/webp',
-      upsert: true,
-    })
-    if (error) throw error
-    const { data } = supabase.storage.from('product-images').getPublicUrl(path)
-    thumbnailUrl = data.publicUrl
-    await trackUpload({
-      file: thumbnail.file,
-      bucket: 'product-images',
-      productId,
-      path,
-      publicUrl: thumbnailUrl,
-      assetKind: 'image_thumbnail',
-    })
-  }
+  const thumbnailUrl = await uploadImageVariant(thumbnail, {
+    productId,
+    folder: 'thumbs',
+    assetKind: 'image_thumbnail',
+  })
+  const displayUrl = await uploadImageVariant(display, {
+    productId,
+    folder: 'displays',
+    assetKind: 'image_display',
+  })
   return {
     url,
     thumbnailUrl,
-    width: thumbnail?.width ?? null,
-    height: thumbnail?.height ?? null,
+    displayUrl,
+    width: thumbnail?.width ?? display?.width ?? null,
+    height: thumbnail?.height ?? display?.height ?? null,
   }
 }
 
