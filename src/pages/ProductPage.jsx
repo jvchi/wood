@@ -8,7 +8,6 @@ import { useWishlist } from '../context/WishlistContext'
 import { useToast } from '../context/ToastContext'
 import { formatPrice } from '../utils/formatPrice'
 import {
-  imageLqipUrl,
   imageThumbUrl,
   imageDisplayUrl,
   imageSrcSet,
@@ -76,7 +75,7 @@ function HeartIcon({ filled = false }) {
   )
 }
 
-function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
+function ImageGallery({ images, thumbnails = [], displays = [], dimensions = [], name }) {
   const galleryFrameRef = useRef(null)
   const mainImageRef = useRef(null)
   const transformsAvailable = useSupabaseTransformsAvailable()
@@ -93,6 +92,9 @@ function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
   // first-render flash. If missing or it errors, the main image just fades
   // in cleanly with no backdrop.
   const activeThumbnail = previewFallbacks[activeIndex] ? null : thumbnails[activeIndex] || null
+  // Pre-generated mid-size display variant; preferred over the render endpoint
+  // / raw original when present.
+  const activeDisplay = displays[activeIndex] || null
   const activeImageLoaded = loadedImages[activeImage] === true
   const activeImageSettled = settledImages[activeImage] === true
   const [loaderBounds, setLoaderBounds] = useState(null)
@@ -116,13 +118,13 @@ function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
       const preloader = new Image()
       preloader.decoding = 'async'
       preloader.onerror = () => {
-        if (transformsAvailable) markSupabaseTransformsBroken()
+        if (!displays[i] && transformsAvailable) markSupabaseTransformsBroken()
       }
       preloader.onload = () => {
         if (cancelled) return
         setLoadedImages(p => (p[image] ? p : { ...p, [image]: true }))
       }
-      preloader.src = transformsAvailable ? imageDisplayUrl(image, { width: 1280 }) : image
+      preloader.src = displays[i] || (transformsAvailable ? imageDisplayUrl(image, { width: 1280 }) : image)
       if (preloader.complete && preloader.naturalWidth) {
         preloader.onload()
       }
@@ -136,7 +138,7 @@ function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
         preloader.onerror = null
       })
     }
-  }, [images, activeIndex, transformsAvailable])
+  }, [images, displays, activeIndex, transformsAvailable])
 
   useEffect(() => {
     if (!activeImageLoaded || activeImageSettled) return undefined
@@ -310,9 +312,9 @@ function ImageGallery({ images, thumbnails = [], dimensions = [], name }) {
           }}
           key={activeImage}
           className={activeImageLoaded ? 'product-gallery-image is-loaded' : 'product-gallery-image is-loading'}
-          src={transformsAvailable ? imageDisplayUrl(activeImage, { width: 1280 }) : activeImage}
-          srcSet={transformsAvailable ? imageSrcSet(activeImage, { widths: [640, 960, 1280, 1600, 2048] }) : undefined}
-          sizes={transformsAvailable ? '(max-width: 880px) 100vw, (max-width: 1280px) 60vw, 50vw' : undefined}
+          src={activeDisplay || (transformsAvailable ? imageDisplayUrl(activeImage, { width: 1280 }) : activeImage)}
+          srcSet={activeDisplay ? undefined : (transformsAvailable ? imageSrcSet(activeImage, { widths: [640, 960, 1280, 1600, 2048] }) : undefined)}
+          sizes={activeDisplay ? undefined : (transformsAvailable ? '(max-width: 880px) 100vw, (max-width: 1280px) 60vw, 50vw' : undefined)}
           alt={name}
           loading="eager"
           fetchPriority="high"
@@ -501,6 +503,7 @@ export default function ProductPage({ isOverlay = false }) {
             <ImageGallery
               images={product.images}
               thumbnails={product.image_thumbnails}
+              displays={product.image_displays}
               dimensions={product.image_dimensions}
               name={product.name}
             />
