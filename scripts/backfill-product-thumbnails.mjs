@@ -1,7 +1,10 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { createClient } from '@supabase/supabase-js'
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
 import sharp from 'sharp'
+
+const CACHE_CONTROL = 'public, max-age=31536000, immutable'
 
 // Aspect-preserving thumbnail: scale so the longest side is THUMB_MAX_SIDE,
 // keep the source aspect ratio. Tiny WebP (~3–8 KB) used as a sharp LQIP
@@ -73,12 +76,28 @@ async function main() {
   const productId = process.argv[2] || ''
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL
-  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY')
+    throw new Error('Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY')
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey)
+  const r2PublicImages = (process.env.R2_PUBLIC_IMAGES || process.env.VITE_R2_PUBLIC_IMAGES || '').replace(/\/$/, '')
+  const r2BucketImages = process.env.R2_BUCKET_IMAGES || 'product-images'
+  if (!process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY || !r2PublicImages) {
+    throw new Error('Missing R2 image bucket credentials or public URL')
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  })
+  const r2 = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+  })
   let query = supabase
     .from('product_images')
     .select('id,product_id,url,thumbnail_url,width,height,sort_order,alt_text')
@@ -93,17 +112,14 @@ async function main() {
   console.log(`Found ${rows.length} product image rows; backfilling ${pending.length}.`)
 
   async function uploadVariant(storagePath, buffer, assetKind, productIdForRow) {
-    const { error: uploadError } = await supabase.storage
-      .from('product-images')
-      .upload(storagePath, buffer, {
-        cacheControl: '31536000',
-        contentType: 'image/webp',
-        upsert: true,
-      })
-    if (uploadError) throw uploadError
-
-    const { data: publicData } = supabase.storage.from('product-images').getPublicUrl(storagePath)
-    const publicUrl = publicData.publicUrl
+    await r2.send(new PutObjectCommand({
+      Bucket: r2BucketImages,
+      Key: storagePath,
+      Body: buffer,
+      ContentType: 'image/webp',
+      CacheControl: CACHE_CONTROL,
+    }))
+    const publicUrl = `${r2PublicImages}/${storagePath}`
 
     const { error: trackError } = await supabase.from('product_uploads').insert({
       product_id: productIdForRow,
@@ -116,7 +132,7 @@ async function main() {
       file_size: buffer.length,
       status: 'ready',
     })
-    if (trackError) console.warn(`tracked insert failed (${assetKind}): ${trackError.message}`)
+    if (trackError) throw trackError
     return publicUrl
   }
 
@@ -152,8 +168,10 @@ async function main() {
         .webp({ quality: DISPLAY_QUALITY, effort: 4 })
         .toBuffer()
 
-      const thumbnailUrl = await uploadVariant(thumbPath, thumb, 'image_thumbnail', row.product_id)
-      const displayUrl = await uploadVariant(displayPath, display, 'image_display', row.product_id)
+      const [thumbnailUrl, displayUrl] = await Promise.all([
+        uploadVariant(thumbPath, thumb, 'image_thumbnail', row.product_id),
+        uploadVariant(displayPath, display, 'image_display', row.product_id),
+      ])
 
       const { error: updateError } = await supabase
         .from('product_images')

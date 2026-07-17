@@ -3403,6 +3403,167 @@ input {
   overflow: hidden;
 }
 
+.admin-session {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.admin-session span {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-session button {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 0.67rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-auth-shell {
+  position: relative;
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  overflow: hidden;
+  padding: clamp(1rem, 4vw, 3rem);
+  background:
+    linear-gradient(115deg, transparent 0 48%, rgba(0, 0, 0, 0.035) 48% 48.12%, transparent 48.12%),
+    radial-gradient(circle at 18% 78%, rgba(0, 0, 0, 0.06), transparent 24rem),
+    #f6f4ee;
+}
+
+.admin-auth-shell::before {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.18) 0.55px, transparent 0.55px);
+  background-size: 5px 5px;
+  content: '';
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+.admin-auth-card {
+  position: relative;
+  display: grid;
+  width: min(100%, 31rem);
+  gap: 2rem;
+  padding: clamp(1.5rem, 5vw, 3rem);
+  border: 1px solid rgba(0, 0, 0, 0.13);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 2rem 6rem rgba(0, 0, 0, 0.09);
+  backdrop-filter: blur(18px);
+}
+
+.admin-auth-mark {
+  display: grid;
+  width: 3.25rem;
+  height: 3.25rem;
+  place-items: center;
+  background: var(--color-primary);
+  color: var(--color-white);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.admin-auth-mark i {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  width: 3.5rem;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.18);
+  transform: rotate(-32deg);
+  transform-origin: right center;
+}
+
+.admin-auth-heading {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.admin-auth-heading h1 {
+  max-width: 8ch;
+  font-size: clamp(2.8rem, 9vw, 5.6rem);
+  font-weight: 800;
+  letter-spacing: -0.055em;
+  line-height: 0.82;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.admin-auth-heading>p:last-child {
+  max-width: 35ch;
+  color: var(--color-secondary);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.admin-auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-auth-submit {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.admin-auth-submit:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.admin-auth-error {
+  padding: 0.75rem 0.85rem;
+  border-left: 2px solid #9f2f25;
+  background: rgba(159, 47, 37, 0.06);
+  color: #7d241c;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.admin-auth-footnote {
+  color: var(--color-muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.admin-auth-loading {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.85rem;
+  color: var(--color-secondary);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.admin-auth-loading span {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: admin-capture-spin 620ms linear infinite;
+}
+
 .admin-page {
   width: min(100%, 1440px);
   margin: 0 auto;
@@ -4842,6 +5003,10 @@ input {
     flex: 0 0 auto;
     min-height: 2.5rem;
     padding: 0 0.75rem;
+  }
+
+  .admin-session {
+    display: none;
   }
 
   .admin-page {

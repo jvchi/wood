@@ -15,7 +15,7 @@ The React Compiler is not enabled on this template because of its impact on dev 
 
 Run `supabase/admin_catalog.sql` in the Supabase SQL editor before using `/admin/products` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 
-The schema creates catalog tables, upload tracking, inventory logs, public storage buckets for product images and GLB/glTF models, and the RLS policies needed by the current dashboard. Replace the permissive dashboard policies with authenticated admin-only policies before production.
+The schema creates catalog tables, upload tracking, inventory logs, public-read policies, and authenticated admin-only write policies. Binary product assets are stored in Cloudflare R2; Supabase Storage is no longer used. See [`docs/r2-migration.md`](docs/r2-migration.md) for setup, migration, verification, and cleanup.
 
 ## Expanding the ESLint configuration
 

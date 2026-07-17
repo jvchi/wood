@@ -1,7 +1,8 @@
 import { supabase, hasSupabaseConfig, supabaseUrlPublic, supabaseAnonKeyPublic } from './supabase'
-import { Upload } from 'tus-js-client'
+import { uploadToR2, deleteFromR2, r2PathFromPublicUrl } from './r2'
 
 export const PRODUCT_EVENT = 'wood:products-updated'
+const R2_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 
 const CATEGORIES_KEY = 'wood.admin.categories'
 const COLLECTIONS_KEY = 'wood.admin.collections'
@@ -588,7 +589,7 @@ function taxonomyConfig(type) {
 }
 
 function sortByName(items) {
-  return [...items].sort((a, b) => a.name.localeCompare(b.name))
+  return items.toSorted((a, b) => a.name.localeCompare(b.name))
 }
 
 function labelFromSlug(value) {
@@ -634,54 +635,59 @@ async function purgeProductStorage(productId) {
     pathsByBucket.get(bucket).add(path)
   }
 
-  const { data: uploads } = await supabase
+  const { data: uploads, error: uploadsError } = await supabase
     .from('product_uploads')
     .select('bucket_id,storage_path')
     .eq('product_id', productId)
+  if (uploadsError) throw uploadsError
   if (Array.isArray(uploads)) {
     for (const row of uploads) addPath(row.bucket_id, row.storage_path)
   }
 
-  const { data: imageRows } = await supabase
+  const { data: imageRows, error: imagesError } = await supabase
     .from('product_images')
-    .select('url')
+    .select('url,thumbnail_url,display_url')
     .eq('product_id', productId)
+  if (imagesError) throw imagesError
   if (Array.isArray(imageRows)) {
     for (const row of imageRows) {
       addPath('product-images', storagePathFromPublicUrl(row.url, 'product-images'))
       addPath('product-images', storagePathFromPublicUrl(row.thumbnail_url, 'product-images'))
+      addPath('product-images', storagePathFromPublicUrl(row.display_url, 'product-images'))
     }
   }
 
-  const { data: modelRows } = await supabase
+  const { data: modelRows, error: modelsError } = await supabase
     .from('product_models')
-    .select('url,lite_url,poster_url')
+    .select('url,lite_url,poster_url,fallback_image_url')
     .eq('product_id', productId)
+  if (modelsError) throw modelsError
   if (Array.isArray(modelRows)) {
     for (const row of modelRows) {
       addPath('product-models', storagePathFromPublicUrl(row.url, 'product-models'))
       addPath('product-models', storagePathFromPublicUrl(row.lite_url, 'product-models'))
       addPath('product-images', storagePathFromPublicUrl(row.poster_url, 'product-images'))
+      addPath('product-images', storagePathFromPublicUrl(row.fallback_image_url, 'product-images'))
     }
   }
 
-  const { data: productRow } = await supabase
+  const { data: productRow, error: productError } = await supabase
     .from('products')
     .select('main_image_url,fallback_image_url,og_image_url')
     .eq('id', productId)
     .maybeSingle()
+  if (productError) throw productError
   if (productRow) {
     addPath('product-images', storagePathFromPublicUrl(productRow.main_image_url, 'product-images'))
     addPath('product-images', storagePathFromPublicUrl(productRow.fallback_image_url, 'product-images'))
     addPath('product-images', storagePathFromPublicUrl(productRow.og_image_url, 'product-images'))
   }
 
-  for (const [bucket, set] of pathsByBucket) {
+  await Promise.all([...pathsByBucket].map(async ([bucket, set]) => {
     const paths = [...set]
-    if (!paths.length) continue
-    const { error } = await supabase.storage.from(bucket).remove(paths)
-    if (error) console.warn(`Could not remove ${bucket} objects:`, error.message)
-  }
+    if (!paths.length) return
+    await deleteFromR2(bucket, paths)
+  }))
 
   // product_uploads has on-delete-set-null on product_id, so we must explicitly
   // drop its rows here — otherwise the metadata stays after the product is gone.
@@ -689,7 +695,7 @@ async function purgeProductStorage(productId) {
     .from('product_uploads')
     .delete()
     .eq('product_id', productId)
-  if (uploadErr) console.warn('Could not remove product_uploads rows:', uploadErr.message)
+  if (uploadErr) throw uploadErr
 }
 
 export async function saveTaxonomy(type, values) {
@@ -837,27 +843,10 @@ export async function uploadAsset(file, bucket, productId, assetKind) {
   requireSupabaseConfig()
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
   const path = `${productId || 'draft'}/${Date.now()}-${safeName}`
-  if (bucket === 'product-models') {
-    await uploadStorageResumable(file, bucket, path, {
-      contentType: modelContentType(file),
-      cacheControl: '31536000',
-      upsert: true,
-    })
-  } else {
-    const { error } = await supabase.storage.from(bucket).upload(path, file, {
-      cacheControl: '31536000',
-      upsert: true,
-    })
-    if (error) throw error
-  }
-  const { data } = supabase.storage.from(bucket).getPublicUrl(path)
-  await trackUpload({ file, bucket, productId, path, publicUrl: data.publicUrl, assetKind })
-  return data.publicUrl
-}
-
-function projectStorageUrl() {
-  if (!supabaseUrlPublic) return ''
-  return supabaseUrlPublic.replace('https://', 'https://').replace('.supabase.co', '.storage.supabase.co')
+  const contentType = bucket === 'product-models' ? modelContentType(file) : (file.type || undefined)
+  const publicUrl = await uploadToR2(file, bucket, path, { contentType, cacheControl: R2_CACHE_CONTROL })
+  await trackUpload({ file, bucket, productId, path, publicUrl, assetKind })
+  return publicUrl
 }
 
 function modelContentType(file) {
@@ -866,74 +855,23 @@ function modelContentType(file) {
   return 'model/gltf-binary'
 }
 
-async function getStorageAccessToken() {
-  const { data } = await supabase.auth.getSession()
-  return data?.session?.access_token || supabaseAnonKeyPublic
-}
-
-export async function uploadStorageResumable(file, bucket, path, {
-  contentType = file?.type || 'application/octet-stream',
-  cacheControl = '3600',
-  upsert = true,
-  onProgress,
-} = {}) {
-  if (!hasSupabaseConfig) throw new Error('Supabase storage is required for resumable uploads')
-  const token = await getStorageAccessToken()
-  const endpoint = `${projectStorageUrl()}/storage/v1/upload/resumable`
-
-  await new Promise((resolve, reject) => {
-    const upload = new Upload(file, {
-      endpoint,
-      retryDelays: [0, 3000, 5000, 10000, 20000],
-      chunkSize: 6 * 1024 * 1024,
-      uploadDataDuringCreation: true,
-      removeFingerprintOnSuccess: true,
-      headers: {
-        authorization: `Bearer ${token}`,
-        'x-upsert': upsert ? 'true' : 'false',
-      },
-      metadata: {
-        bucketName: bucket,
-        objectName: path,
-        contentType,
-        cacheControl,
-      },
-      onError: reject,
-      onProgress: (bytesUploaded, bytesTotal) => {
-        onProgress?.({ bytesUploaded, bytesTotal, percent: bytesTotal ? (bytesUploaded / bytesTotal) * 100 : 0 })
-      },
-      onSuccess: resolve,
-    })
-
-    upload.findPreviousUploads()
-      .then(previousUploads => {
-        if (previousUploads.length) upload.resumeFromPreviousUpload(previousUploads[0])
-        upload.start()
-      })
-      .catch(reject)
-  })
-}
-
 async function uploadImageVariant(variant, { productId, folder, assetKind }) {
   if (!variant?.file) return ''
   const safeName = variant.file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
   const path = `${folder}/${productId || 'draft'}/${Date.now()}-${safeName}`
-  const { error } = await supabase.storage.from('product-images').upload(path, variant.file, {
-    cacheControl: '31536000',
+  const publicUrl = await uploadToR2(variant.file, 'product-images', path, {
     contentType: 'image/webp',
-    upsert: true,
+    cacheControl: R2_CACHE_CONTROL,
   })
-  if (error) throw error
-  const { data } = supabase.storage.from('product-images').getPublicUrl(path)
   await trackUpload({
     file: variant.file,
     bucket: 'product-images',
     productId,
     path,
-    publicUrl: data.publicUrl,
+    publicUrl,
     assetKind,
   })
-  return data.publicUrl
+  return publicUrl
 }
 
 export async function uploadImageWithThumbnail(file, productId, assetKind = 'image') {
@@ -942,20 +880,24 @@ export async function uploadImageWithThumbnail(file, productId, assetKind = 'ima
   // LQIP thumbnail (~240px) and a mid-size display variant (~1280px). The
   // display variant is what cards/galleries actually show, so the multi-MB
   // source is never sent to the browser even when Image Transforms are off.
-  const thumbnail = await createImageThumbnailFile(file)
-  const display = await createImageThumbnailFile(file, { maxSide: 1280, quality: 0.8 })
+  const [thumbnail, display] = await Promise.all([
+    createImageThumbnailFile(file),
+    createImageThumbnailFile(file, { maxSide: 1280, quality: 0.8 }),
+  ])
 
-  const url = await uploadAsset(file, 'product-images', productId, assetKind)
-  const thumbnailUrl = await uploadImageVariant(thumbnail, {
-    productId,
-    folder: 'thumbs',
-    assetKind: 'image_thumbnail',
-  })
-  const displayUrl = await uploadImageVariant(display, {
-    productId,
-    folder: 'displays',
-    assetKind: 'image_display',
-  })
+  const [url, thumbnailUrl, displayUrl] = await Promise.all([
+    uploadAsset(file, 'product-images', productId, assetKind),
+    uploadImageVariant(thumbnail, {
+      productId,
+      folder: 'thumbs',
+      assetKind: 'image_thumbnail',
+    }),
+    uploadImageVariant(display, {
+      productId,
+      folder: 'displays',
+      assetKind: 'image_display',
+    }),
+  ])
   return {
     url,
     thumbnailUrl,
@@ -966,23 +908,18 @@ export async function uploadImageWithThumbnail(file, productId, assetKind = 'ima
 }
 
 export async function uploadModelSource(file, productId) {
-  if (!hasSupabaseConfig) throw new Error('Supabase storage is required for auto-compression')
+  if (!hasSupabaseConfig) throw new Error('Supabase is required for auto-compression')
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '-')
   const path = `source/${productId || 'draft'}/${Date.now()}-${safeName}`
-  await uploadStorageResumable(file, 'product-models', path, {
+  await uploadToR2(file, 'product-models', path, {
     contentType: modelContentType(file),
-    cacheControl: '3600',
-    upsert: true,
+    cacheControl: R2_CACHE_CONTROL,
   })
   return path
 }
 
 function storagePathFromPublicUrl(url, bucket) {
-  if (!url || typeof url !== 'string') return null
-  const marker = `/storage/v1/object/public/${bucket}/`
-  const idx = url.indexOf(marker)
-  if (idx === -1) return null
-  return url.slice(idx + marker.length).split('?')[0]
+  return r2PathFromPublicUrl(url, bucket)
 }
 
 export async function deleteProductModelAssets({ modelUrl, modelLiteUrl, modelPosterUrl, productId } = {}) {
@@ -1024,12 +961,10 @@ export async function deleteProductModelAssets({ modelUrl, modelLiteUrl, modelPo
 
   const allModelPaths = [...new Set([...modelPaths, ...trackedSourcePaths])]
   if (allModelPaths.length) {
-    const { error } = await supabase.storage.from('product-models').remove(allModelPaths)
-    if (error) console.warn('Could not remove model storage objects:', error.message)
+    await deleteFromR2('product-models', allModelPaths)
   }
   if (posterPath) {
-    const { error } = await supabase.storage.from('product-images').remove([posterPath])
-    if (error) console.warn('Could not remove poster:', error.message)
+    await deleteFromR2('product-images', [posterPath])
   }
 
   // Drop tracked upload rows for everything we just removed.
@@ -1039,7 +974,7 @@ export async function deleteProductModelAssets({ modelUrl, modelLiteUrl, modelPo
       .from('product_uploads')
       .delete()
       .in('storage_path', allPaths)
-    if (trackErr) console.warn('Could not remove product_uploads rows:', trackErr.message)
+    if (trackErr) throw trackErr
   }
 
   // If the product is already persisted, drop its product_models row so the
@@ -1049,7 +984,7 @@ export async function deleteProductModelAssets({ modelUrl, modelLiteUrl, modelPo
       .from('product_models')
       .delete()
       .eq('product_id', productId)
-    if (modelErr) console.warn('Could not remove product_models row:', modelErr.message)
+    if (modelErr) throw modelErr
   }
 }
 
@@ -1060,7 +995,9 @@ export async function compressUploadedModel({ sourcePath, productId, sourceFileN
   // useless "Edge Function returned a non-2xx status code". A direct fetch
   // lets us read the function's actual error message and stage info.
   const session = (await supabase.auth.getSession()).data?.session
-  const token = session?.access_token || supabaseAnonKeyPublic
+  if (!session?.access_token) throw new Error('Administrator sign-in required')
+  if (session.user?.app_metadata?.role !== 'admin') throw new Error('Administrator access required')
+  const token = session.access_token
   const url = `${supabaseUrlPublic}/functions/v1/compress-model`
   let response
   try {

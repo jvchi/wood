@@ -8,12 +8,97 @@
 // `sharp` isn't easily available on Deno Edge. Geometry compression alone
 // matches the bulk of the wins from `npm run model:optimize`.
 
-import { createClient } from 'npm:@supabase/supabase-js@2'
+import { createClient } from '@supabase/supabase-js'
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3'
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const BUCKET = 'product-models'
+// Postgres (product metadata) still lives on Supabase; only the binary model
+// files moved to R2. This function reads/writes the .glb objects from R2 and
+// records their metadata rows in Supabase.
+function requireEnv(name: string): string {
+  const value = Deno.env.get(name)
+  if (!value) throw new Error(`${name} is not configured`)
+  return value
+}
+
+class HttpError extends Error {
+  status: number
+
+  constructor(status: number, message: string) {
+    super(message)
+    this.status = status
+  }
+}
+
+const SUPABASE_URL = requireEnv('SUPABASE_URL')
+const SERVICE_KEY = requireEnv('SUPABASE_SERVICE_ROLE_KEY')
+const LOGICAL_BUCKET = 'product-models'
+const R2_BUCKET = Deno.env.get('R2_BUCKET_MODELS') || LOGICAL_BUCKET
+const R2_PUBLIC_MODELS = requireEnv('R2_PUBLIC_MODELS').replace(/\/$/, '')
 const SKIP_COMPRESSION_MAX_BYTES = 5 * 1024 * 1024
+const MODEL_CACHE_CONTROL = 'public, max-age=31536000, immutable'
+
+const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+})
+
+const s3 = new S3Client({
+  region: 'auto',
+  endpoint: `https://${requireEnv('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: requireEnv('R2_ACCESS_KEY_ID'),
+    secretAccessKey: requireEnv('R2_SECRET_ACCESS_KEY'),
+  },
+})
+
+function r2PublicUrl(key: string): string {
+  return `${R2_PUBLIC_MODELS}/${key.replace(/^\/+/, '')}`
+}
+
+async function r2Download(key: string): Promise<Uint8Array> {
+  const out = await s3.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: key }))
+  const body = out.Body as { transformToByteArray?: () => Promise<Uint8Array> }
+  if (!body?.transformToByteArray) throw new Error(`R2 object has no body: ${key}`)
+  return await body.transformToByteArray()
+}
+
+async function r2Upload(key: string, bytes: Uint8Array): Promise<void> {
+  await s3.send(new PutObjectCommand({
+    Bucket: R2_BUCKET,
+    Key: key,
+    Body: bytes,
+    ContentType: 'model/gltf-binary',
+    CacheControl: MODEL_CACHE_CONTROL,
+  }))
+}
+
+async function assertAdmin(req: Request): Promise<void> {
+  const match = req.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)
+  if (!match) throw new HttpError(401, 'missing bearer token')
+
+  const { data, error } = await admin.auth.getUser(match[1])
+  if (error || !data?.user) throw new HttpError(401, 'invalid or expired session')
+  if (data.user.app_metadata?.role !== 'admin') {
+    throw new HttpError(403, 'administrator access required')
+  }
+}
+
+function validateSourcePath(value: unknown): string {
+  if (typeof value !== 'string' || !value.startsWith('source/')) {
+    throw new HttpError(400, 'sourcePath must point to a source model')
+  }
+  const hasControlCharacter = Array.from(value).some(character => {
+    const code = character.charCodeAt(0)
+    return code < 32 || code === 127
+  })
+  if (value.length > 1024 || value.split('/').includes('..') || hasControlCharacter) {
+    throw new HttpError(400, 'invalid sourcePath')
+  }
+  return value
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -187,16 +272,15 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { sourcePath, productId, sourceFileName, sourceContentType, force } = await req.json()
-    if (!sourcePath || typeof sourcePath !== 'string') {
-      throw new Error('sourcePath is required')
+    await assertAdmin(req)
+    const { sourcePath: rawSourcePath, productId, sourceFileName, sourceContentType, force } = await req.json()
+    const sourcePath = validateSourcePath(rawSourcePath)
+    const productSegment = productId || 'draft'
+    if (typeof productSegment !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(productSegment)) {
+      throw new HttpError(400, 'invalid productId')
     }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_KEY)
-
-    const { data: source, error: dlErr } = await admin.storage.from(BUCKET).download(sourcePath)
-    if (dlErr) throw dlErr
-    const bytes = new Uint8Array(await source.arrayBuffer())
+    const bytes = await r2Download(sourcePath)
 
     let fullBytes: Uint8Array
     let liteBytes: Uint8Array
@@ -236,34 +320,23 @@ Deno.serve(async (req) => {
     }
 
     const stamp = Date.now()
-    const dir = `compressed/${productId || 'draft'}/${stamp}`
+    const dir = `compressed/${productSegment}/${stamp}`
     const fullPath = `${dir}/full.glb`
     const litePath = `${dir}/lite.glb`
 
-    const fullUp = await admin.storage.from(BUCKET).upload(fullPath, fullBytes, {
-      contentType: 'model/gltf-binary',
-      upsert: true,
-      cacheControl: '31536000',
-    })
-    if (fullUp.error) throw fullUp.error
+    await r2Upload(fullPath, fullBytes)
+    await r2Upload(litePath, liteBytes)
 
-    const liteUp = await admin.storage.from(BUCKET).upload(litePath, liteBytes, {
-      contentType: 'model/gltf-binary',
-      upsert: true,
-      cacheControl: '31536000',
-    })
-    if (liteUp.error) throw liteUp.error
-
-    const { data: fullPub } = admin.storage.from(BUCKET).getPublicUrl(fullPath)
-    const { data: litePub } = admin.storage.from(BUCKET).getPublicUrl(litePath)
-    const { data: srcPub } = admin.storage.from(BUCKET).getPublicUrl(sourcePath)
+    const fullPub = { publicUrl: r2PublicUrl(fullPath) }
+    const litePub = { publicUrl: r2PublicUrl(litePath) }
+    const srcPub = { publicUrl: r2PublicUrl(sourcePath) }
 
     const baseName = (sourceFileName as string | undefined) || sourcePath.split('/').pop() || 'model.glb'
     const trackedAt = new Date().toISOString()
     const rows = [
       {
         product_id: productId || null,
-        bucket_id: BUCKET,
+        bucket_id: LOGICAL_BUCKET,
         storage_path: sourcePath,
         public_url: srcPub.publicUrl,
         asset_kind: 'source_model',
@@ -275,7 +348,7 @@ Deno.serve(async (req) => {
       },
       {
         product_id: productId || null,
-        bucket_id: BUCKET,
+        bucket_id: LOGICAL_BUCKET,
         storage_path: fullPath,
         public_url: fullPub.publicUrl,
         asset_kind: 'full_model',
@@ -287,7 +360,7 @@ Deno.serve(async (req) => {
       },
       {
         product_id: productId || null,
-        bucket_id: BUCKET,
+        bucket_id: LOGICAL_BUCKET,
         storage_path: litePath,
         public_url: litePub.publicUrl,
         asset_kind: 'lite_model',
@@ -299,7 +372,7 @@ Deno.serve(async (req) => {
       },
     ]
     const { error: trackErr } = await admin.from('product_uploads').insert(rows)
-    if (trackErr) console.warn('product_uploads insert failed:', trackErr.message)
+    if (trackErr) throw new Error(`product_uploads insert failed: ${trackErr.message}`)
 
     return new Response(
       JSON.stringify({
@@ -317,7 +390,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     return new Response(JSON.stringify({ error: message }), {
-      status: 500,
+      status: err instanceof HttpError ? err.status : 500,
       headers: { ...corsHeaders, 'content-type': 'application/json' },
     })
   }
