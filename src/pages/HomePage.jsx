@@ -17,7 +17,6 @@ import ThreeModelPlaceholder from '../components/three/ThreeModelPlaceholder'
 import { PersistentThreeSceneSlot } from '../components/three/PersistentThreeSceneProvider'
 import Footer from '../components/layout/Footer'
 import Skeleton from '../components/ui/Skeleton'
-import { LetterCascade } from '../components/ui/LetterCascade'
 import { useProducts } from '../hooks/useProducts'
 import {
   imageDisplayUrl,
@@ -395,7 +394,6 @@ export default function HomePage() {
   const [chairSceneActive, setChairSceneActive] = useState(true)
   const [bestSellerActionMode, setBestSellerActionMode] = useState('rest')
   const [bestSellerHoverLabel, setBestSellerHoverLabel] = useState(null)
-  const [showHeroScrollHint, setShowHeroScrollHint] = useState(false)
   const { products, loading: productsLoading, error: productsError } = useProducts()
   const bestSellerProducts = useMemo(() => {
     const explicitBestSellers = products.filter(product => product.best_seller)
@@ -486,67 +484,6 @@ export default function HomePage() {
     if (showcaseRef.current) observer.observe(showcaseRef.current)
 
     return () => observer.disconnect()
-  }, [])
-
-  useEffect(() => {
-    let idleTimer = 0
-    let revealTimer = 0
-
-    const clearIdleTimer = () => {
-      if (!idleTimer) return
-      window.clearTimeout(idleTimer)
-      idleTimer = 0
-    }
-
-    const clearRevealTimer = () => {
-      if (!revealTimer) return
-      window.clearTimeout(revealTimer)
-      revealTimer = 0
-    }
-
-    const isHeroInView = () => {
-      const rect = scrollRef.current?.getBoundingClientRect()
-      if (!rect) return false
-      return rect.top <= 1 && rect.bottom > window.innerHeight * 0.5
-    }
-
-    const queueHintReturn = () => {
-      clearIdleTimer()
-      idleTimer = window.setTimeout(() => {
-        idleTimer = 0
-        if (isHeroInView()) {
-          setShowHeroScrollHint(true)
-        }
-      }, 5000)
-    }
-
-    const handleScroll = () => {
-      clearRevealTimer()
-      if (isHeroInView()) {
-        setShowHeroScrollHint(false)
-        queueHintReturn()
-      } else {
-        setShowHeroScrollHint(false)
-        clearIdleTimer()
-      }
-    }
-
-    revealTimer = window.setTimeout(() => {
-      revealTimer = 0
-      if (isHeroInView()) {
-        setShowHeroScrollHint(true)
-      }
-    }, 500)
-
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    window.addEventListener('resize', queueHintReturn)
-
-    return () => {
-      clearRevealTimer()
-      clearIdleTimer()
-      window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', queueHintReturn)
-    }
   }, [])
 
   useEffect(() => {
@@ -738,7 +675,7 @@ export default function HomePage() {
 
       if (chairTitleRef.current) {
         if (reducedMotion) {
-          gsap.set(chairTitleRef.current, { clearProps: 'all' })
+          gsap.set(chairTitleRef.current, { visibility: 'visible' })
         } else {
           chairTitleSplit = SplitText.create(chairTitleRef.current, {
             type: 'lines',
@@ -746,6 +683,9 @@ export default function HomePage() {
             linesClass: 'home-chair-title-line',
             autoSplit: true,
             onSplit(self) {
+              gsap.set(self.lines, { yPercent: 112, rotate: 2.5 })
+              gsap.set(chairTitleRef.current, { visibility: 'visible' })
+
               const tl = gsap.timeline({
                 scrollTrigger: {
                   id: 'home-chair-title-mask',
@@ -757,17 +697,13 @@ export default function HomePage() {
                 },
               })
 
-              tl.fromTo(
-                self.lines,
-                { yPercent: 112, rotate: 2.5 },
-                {
-                  yPercent: 0,
-                  rotate: 0,
-                  duration: 1,
-                  ease: 'power3.out',
-                  stagger: 0.08,
-                },
-              )
+              tl.to(self.lines, {
+                yPercent: 0,
+                rotate: 0,
+                duration: 1,
+                ease: 'power3.out',
+                stagger: 0.08,
+              })
 
               return tl
             },
@@ -866,49 +802,13 @@ export default function HomePage() {
             <div className="home-mobile-panel">
               <p>Explore pieces for every room.</p>
             </div>
-            <MotionDiv
-              className="home-scroll-hint"
-              aria-hidden="true"
-              initial="hidden"
-              animate={showHeroScrollHint ? 'visible' : 'hidden'}
-              variants={{
-                visible: {
-                  opacity: 1,
-                  x: '-50%',
-                  y: 0,
-                  filter: 'blur(0px)',
-                  scale: 1,
-                  transition: {
-                    type: 'spring',
-                    stiffness: 360,
-                    damping: 30,
-                    mass: 0.7,
-                  },
-                },
-                hidden: {
-                  opacity: 0,
-                  x: '-50%',
-                  y: 18,
-                  filter: 'blur(8px)',
-                  scale: 0.96,
-                  transition: {
-                    type: 'spring',
-                    stiffness: 440,
-                    damping: 34,
-                    mass: 0.65,
-                  },
-                },
-              }}
-            >
-              <span />
-            </MotionDiv>
           </div>
         </div>
       </section>
 
       <section ref={showcaseRef} className="home-chair-section" aria-label="Pipo chair showcase">
         <div className="home-chair-backdrop" aria-hidden="true">
-          <span ref={chairTitleRef}>Pipo Chair</span>
+          <span ref={chairTitleRef} style={{ visibility: 'hidden' }}>Pipo Chair</span>
         </div>
 
         <div className="home-chair-stage">
@@ -939,7 +839,7 @@ export default function HomePage() {
             defaultHeight={66}
           >
             <button type="button" className="home-chair-preorder">
-              <LetterCascade text="Pre-order now" autoIntervalMs={4200} />
+              Pre-order now
             </button>
           </Squircle>
         </div>

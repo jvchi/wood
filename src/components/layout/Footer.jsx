@@ -50,14 +50,14 @@ export default function Footer() {
 
   return (
     <div className="site-footer-reveal">
-      <footer className="site-footer" role="contentinfo">
+      <footer className="site-footer">
         <div className="site-footer-inner page-shell">
           <div className="site-footer-top">
             <div className="site-footer-intro">
               <p className="site-footer-mark" aria-hidden="true">wood</p>
               <p className="site-footer-description">
                 {/* TODO: replace with provided copy */}
-                Wood is a considered collection of objects for the home — designed to last and made to live with.
+                Wood is a considered collection of objects for the home, designed to last and made to live with.
               </p>
               <p className="site-footer-copy">
                 Wood, Inc. © {currentYear}
