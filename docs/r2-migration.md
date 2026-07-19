@@ -115,6 +115,22 @@ npm run r2:migrate:verify
 ETags are not compared because a server-side multipart migration can change an
 ETag without changing object contents.
 
+If Supabase is restricted but the SQL Editor can still export
+`storage.objects`, recover local originals without guessing. Include
+`metadata->>'eTag' as etag` when possible:
+
+```bash
+npm run r2:recover:local -- --inventory=/absolute/path/to/storage.csv
+npm run r2:recover:local -- --inventory=/absolute/path/to/storage.csv --execute
+```
+
+The command scans Downloads, Desktop, Documents, and `public`. It uses a
+single-part source ETag as an MD5 checksum when available; otherwise it
+reproduces the application's upload filename sanitizer and requires an exact
+sanitized filename and byte-size match. It refuses ambiguous local files, skips
+matching R2 objects, preserves source keys, applies immutable cache metadata,
+and verifies every uploaded size.
+
 ## 5. Backfill cache metadata and switch database URLs
 
 Preview and then apply immutable browser cache headers to objects already in R2:

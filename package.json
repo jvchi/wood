@@ -14,6 +14,7 @@
     "r2:migrate:copy": "node --env-file=.env.local scripts/r2-storage-migrate.mjs --copy",
     "r2:cache:plan": "node --env-file=.env.local scripts/backfill-r2-cache.mjs",
     "r2:cache:apply": "node --env-file=.env.local scripts/backfill-r2-cache.mjs --execute",
+    "r2:recover:local": "node --env-file=.env.local scripts/recover-r2-from-local.mjs",
     "test:r2": "node --test api/_r2.test.js",
     "model:inspect": "npx @gltf-transform/cli inspect",
     "model:optimize": "npx @gltf-transform/cli optimize",
