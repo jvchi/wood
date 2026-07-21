@@ -10,6 +10,13 @@ Wood is a React app with a shop, product detail views, cart, wishlist, and admin
 
 **Live demo:** [wood-place.vercel.app](https://wood-place.vercel.app/)
 
+## Tech stack
+
+**Frontend:** React, Vite, Tailwind CSS, React Three Fiber, Three.js, GSAP, Framer Motion, Lenis  
+**Backend:** Supabase, Vercel serverless functions  
+**Storage:** Cloudflare R2  
+**Maps:** MapLibre GL
+
 ## Features
 
 - Shop, product detail, cart, and wishlist flows
