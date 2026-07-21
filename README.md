@@ -81,3 +81,14 @@ supabase/              # SQL schema and edge functions
 docs/                  # R2 migration runbook
 public/                # static assets and favicon
 ```
+
+## Local AI skills (optional)
+
+Skills live in a **private** library so they do not clutter this public repo.
+
+```bash
+# after clone (requires gh auth as jvchi)
+bash scripts/install-skills.sh
+```
+
+Installs into `.agents/skills/` (gitignored). Re-run to update.
