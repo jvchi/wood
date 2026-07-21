@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { JedNameTag } from 'jed-name-tag'
 
 const footerColumns = [
   {
@@ -59,9 +60,12 @@ export default function Footer() {
                 {/* TODO: replace with provided copy */}
                 Wood is a considered collection of objects for the home, designed to last and made to live with.
               </p>
-              <p className="site-footer-copy">
-                Wood, Inc. © {currentYear}
-              </p>
+              <div className="site-footer-credit">
+                <p className="site-footer-copy">
+                  Wood, Inc. © {currentYear}
+                </p>
+                <JedNameTag href="https://www.jachi.ke/" size={36} cell={6} />
+              </div>
             </div>
             <nav className="site-footer-columns" aria-label="Footer">
               {footerColumns.map(column => (

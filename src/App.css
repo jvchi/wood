@@ -3258,12 +3258,19 @@ input {
 }
 
 .site-footer-copy {
-  margin-top: auto;
+  margin-top: 0;
   color: var(--color-muted);
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
+}
+
+.site-footer-credit {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 
 @keyframes pulse {
