@@ -27,3 +27,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Agent / AI skill tooling (local only)
+.agents/
+.adal/
+.claude/
+.cursor/
+.codex/
+.grok/
+**/skills/
+**/SKILL.md
+.skills/
